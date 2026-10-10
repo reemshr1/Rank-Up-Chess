@@ -63,6 +63,10 @@ The daily overview.
   for parents, students or both.
 - Earlier notifications show **Read X of Y**, and a counter shows new reads
   since the coach last looked.
+- Each sent notification has **Edit** (fix the text; each child keeps their
+  own name, read marks stay, students see "Edited") and **Delete** (removes
+  it for everyone).
+- Notifications disappear from the app **7 days** after they're sent.
 
 ### Students
 
@@ -197,6 +201,8 @@ All the money in one place.
 - **Coaching details:** name (and in Hebrew), currency, default fee, days
   before a balance counts as overdue, language, **How to pay** (shown to
   parents), the app link used in invite messages, the first day of the week.
+- **Phone alerts:** turn alerts on for this device and **Send a test alert**
+  (see Phone alerts below).
 - **Account:** which email is signed in, Sign out.
 - **Backup:** download all records as a file, or restore from one.
 
@@ -271,7 +277,8 @@ between in person and online. Every request waits for the coach's approval.
 
 ### Notifications
 The 🔔 button shows a count of unread notifications. The window lists them;
-**Mark read** removes one, and the coach sees that it was read.
+**Mark read** removes one, and the coach sees that it was read. Below the
+list, **Turn on phone alerts** (see Phone alerts below).
 
 ---
 
@@ -291,6 +298,32 @@ several children picks the child at the top. Differences:
   read. Parents don't log practice, workouts, games or books, and get no
   practice check-in.
 - Club-only students have no parent app.
+
+---
+
+## Phone alerts
+
+Alerts on the phone (push notifications), even when Rank Up is closed.
+
+- **Who turns them on:** each student and parent, on each device, from the
+  🔔 window (**Turn on phone alerts**). The coach can turn them on in
+  Settings to send a test alert. Signing out turns them off on that device.
+- **iPhone:** alerts work only from the Home Screen app (Share → Add to Home
+  Screen, then open Rank Up from there). Android and computers work in the
+  browser.
+- **What sends an alert** (to the student and/or the parent, in the language
+  their app is in, titled with the coach's name):
+  - a new notification from the coach (not an edit);
+  - an answer to a lesson request: approved, declined, a move that doesn't
+    work (asks them to choose), a cancellation;
+  - a lesson the coach moved (time, day, or in person/online), cancelled, or
+    added in the next 2 weeks. Lessons planned automatically by a weekly
+    slot don't alert. More than 2 changes at once become one alert;
+  - students only: the practice check-in, when they reach 2 days without
+    practice, then every 2 days, between 8:00 and 21:00.
+- **How:** alerts are sent by the coach's app when it updates the boards
+  (like everything else students see), through the Supabase function `push`.
+  If the coach's app isn't open, alerts go out the next time it is.
 
 ---
 
@@ -346,5 +379,10 @@ change them directly.
   `PORTAL_KEYS`, and a parent's allowed changes are `PARENT_OPS`. What a
   student's copy contains is built by `studentView` (and `familyDocs` for
   parents).
+- Phone alerts: `supabase/functions/push` sends them; it keeps its own
+  signing keys (`push_keys`) and each device's address (`push_subs`), tables
+  the app itself can't read. The coach's app decides what to send
+  (`boardAlerts`, comparing each board before and after it's written, and
+  `checkinAlerts`). `sw.js` shows the alert and opens the app when tapped.
 - Publishing: work happens on a branch; merging into the `live` branch
   publishes to GitHub Pages.

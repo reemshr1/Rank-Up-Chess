@@ -19,6 +19,12 @@ The whole app lives in `index.html` and runs in two places:
   `const SUPABASE` (both are meant to be public).
 - `supabase/schema.sql` — creates the tables and access rules. Run it once in
   Supabase → SQL Editor; running it again is safe.
+- `supabase/functions/ratings` — fetches official FIDE and ICF ratings.
+- `supabase/functions/push` — sends phone alerts (push notifications). To set
+  it up: run `supabase/schema.sql` again in the SQL Editor; then in Supabase →
+  Edge Functions, create a function named `push`, paste in `index.ts`, Deploy,
+  and switch **Verify JWT** off (the function checks sign-in itself, like
+  `ratings`). It makes its own keys the first time it runs.
 - `vendor/supabase.js` — the Supabase browser library (supabase-js 2.117.2, MIT).
 - `manifest.webmanifest`, `sw.js`, `icons/` — let phones install the app from
   the browser ("Add to Home Screen").

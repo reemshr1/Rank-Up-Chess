@@ -66,3 +66,19 @@ create policy "students and parents remove their messages" on public.docs
 do $$ begin
   alter publication supabase_realtime add table public.docs;
 exception when duplicate_object then null; end $$;
+
+-- Phone alerts (the "push" Edge Function). The function keeps its signing keys and each device's
+-- push address here. No access rules on purpose: the app can't read these tables, only the function can.
+create table if not exists public.push_keys (
+  one boolean primary key default true check (one),
+  public_key text not null,
+  private_key text not null
+);
+alter table public.push_keys enable row level security;
+create table if not exists public.push_subs (
+  endpoint text primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  sub jsonb not null,
+  created_at timestamptz not null default now()
+);
+alter table public.push_subs enable row level security;
