@@ -123,7 +123,8 @@ FIDE and ICF pages, and **Edit profile**. Six tabs:
   reading, openings, ChessBase files…), and **Tactics statistics** for 7 / 30
   / 90 days / all time. Entries the student logged are tagged "by student".
 - **Fitness:** workouts this week against the **weekly goal** (the coach
-  sets it), the last 8 weeks as bars, the weeks-in-a-row streak, quick-log
+  sets it in workouts per week, minutes per week, or both; with both, a week
+  counts when both are reached), the last 8 weeks as bars, the weeks-in-a-row streak, quick-log
   buttons, the list of workouts, the club group's monthly challenge, and
   **Sleep before tournaments** (hours slept the night before each tournament
   day, and how the scores compare after 8 h or more vs less).
@@ -253,7 +254,8 @@ marks it done.
 - **Medals** (Pawn → Knight → Bishop → Rook → Queen → King):
   - practice: days in a row (3 / 7 / 14 / 30 / 60 / 100); missing 2 days in
     a row drops 2 levels, never below Pawn;
-  - fitness: weeks in a row at the weekly goal (2 / 4 / 8 / 12 / 20 / 30).
+  - fitness: weeks in a row at the weekly goal, in workouts and/or minutes
+    (2 / 4 / 8 / 12 / 20 / 30).
 
 ### Games
 - **Tournaments:** add tournaments, rounds, results.
