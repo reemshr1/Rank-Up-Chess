@@ -5042,7 +5042,7 @@ function tWork(el, s){
 
 /* ---------- fitness ---------- */
 // The physical side of training: workouts the student (or the coach) logs, against a weekly goal the coach sets.
-const FIT_KINDS = ["Running","Walking","Cycling","Swimming","Football","Basketball","Gym / strength","Yoga / stretching","Martial arts","Dance","Ping pong","Other sport"];
+const FIT_KINDS = ["Running","Walking","Cycling","Swimming","Football","Basketball","Gym / strength","Calisthenics","Yoga / stretching","Martial arts","Dance","Ping pong","Other sport"];
 const fitShown = {};
 const fitName = w=>w.activity==="Other sport" && w.other ? w.other : (w.activity||"Workout");
 // The weekly fitness goal: a number of workouts, a number of minutes, or both (then a week needs both).
@@ -6873,7 +6873,7 @@ const HE = {
   "Sleep before tournaments":"שינה לפני טורנירים", "Add sleep":"הוספת שינה", "Log sleep":"תיעוד שינה", "Sleep":"שינה", "Night before":"הלילה שלפני", "Hours of sleep":"שעות שינה", "Enter the hours slept, e.g. 7.5.":"יש להזין כמה שעות ישנו, למשל 7.5.", "Sleep saved":"השינה נשמרה",
   "No tournament days yet.":"עדיין אין ימי טורניר.", "Long games need energy — log the hours slept the night before each tournament day.":"משחקים ארוכים דורשים אנרגיה — כדאי לתעד כמה שעות ישנו בלילה שלפני כל יום טורניר.",
   "Tournament today":"טורניר היום", "How many hours did you sleep last night?":"כמה שעות ישנת בלילה?", "a night's sleep":"לילה של שינה", "a deleted night's sleep":"מחיקת לילה של שינה", "p.":"עמ׳",
-  "Ping pong":"פינג פונג", "From page":"מעמוד", "To page":"עד עמוד", "Only for a part of the book, e.g. one chapter. Leave empty to continue from the last stop.":"רק לחלק מהספר, למשל פרק אחד. להשאיר ריק כדי להמשיך מהמקום שבו עצרו.",
+  "Ping pong":"פינג פונג", "Calisthenics":"קליסתניקס", "From page":"מעמוד", "To page":"עד עמוד", "Only for a part of the book, e.g. one chapter. Leave empty to continue from the last stop.":"רק לחלק מהספר, למשל פרק אחד. להשאיר ריק כדי להמשיך מהמקום שבו עצרו.",
   "Enter the page they read to.":"יש להזין עד איזה עמוד קראו.", "From page should be between 1 and the To page.":"\"מעמוד\" צריך להיות בין 1 לבין \"עד עמוד\".",
   "Private lessons":"שיעורים פרטיים", "Club classes only":"רק קבוצות במועדון", "Club group":"קבוצה במועדון", "Not in a club group":"לא בקבוצה במועדון", "Club":"מועדון",
   "Club students use the app to track practice, fitness and games, and see their class times":"תלמידי המועדון משתמשים באפליקציה כדי לתעד תרגול, כושר ומשחקים ולראות את זמני הקבוצה",
