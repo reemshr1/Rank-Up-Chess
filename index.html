@@ -334,6 +334,7 @@ dialog.wide{width:min(960px,calc(100vw - 24px))}
 @media (max-width:480px){.tstats{grid-template-columns:1fr 1fr}}
 .new-tag{margin-inline-start:18px;align-self:center;flex:none}
 .notice-row{display:grid;grid-template-columns:1fr 64px 64px;align-items:center;gap:6px;padding:2px 0}.modal-form .notice-list .notice-row label.chk{display:flex;width:100%;justify-content:center;margin:0}.notice-row>span:not(:first-child){text-align:center}.notice-head{font-weight:600;text-align:center}.notice-head span:first-child{text-align:start}
+.push-box{padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-sm)}
 .notice-list{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto;margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:var(--r-sm)}
 .modal-form label.chk,label.chk{display:inline-flex;align-items:center;gap:8px;font-weight:400;cursor:pointer;margin:0;text-align:start}
 .chk input[type=checkbox]{width:auto;min-width:0;margin:0;flex:none}
@@ -2815,7 +2816,7 @@ function familyDocs(f){
   out.family = stampView({name:f.name, children:kids.map(k=>({id:k.id, name:k.name})), coachName:state.settings.coachName||"", coachNameHe:state.settings.coachNameHe||"", weekStart:state.settings.weekStart||0});
   kids.forEach(k=>{
     const parts = splitStudent(studentView(k));
-    out["ch-"+k.id] = Object.assign(parts.main, {notices:(k.notices||[]).filter(n=>(n.to||[]).includes("parent")), pay:payView(k), payReports:(k.payReports||[]).filter(r=>r.status==="pending" || daysBetween(r.decided||r.reported||today(), today())<=30)});
+    out["ch-"+k.id] = Object.assign(parts.main, {notices:(k.notices||[]).filter(n=>(n.to||[]).includes("parent") && liveNotice(n)), pay:payView(k), payReports:(k.payReports||[]).filter(r=>r.status==="pending" || daysBetween(r.decided||r.reported||today(), today())<=30)});
     Object.keys(parts.logs).forEach(id=>{ out[id] = parts.logs[id]; });
     state.assignments.filter(a=>a.studentId===k.id).forEach(a=>{ out[a.id] = a; });
     state.games.filter(g=>g.studentId===k.id).forEach(g=>{ out[g.id] = g; });
@@ -2826,7 +2827,7 @@ function studentView(s){
   return JSON.parse(JSON.stringify({id:s.id, name:s.name, level:s.level, rating:s.rating, ratingType:s.ratingType, fideId:s.fideId, icfId:s.icfId, fide:s.fide, icf:s.icf, noId:s.noId,
     goals:s.goals, notes:s.notesShared ? s.notes : "", notesShared:!!s.notesShared, active:s.active, createdAt:s.createdAt,
     sessions:s.sessions.map(x=>({id:x.id, date:x.date, time:x.time, duration:x.duration, format:x.format, status:x.status, topics:x.topics, added:x.added, notes:isShared(x.shareNotes)?x.notes:"", slotId:x.slotId, slotDate:x.slotDate})),
-    worklog:s.worklog, repertoire:s.repertoire, tournaments:s.tournaments.map(({assist, assistDays, assistFee, assistReason, ...x})=>x), books:s.books, ratings:s.ratings, training:s.training||[], requests:s.requests||[], checkins:s.checkins||[], notices:(s.notices||[]).filter(n=>(n.to||[]).includes("student")), noticeReads:(s.noticeReads||[]), appSince:(s.portal && s.portal.linkedAt)||"", fitness:s.fitness||[], fitnessGoal:+s.fitnessGoal||0, sleep:s.sleep||[],
+    worklog:s.worklog, repertoire:s.repertoire, tournaments:s.tournaments.map(({assist, assistDays, assistFee, assistReason, ...x})=>x), books:s.books, ratings:s.ratings, training:s.training||[], requests:s.requests||[], checkins:s.checkins||[], notices:(s.notices||[]).filter(n=>(n.to||[]).includes("student") && liveNotice(n)), noticeReads:(s.noticeReads||[]), appSince:(s.portal && s.portal.linkedAt)||"", fitness:s.fitness||[], fitnessGoal:+s.fitnessGoal||0, sleep:s.sleep||[],
     coachName:state.settings.coachName||"", coachNameHe:state.settings.coachNameHe||"", weekStart:state.settings.weekStart||0,
     clubOnly:!!s.clubOnly, clubs:clubsOf(s).map(({rate, ...r})=>Object.assign(r, {challenge:groupChallenge(r, s)})),
     freeSet:freeRules().some(r=>r.kind!=="off"), free:openSlots(today(), addDays(today(),56), s.id).free, taken:[]})); // other students' bookings just leave a gap
@@ -2927,6 +2928,55 @@ function applyOp(s, op, coachSide){
 }
 // The coach's side: link students who typed their invite code, keep each linked student's view up to date,
 // and take in what they send.
+// Alert texts for one account when its board changes: new notifications, answers to lesson requests,
+// and lessons the coach moved, cancelled or added. `o` and `n` are the board before and after; `child` is set for a parent.
+const accLang = {}; // account id -> the language its app is in
+function boardAlerts(o, n, he, child){
+  const t = today(), L = (en, hb)=>he ? hb : en, out = [];
+  const day = d=>new Date(d+"T00:00").toLocaleDateString(he ? "he-IL" : "en-GB", {weekday:"short", day:"numeric", month:"short"});
+  const when = x=>x ? day(x.date)+(x.time ? " "+x.time : "") : "";
+  const fmt = f=>f==="Online" ? L("online","אונליין") : L("in person","פרונטלי");
+  const seen = new Set((o.notices||[]).map(x=>x.id));
+  (n.notices||[]).filter(x=>!seen.has(x.id) && liveNotice(x)).forEach(x=>out.push({body:x.text, tag:"nt-"+x.id, url:"./#/home"}));
+  const before = new Map((o.requests||[]).map(r=>[r.id, r])), skip = new Set();
+  (n.requests||[]).forEach(r=>{ const a = before.get(r.id); if (!a || a.status!=="pending" || r.status==="pending") return;
+    if (r.sessionId) skip.add(r.sessionId);
+    const ok = r.status==="approved";
+    out.push({tag:"rq-"+r.id, url:"./#/schedule", body:
+      r.kind==="move" ? (ok ? L("Lesson moved to "+when(r)+".", "השיעור הוזז ל־"+when(r)+".") : L("The new time for the "+when(r.was)+" lesson doesn’t work. Open Rank Up to choose what to do.", "הזמן החדש לשיעור של "+when(r.was)+" לא מתאים. פתחו את האפליקציה כדי לבחור מה לעשות."))
+      : r.kind==="cancel" ? (ok ? L("The "+when(r.was||r)+" lesson is cancelled.", "השיעור של "+when(r.was||r)+" בוטל.") : L("The "+when(r.was||r)+" lesson stays as planned.", "השיעור של "+when(r.was||r)+" נשאר כמתוכנן."))
+      : (ok ? L("Lesson request approved: "+when(r)+".", "בקשת השיעור אושרה: "+when(r)+".") : L("Lesson request declined: "+when(r)+".", "בקשת השיעור לא אושרה: "+when(r)+"."))}); });
+  // lessons the coach changed (not answers to a request, and not the weekly slot planning ahead)
+  const was = new Map((o.sessions||[]).map(x=>[x.id, x])), now = new Map((n.sessions||[]).map(x=>[x.id, x])), les = [];
+  was.forEach((a, id)=>{ if (skip.has(id) || a.status!=="planned" || a.date<t) return; const b = now.get(id);
+    if (!b || b.status==="cancelled") les.push(L("The "+when(a)+" lesson is cancelled.", "השיעור של "+when(a)+" בוטל."));
+    else if (b.status==="planned" && (b.date!==a.date || (b.time||"")!==(a.time||""))) les.push(L("Lesson moved to "+when(b)+" (was "+when(a)+").", "השיעור הוזז ל־"+when(b)+" (במקום "+when(a)+")."));
+    else if (b.status==="planned" && (b.format||"In person")!==(a.format||"In person")) les.push(L("The "+when(b)+" lesson is now "+fmt(b.format)+".", "השיעור של "+when(b)+" יהיה "+fmt(b.format)+".")); });
+  now.forEach((b, id)=>{ if (was.has(id) || skip.has(id) || b.status!=="planned" || b.date<t || b.date>addDays(t,14) || (b.slotId && !b.custom)) return;
+    les.push(L("New lesson: "+when(b)+".", "שיעור חדש: "+when(b)+".")); });
+  if (les.length>2) out.push({tag:"lessons", url:"./#/schedule", body:L(les.length+" changes to your lessons. Open Rank Up to see them.", les.length+" שינויים בשיעורים. פתחו את האפליקציה כדי לראות.")});
+  else les.forEach((b, i)=>out.push({tag:"ls-"+i+"-"+t, url:"./#/schedule", body:b}));
+  return out.map(m=>Object.assign(m, {body:(child ? child+": " : "")+m.body}));
+}
+function sendAlerts(msgs){
+  if (!WEB || !sb || !msgs.length) return;
+  // the title is the coach's name, in the language of the app that gets it (`he` on each message)
+  const title = he=>(he && state.settings.coachNameHe) || state.settings.coachName || "Rank Up";
+  pushFn({action:"send", messages:msgs.map(({he, ...m})=>Object.assign({title:title(he)}, m))}).catch(()=>{}); // no alert is better than a broken board
+}
+// The practice check-in, as an alert: once when a student has gone 2 days without practice, then every 2 days, never at night.
+function checkinAlerts(){
+  const h = new Date().getHours(); if (h<8 || h>=21) return;
+  const msgs = [];
+  state.students.forEach(s=>{ if (!s.active || s.self || !s.portal || !s.portal.uid || !askCheckin(s)) return;
+    const g = practiceGap(s), p = s.checkinPushed; if (p && p>=g.last && daysBetween(p, today())<ASK_GAP_DAYS) return;
+    const he = (accLang[s.portal.uid]||lang())==="he";
+    s.checkinPushed = today(); saveStudent(s);
+    msgs.push({to:s.portal.uid, he, tag:"checkin", url:"./#/home", body:he
+      ? bcFill(g.never ? "עוד לא נרשם תרגול. מה קורה? [ספר|ספרי] למאמן באפליקציה." : "לא נרשם תרגול כבר "+g.days+" ימים. מה קורה? [ספר|ספרי] למאמן באפליקציה.", s)
+      : (g.never ? "No practice logged yet." : "No practice logged for "+g.days+" days.")+" What’s going on? Tell your coach in Rank Up."}); });
+  sendAlerts(msgs);
+}
 function makePortal(db){
   const cache = {}, timers = {}, subs = {}, taken = new Set();
   // Problems taking in what students and parents send, or writing their boards; shown on Today.
@@ -2938,12 +2988,19 @@ function makePortal(db){
     const col = db.collection("portal/"+uid+"/view");
     if (!cache[uid]){ const c = {}; (await col.get()).docs.forEach(d=>{ c[d.id] = JSON.stringify(d.data()); }); cache[uid] = c; }
     const have = cache[uid], writes = [];
+    // the boards as they were, to tell the account's phone what changed once the new ones are written
+    const old = {}; Object.keys(want).forEach(id=>{ if ((id==="student" || id.startsWith("ch-")) && have[id]) old[id] = have[id]; });
     const bare = j=>j && j.replace(/"syncedAt":"[^"]*"/, "");
     const stale = j=>{ const m = /"syncedAt":"([^"]*)"/.exec(j||""); return !m || Date.now()-Date.parse(m[1]) > 30*60000; };
     Object.keys(want).forEach(id=>{ const j = JSON.stringify(want[id]), stamped = /"syncedAt"/.test(j);
       if ((bare(have[id])!==bare(j) || (stamped && stale(have[id]))) && j.length<=DOC_LIMIT) writes.push(col.doc(id).set(want[id]).then(()=>{ have[id] = j; })); });
     Object.keys(have).forEach(id=>{ if (!want[id]) writes.push(col.doc(id).delete().then(()=>{ delete have[id]; })); });
     await Promise.all(writes);
+    const he = (accLang[uid]||lang())==="he", kids = want.family ? want.family.children||[] : [];
+    const msgs = [].concat(...Object.keys(old).map(id=>{ const kid = id.startsWith("ch-") && kids.length>1 && kids.find(k=>"ch-"+k.id===id);
+      const sx = id.startsWith("ch-") && byId(id.slice(3));
+      return boardAlerts(JSON.parse(old[id]), want[id], he, kid ? (he && sx && sx.nameHe) || kid.name.split(" ")[0] : ""); }));
+    sendAlerts(msgs.map(m=>Object.assign({to:uid, he}, m)));
   }
   const guard = (key, who, p)=>p.then(()=>clear(key), e=>issue(key, {who, what:"Couldn't update their board in the app", err:String(e && (e.message||e.code)||e)}));
   const sync = s=>s && s.portal && s.portal.uid ? guard("sync:"+s.id, s.name, Promise.resolve().then(()=>push(s.portal.uid, portalDocs(s)))) : Promise.resolve();
@@ -2994,6 +3051,7 @@ function makePortal(db){
     db.collection("portal").onSnapshot(snap=>{
       snap.docChanges().filter(ch=>ch.type!=="removed").map(ch=>ch.doc).forEach(d=>{
         const v = d.data()||{}, uid = d.id, code = String(v.code||"").trim().toUpperCase();
+        if (v.lang) accLang[uid] = v.lang;
         if (!code || v.linked) return;
         const ref = db.doc("portal/"+uid);
         const s = state.students.find(x=>x.invite && x.invite.code===code), f = !s && families().find(x=>x.invite && x.invite.code===code);
@@ -3012,7 +3070,8 @@ function makePortal(db){
   return {
     start(){ watchLinks(); state.students.forEach(s=>{ if (s.portal && s.portal.uid){ watchInbox(s.portal.uid); schedule(s.id); } });
       families().forEach(f=>{ if (f.portal && f.portal.uid){ watchInbox(f.portal.uid); scheduleFamily(f.id); } });
-      setInterval(()=>{ state.students.forEach(s=>schedule(s.id)); families().forEach(f=>scheduleFamily(f.id)); }, 30*60000); },
+      setTimeout(checkinAlerts, 8000);
+      setInterval(()=>{ state.students.forEach(s=>schedule(s.id)); families().forEach(f=>scheduleFamily(f.id)); checkinAlerts(); }, 30*60000); },
     issues:()=>Object.values(issues),
     // try a failed change again (after an update of the app), or throw it away
     retry(key){ const i = issues[key]; if (!i) return; delete issues[key];
@@ -3261,7 +3320,55 @@ function authForm(mode, note){
     };
   });
 }
-async function signOut(){ try { await sb.auth.signOut({scope:"local"}); } catch(e){} location.hash = ""; location.reload(); }
+/* ---------- phone alerts (web push, sent by the "push" Edge Function) ---------- */
+const pushFn = body=>sb.functions.invoke("push", {body}).then(r=>{ if (r.error) throw r.error; return r.data||{}; });
+const isIOS = ()=>/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+const standalone = ()=>(window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone===true;
+// "on" · "off" · "blocked" (refused in the browser's settings) · "install" (iPhone: only from the Home Screen app) · "none"
+async function pushState(){
+  if (!WEB || !sb) return "none";
+  if (isIOS() && !standalone()) return "install";
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return "none";
+  if (Notification.permission==="denied") return "blocked";
+  try { const reg = await navigator.serviceWorker.getRegistration(), sub = reg && await reg.pushManager.getSubscription(); return sub && Notification.permission==="granted" ? "on" : "off"; }
+  catch(e){ return "off"; }
+}
+const b64u = v=>{ const b = atob((v+"=".repeat((4-v.length%4)%4)).replace(/-/g,"+").replace(/_/g,"/")); return Uint8Array.from(b, c=>c.charCodeAt(0)); };
+async function pushOn(){
+  const perm = await Notification.requestPermission(); if (perm!=="granted") throw new Error(perm==="denied" ? "blocked" : "not allowed");
+  await navigator.serviceWorker.register("sw.js"); const reg = await navigator.serviceWorker.ready;
+  const { key } = await pushFn({action:"key"}); if (!key) throw new Error("no key");
+  const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:b64u(key)});
+  await pushFn({action:"subscribe", sub:sub.toJSON()});
+}
+async function pushOff(){
+  const reg = await navigator.serviceWorker.getRegistration(), sub = reg && await reg.pushManager.getSubscription(); if (!sub) return;
+  await pushFn({action:"unsubscribe", endpoint:sub.endpoint}).catch(()=>{}); await sub.unsubscribe();
+}
+// The "Phone alerts" box: in the 🔔 window for students and parents, in Settings for the coach.
+async function fillPush(el){
+  if (!el) return;
+  const st = await pushState(), coach = !STUDENT();
+  if (st==="none"){ el.hidden = true; return; }
+  const what = coach ? "Turn them on here to test them." : PARENT() ? "Get an alert on this phone for new notifications and lesson changes." : "Get an alert on this phone for new notifications, lesson changes and practice reminders.";
+  el.hidden = false;
+  el.innerHTML = '<div class="push-box"><b>📱 <span>Phone alerts</span></b> '+
+    (st==="on" ? '<span class="tag ok">On for this device</span><div class="row-actions" style="margin-top:8px;justify-content:flex-start">'+(coach?'<button type="button" class="btn small" data-push="test">Send a test alert</button>':'')+'<button type="button" class="btn small ghost" data-push="off">Turn off</button></div>'
+    : st==="install" ? '<p class="small" style="margin:6px 0 0">On iPhone, alerts work only from the Home Screen app: tap Share, then “Add to Home Screen”, open Rank Up from there and turn alerts on.</p>'
+    : st==="blocked" ? '<p class="small" style="margin:6px 0 0">Alerts are blocked for Rank Up in this browser. Allow notifications for this site in the browser’s settings, then come back.</p>'
+    : '<p class="small muted" style="margin:6px 0 0">'+what+'</p><div class="row-actions" style="margin-top:8px;justify-content:flex-start"><button type="button" class="btn small primary" data-push="on">Turn on phone alerts</button></div>')+'</div>';
+  el.querySelectorAll("[data-push]").forEach(b=>b.onclick = async ()=>{ const k = b.dataset.push; b.disabled = true;
+    try {
+      if (k==="on"){ await pushOn(); toast("Phone alerts are on"); }
+      if (k==="off"){ await pushOff(); toast("Phone alerts are off"); }
+      if (k==="test"){ const r = await pushFn({action:"send", messages:[{to:webUser.id, title:"Rank Up", body:lang()==="he" ? "התראת בדיקה: ההתראות לטלפון עובדות." : "Test alert: phone alerts work.", tag:"test"}]});
+        toast(r.sent ? "Test alert sent" : "No device got it — turn alerts off and on again"); }
+    } catch(e){ const m = String(e && e.message || e);
+      toast(m==="blocked" ? "Alerts are blocked in this browser’s settings" : m==="not allowed" ? "Alerts weren’t allowed" : /not found|404|Failed to send|FunctionsFetchError|FunctionsHttpError/i.test(m+(e&&e.name||"")) ? (coach ? "Phone alerts aren’t set up in Supabase yet" : "Phone alerts aren’t ready yet — tell your coach") : "Couldn’t change phone alerts. Try again."); }
+    fillPush(el); });
+}
+
+async function signOut(){ try { if (WEB && "serviceWorker" in navigator) await pushOff().catch(()=>{}); } catch(e){} try { await sb.auth.signOut({scope:"local"}); } catch(e){} location.hash = ""; location.reload(); }
 document.addEventListener("click", e=>{ if (e.target.closest("[data-signout]")) confirmBox("Sign out?", "You'll need your email and password to sign in again on this device.", "Sign out", signOut); });
 // Signs in (showing the screens above as needed) and returns the storage and the account; null if it can't connect.
 async function webStart(){
@@ -4297,32 +4404,60 @@ let studentFilter = {q:"", show:"active"};
 // In the text, {name} is the child's name (the Hebrew name when set) and [boy|girl] picks the word, e.g. [מדווח|מדווחת].
 const bcName = s=>(s.nameHe||"").trim() || s.name.split(" ")[0];
 const bcFill = (text, s)=>String(text).replace(/\{name\}|\{שם\}/g, bcName(s)).replace(/\[([^\[\]|]*)\|([^\[\]|]*)\]/g, (m,a,b)=>s.gender==="f" ? b : a);
+// A notification disappears from the app this many days after it was sent.
+const NOTICE_DAYS = 7;
+const liveNotice = n=>!!(n && n.date) && daysBetween(n.date, today()) < NOTICE_DAYS;
+// Expired notifications leave the records, with their read marks.
+function pruneNotices(){
+  state.students.forEach(s=>{ const all = s.notices||[], keep = all.filter(liveNotice); if (keep.length===all.length) return;
+    const ids = new Set(keep.map(n=>n.id)); s.notices = keep; s.noticeReads = (s.noticeReads||[]).filter(r=>ids.has(r.id)); saveStudent(s); });
+}
 const hasParentApp = s=>families().some(f=>f.portal && (f.studentIds||[]).includes(s.id));
 // The coach's window: send a new one, and see who marked each one read.
 function noticeGroups(){
   const g = {};
-  state.students.forEach(s=>(s.notices||[]).forEach(n=>{ const x = g[n.id] = g[n.id] || {id:n.id, date:n.date, to:n.to, text:n.text, sent:0, reads:[], names:[]};
-    x.sent += (n.to||[]).length; x.names.push(s.name);
+  state.students.forEach(s=>(s.notices||[]).filter(liveNotice).forEach(n=>{ const x = g[n.id] = g[n.id] || {id:n.id, date:n.date, to:n.to, text:n.text, tpl:n.tpl, edited:n.edited, sent:0, reads:[], names:[], ss:[]};
+    x.sent += (n.to||[]).length; x.names.push(s.name); x.ss.push({s, n});
     (s.noticeReads||[]).filter(r=>r.id===n.id).forEach(r=>x.reads.push({who:r.who, at:r.at, s})); }));
   return sortBy(Object.values(g), "date", -1);
 }
 const newReads = ()=>{ const since = state.settings.noticesSeenAt||""; return noticeGroups().reduce((a,g)=>a+g.reads.filter(r=>(r.at||"")>since).length, 0); };
 function coachNotices(){
+  pruneNotices();
   const m = $("#modal"), groups = noticeGroups(), since = state.settings.noticesSeenAt||"";
-  m.innerHTML = '<div class="modal-form"><header><h2>Notifications</h2></header><div style="padding:8px 20px 4px;overflow:auto">'+
+  m.innerHTML = '<div class="modal-form"><header><h2>Notifications</h2><p class="sub small">Notifications disappear from the app '+NOTICE_DAYS+' days after they’re sent.</p></header><div style="padding:8px 20px 4px;overflow:auto">'+
     '<button class="btn primary" id="ntNew" style="margin-bottom:12px">New notification</button>'+
     (groups.length ? '<ul class="list">'+groups.slice(0,30).map(g=>{ const fresh = g.reads.filter(r=>(r.at||"")>since).length;
       return '<li style="display:block"><p class="pre" dir="auto" style="margin:0">'+esc(g.text)+'</p>'+
-        '<div class="small muted" style="margin-top:4px">'+esc(fmtDate(g.date,{weekday:"short",day:"numeric",month:"short"}))+' · <span>'+(g.names.length===1?esc(g.names[0]):g.names.length+" students")+'</span></div>'+
+        '<div class="small muted" style="margin-top:4px">'+esc(fmtDate(g.date,{weekday:"short",day:"numeric",month:"short"}))+' · <span>'+(g.names.length===1?esc(g.names[0]):g.names.length+" students")+'</span>'+(g.edited?' · <span>Edited</span>':'')+'</div>'+
         '<div class="small" style="margin-top:4px"><span class="tag '+(g.reads.length>=g.sent?'ok':'board')+'">Read '+g.reads.length+' of '+g.sent+'</span>'+(fresh?' <span class="tag warn">+'+fresh+' new</span>':'')+
-        (g.reads.length?' <span class="muted">'+g.reads.map(r=>esc(r.s.name.split(" ")[0])+(r.who==="parent"?"’s parent":"")).join(", ")+'</span>':'')+'</div></li>'; }).join("")+'</ul>'
+        (g.reads.length?' <span class="muted">'+g.reads.map(r=>esc(r.s.name.split(" ")[0])+(r.who==="parent"?"’s parent":"")).join(", ")+'</span>':'')+'</div>'+
+        '<div class="row-actions" style="margin-top:8px;justify-content:flex-start"><button type="button" class="btn small" data-ned="'+g.id+'">Edit</button><button type="button" class="btn small ghost" data-ndel="'+g.id+'">Delete</button></div></li>'; }).join("")+'</ul>'
       : '<p class="empty">No notifications sent yet.</p>')+
     '</div><footer><button type="button" class="btn" id="ntClose">Close</button></footer></div>';
   m.querySelector("#ntClose").onclick = ()=>m.close();
   m.querySelector("#ntNew").onclick = ()=>sendNotice();
+  const byGroup = id=>groups.find(g=>g.id===id);
+  m.querySelectorAll("[data-ned]").forEach(b=>b.onclick = ()=>{ const g = byGroup(b.dataset.ned); if (g) editNotice(g); });
+  m.querySelectorAll("[data-ndel]").forEach(b=>b.onclick = ()=>{ const g = byGroup(b.dataset.ndel); if (!g) return;
+    confirmBox("Delete this notification?", "It disappears from the app for everyone who got it.", "Delete", ()=>{
+      g.ss.forEach(({s})=>{ s.notices = (s.notices||[]).filter(n=>n.id!==g.id); s.noticeReads = (s.noticeReads||[]).filter(r=>r.id!==g.id); saveStudent(s); });
+      toast("Notification deleted"); render(); setTimeout(coachNotices, 0); }); });
   m.showModal();
   state.settings.noticesSeenAt = new Date().toISOString(); saveSettings(); // the counter on the button starts again
   const b = $("#dNote .nav-badge"); if (b) b.remove();
+}
+// Fix a notification already sent: each child's copy gets the new text, read marks stay.
+function editNotice(g){
+  // sent before templates were kept: rebuild {name} from the first child's copy when that gives back every copy exactly
+  let tpl = g.tpl, approx = false;
+  if (!tpl){ const s0 = g.ss[0].s, guess = g.text.split(bcName(s0)).join("{name}");
+    tpl = g.ss.every(({s, n})=>bcFill(guess, s)===n.text) ? guess : g.text; approx = tpl===g.text && g.ss.some(({n})=>n.text!==g.text); }
+  openForm({title:"Edit notification", submit:"Save", fields:[{name:"text", label:"Message", type:"textarea", value:tpl, full:true,
+      hint:approx ? "This is "+g.ss[0].s.name.split(" ")[0]+"’s copy. Use {name} for each child’s name." : "{name} = the child’s name · [boy|girl] = the right word"}],
+    onSubmit:d=>{ const text = String(d.text||"").trim(); if (!text) return "Write the message.";
+      g.ss.forEach(({s, n})=>{ const x = (s.notices||[]).find(y=>y.id===n.id); if (!x) return; x.text = bcFill(text, s); x.tpl = text; x.edited = today(); saveStudent(s); });
+      toast("Notification updated"); render(); setTimeout(coachNotices, 0); }});
 }
 function sendNotice(){
   const m = $("#modal"), all = sortBy(state.students.filter(s=>s.active && !s.self), "name"), groups = clubRules().filter(r=>all.some(s=>(s.clubIds||[]).includes(r.id)));
@@ -4353,24 +4488,25 @@ function sendNotice(){
     if (!text) return fail("Write the message.");
     if (!Object.keys(pick).length) return fail("Choose at least one student or parent.");
     const id = "nt-"+uid(), date = today();
-    Object.entries(pick).forEach(([sid, to])=>{ const s = byId(sid); s.notices = (s.notices||[]).concat([{id, date, to, text:bcFill(text, s)}]).slice(-30); saveStudent(s); });
+    Object.entries(pick).forEach(([sid, to])=>{ const s = byId(sid); s.notices = (s.notices||[]).concat([{id, date, to, text:bcFill(text, s), tpl:text}]).slice(-30); saveStudent(s); });
     m.close(); render(); toast("Notification sent — "+m.querySelector("#ntCount").textContent); };
   m.showModal(); m.querySelector("#nt").focus();
 }
 // Students and parents: the notifications they haven't marked read yet, in a window from the 🔔 button.
 const myWho = ()=>PARENT() ? "parent" : "student";
-const unreadNotices = s=>{ const seen = seenSet(); return sortBy((s.notices||[]).filter(n=>!seen.has("msg:"+n.id) && !(s.noticeReads||[]).some(r=>r.id===n.id && r.who===myWho())), "date", -1); };
+const unreadNotices = s=>{ const seen = seenSet(); return sortBy((s.notices||[]).filter(n=>liveNotice(n) && !seen.has("msg:"+n.id) && !(s.noticeReads||[]).some(r=>r.id===n.id && r.who===myWho())), "date", -1); };
 function noticesButton(s){ const n = unreadNotices(s).length;
   return '<button class="btn" data-a="notes" aria-label="Notifications'+(n?", "+n+" unread":"")+'">🔔 <span>Notifications</span>'+(n?' <i class="nav-badge" style="position:static">'+n+'</i>':'')+'</button>'; }
 function showNotices(s){
   const m = $("#modal"), draw = ()=>{ const list = unreadNotices(s);
     m.innerHTML = '<div class="modal-form"><header><h2>Notifications</h2></header><div style="padding:8px 20px 4px;overflow:auto">'+
-      (list.length ? '<ul class="list">'+list.map(n=>'<li style="display:block"><p class="pre" dir="auto" style="margin:0">'+esc(n.text)+'</p><div class="row-actions" style="margin-top:8px;justify-content:space-between"><span class="small muted">'+esc(fmtDate(n.date,{weekday:"short",day:"numeric",month:"short"}))+'</span><button class="btn small" data-read="'+n.id+'">Mark read</button></div></li>').join("")+'</ul>'
+      (list.length ? '<ul class="list">'+list.map(n=>'<li style="display:block"><p class="pre" dir="auto" style="margin:0">'+esc(n.text)+'</p><div class="row-actions" style="margin-top:8px;justify-content:space-between"><span class="small muted">'+esc(fmtDate(n.date,{weekday:"short",day:"numeric",month:"short"}))+(n.edited?' · <span>Edited</span>':'')+'</span><button class="btn small" data-read="'+n.id+'">Mark read</button></div></li>').join("")+'</ul>'
         : '<p class="empty">No new notifications.</p>')+
-      '</div><footer><button type="button" class="btn" id="ntClose">Close</button></footer></div>';
+      '<div id="pushBox" style="margin-top:12px" hidden></div></div><footer><button type="button" class="btn" id="ntClose">Close</button></footer></div>';
     m.querySelector("#ntClose").onclick = ()=>{ m.close(); render(); };
     m.querySelectorAll("[data-read]").forEach(b=>b.onclick = ()=>{ const id = b.dataset.read; markSeen(["msg:"+id]);
-      const op = {type:"notice.read", item:{id, who:myWho()}}; store.send(op); applyOp(s, op, false); draw(); }); };
+      const op = {type:"notice.read", item:{id, who:myWho()}}; store.send(op); applyOp(s, op, false); draw(); });
+    fillPush(m.querySelector("#pushBox")); };
   draw(); m.showModal();
 }
 function pStudents(v){
@@ -6652,9 +6788,11 @@ function pSettings(v){
       '<div class="field full"><label for="s8">App link (in invite messages)</label><input id="s8" name="appLink" dir="ltr" value="'+esc(st.appLink||APP_LINK())+'"></div>'+
       '<div class="field full"><label for="s5">Week starts on</label><select id="s5" name="weekStart"><option value="0"'+(+st.weekStart===0?" selected":"")+'>Sunday</option><option value="1"'+(+st.weekStart===1?" selected":"")+'>Monday</option></select></div>'+
       '<div class="full"><button class="btn primary" type="submit">Save settings</button></div></form>')+
+    (WEB && webUser ? panel("Phone alerts", '<p class="small muted" style="margin-top:0">Students and parents get an alert on their phone for new notifications, lesson changes and, for students, the practice check-in. Each of them turns alerts on from the 🔔 window in their app.</p><div id="pushBox"></div>') : '')+
     (WEB && webUser ? panel("Account", '<p style="margin-top:0">Signed in as <bdi dir="ltr">'+esc(webUser.email||"")+'</bdi></p><button class="btn" data-signout>Sign out</button>') : '')+
     panel("Backup", '<p class="small muted" style="margin-top:0">'+(WEB?"Your data is saved to your account online. Students and parents only see what you share with them.":store&&store.kind==="db"?"Your data is saved to your account and is private to you, even if you share this page.":"Your data is saved in this browser only. Download a backup regularly.")+'</p><p class="small" style="margin-top:0">'+(st.lastBackup?"Last backup: "+esc(fmtDate(st.lastBackup)):"No backup downloaded yet.")+'</p><div class="row-actions"><button class="btn" id="exp">Download backup</button><label class="btn" for="imp">Restore from backup</label><input id="imp" type="file" accept="application/json,.json" hidden></div>')+
   '</div>';
+  fillPush($("#pushBox"));
   $("#setF").onsubmit = e=>{ e.preventDefault(); const f = e.target.elements;
     // only fields changed in this form are saved, so edits made on another device meanwhile are kept
     const put = (k, v)=>{ if (String(st[k]??"")!==String(v)) st[k] = v; };
@@ -6684,7 +6822,21 @@ function pSettings(v){
 
 /* ---------- Hebrew ---------- */
 const HE = {
-  "Report another payment":"דיווח על תשלום נוסף", "Payment sent":"התשלום נשלח", "Paid something else as well?":"שילמת גם על משהו נוסף?", "Sent!":"נשלח!", "OK":"אישור", "Unpaid":"לא שולם", "Possible duplicate":"ייתכן שזה כפול", "Quick choice for":"בחירה מהירה עבור", "Choose at least one student or parent.":"יש לבחור לפחות תלמיד או הורה אחד.", "Student":"תלמיד/ה", "Parent":"הורה", "Notifications":"התראות", "🔔 Notifications":"🔔 התראות", "Mark read":"סימון כנקרא", "No new notifications.":"אין התראות חדשות.", "Close":"סגירה", "New notification":"התראה חדשה", "No notifications sent yet.":"עדיין לא נשלחו התראות.", "a notification read":"קריאת התראה", "Send a notification":"שליחת התראה", "🔔 Send notification":"🔔 שליחת התראה", "It appears at the top of their Home in the app, marked New.":"ההתראה תופיע בראש מסך הבית באפליקציה, מסומנת כחדשה.",
+  "Report another payment":"דיווח על תשלום נוסף", "Payment sent":"התשלום נשלח", "Paid something else as well?":"שילמת גם על משהו נוסף?", "Sent!":"נשלח!", "OK":"אישור", "Unpaid":"לא שולם", "Possible duplicate":"ייתכן שזה כפול",
+  "Phone alerts":"התראות לטלפון", "On for this device":"פועלות במכשיר הזה", "Send a test alert":"שליחת התראת בדיקה", "Turn off":"כיבוי",
+  "Turn on phone alerts":"הפעלת התראות לטלפון", "Turn them on here to test them.":"אפשר להפעיל אותן כאן כדי לבדוק שהן עובדות.",
+  "Get an alert on this phone for new notifications and lesson changes.":"קבלו התראה בטלפון על הודעות חדשות ועל שינויים בשיעורים.",
+  "Get an alert on this phone for new notifications, lesson changes and practice reminders.":"קבלו התראה בטלפון על הודעות חדשות, שינויים בשיעורים ותזכורות לתרגול.",
+  "On iPhone, alerts work only from the Home Screen app: tap Share, then “Add to Home Screen”, open Rank Up from there and turn alerts on.":"באייפון ההתראות עובדות רק מהאפליקציה שבמסך הבית: הקישו על „שיתוף”, ואז „הוספה למסך הבית”, פתחו משם את „עולים בדרגה” והפעילו את ההתראות.",
+  "Alerts are blocked for Rank Up in this browser. Allow notifications for this site in the browser’s settings, then come back.":"ההתראות חסומות בדפדפן הזה. אפשרו התראות לאתר בהגדרות הדפדפן, ואז חזרו לכאן.",
+  "Phone alerts are on":"ההתראות לטלפון הופעלו", "Phone alerts are off":"ההתראות לטלפון כובו", "Test alert sent":"התראת הבדיקה נשלחה",
+  "No device got it — turn alerts off and on again":"אף מכשיר לא קיבל אותה — כבו והפעילו את ההתראות מחדש", "Alerts are blocked in this browser’s settings":"ההתראות חסומות בהגדרות הדפדפן",
+  "Alerts weren’t allowed":"ההתראות לא אושרו", "Phone alerts aren’t set up in Supabase yet":"ההתראות לטלפון עוד לא הוגדרו ב־Supabase",
+  "Phone alerts aren’t ready yet — tell your coach":"ההתראות לטלפון עוד לא מוכנות — ספרו למאמן", "Couldn’t change phone alerts. Try again.":"לא הצלחנו לשנות את ההתראות. נסו שוב.",
+  "Students and parents get an alert on their phone for new notifications, lesson changes and, for students, the practice check-in. Each of them turns alerts on from the 🔔 window in their app.":"תלמידים והורים מקבלים התראה בטלפון על הודעות חדשות, שינויים בשיעורים, ולתלמידים גם בדיקת התרגול. כל אחד מפעיל את ההתראות מחלון ה־🔔 באפליקציה שלו.",
+  "Edit notification":"עריכת התראה", "Edited":"נערכה", "Notification updated":"ההתראה עודכנה", "Delete this notification?":"למחוק את ההתראה?",
+  "It disappears from the app for everyone who got it.":"היא תיעלם מהאפליקציה אצל כל מי שקיבל אותה.", "Notification deleted":"ההתראה נמחקה",
+  "{name} = the child’s name · [boy|girl] = the right word":"{name} = שם הילד/ה · [בן|בת] = המילה המתאימה", "Quick choice for":"בחירה מהירה עבור", "Choose at least one student or parent.":"יש לבחור לפחות תלמיד או הורה אחד.", "Student":"תלמיד/ה", "Parent":"הורה", "Notifications":"התראות", "🔔 Notifications":"🔔 התראות", "Mark read":"סימון כנקרא", "No new notifications.":"אין התראות חדשות.", "Close":"סגירה", "New notification":"התראה חדשה", "No notifications sent yet.":"עדיין לא נשלחו התראות.", "a notification read":"קריאת התראה", "Send a notification":"שליחת התראה", "🔔 Send notification":"🔔 שליחת התראה", "It appears at the top of their Home in the app, marked New.":"ההתראה תופיע בראש מסך הבית באפליקציה, מסומנת כחדשה.",
   "Send to":"למי לשלוח", "Parents":"הורים", "Students":"תלמידים", "Who":"מי", "Everyone":"כולם", "No one":"אף אחד", "Private students":"תלמידים פרטיים", "· parent not on the app":"· ההורה לא באפליקציה",
   "Choose who gets it":"יש לבחור למי לשלוח", "Write the message.":"יש לכתוב הודעה.", "Choose parents, students or both.":"יש לבחור הורים, תלמידים או שניהם.", "Choose at least one student.":"יש לבחור לפחות תלמיד אחד.",
   "Message from your coach":"הודעה מהמאמן", "Got it":"הבנתי", "{name} = the child’s name · [boy|girl] = the right word, e.g. [מוזמן|מוזמנת]":"{name} = שם הילד/ה · [בן|בת] = המילה המתאימה, למשל [מוזמן|מוזמנת]", "First name in Hebrew":"שם פרטי בעברית", "Used in messages to parents":"משמש בהודעות להורים", "Boy or girl":"בן או בת", "Boy":"בן", "Girl":"בת", "For the right Hebrew forms in messages":"כדי שהניסוח בהודעות יתאים",
@@ -7196,7 +7348,9 @@ const HE_RX = [
   [/^(\d+) in development(?: \((.+)\))?$/, (m,n,inner)=>n+" בפיתוח"+(inner?" ("+inner.split(", ").map(heT).join(", ")+")":"")],
   [/^(\d+) by you$/, "$1 שלך"], [/^(\d+) by the student$/, "$1 של התלמיד"],
   [/^(\d+) needs? review$/, "$1 דורשים חזרה"], [/^(\d+) lines? needs? review$/, (m,n)=>+n===1 ? "וריאנט אחד דורש חזרה" : n+" וריאנטים דורשים חזרה"],
-  [/^(\d+) of (\d+)$/, "$1 מתוך $2"], [/^Read (\d+) of (\d+)$/, "נקרא $1 מתוך $2"], [/^\+(\d+) new$/, "+$1 חדשים"], [/^(\d+) students$/, "$1 תלמידים"], [/^(\d+) parents?$/, (m,n)=>+n===1?"הורה אחד":n+" הורים"], [/^Notification sent — (.+)$/, (m,x)=>"ההתראה נשלחה — "+x.split(" · ").map(heT).join(" · ")], [/^Notification sent to (\d+) students?(.*)$/, (m,n,r)=>"ההתראה נשלחה ל־"+n+" תלמידים"+(r.includes("and")?" ולהורים שלהם":r?" (להורים)":"")], [/^(\d+) more workouts? this week to keep your streak$/, (m,n)=>(+n===1?"עוד אימון אחד":"עוד "+n+" אימונים")+" השבוע כדי לשמור על הרצף"], [/^Now: (\d+ days?) in a row$/, (m,x)=>"עכשיו: "+heT(x)+" ברצף"], [/^Highest: (Pawn|Knight|Bishop|Rook|Queen|King)$/, (m,p)=>"הכי גבוה: "+heT(p)], [/^No practice logged for (\d+) days$/, "לא נרשם תרגול כבר $1 ימים"], [/^Nudge — (.+)$/, "תזכורת — $1"], [/^(\d+)-day practice streak$/, "רצף תרגול של $1 ימים"], [/^(\d+)-week fitness streak$/, "רצף כושר של $1 שבועות"], [/^(.+)’s medals$/, "המדליות של $1"],
+  [/^(\d+) of (\d+)$/, "$1 מתוך $2"],
+  [/^Notifications disappear from the app (\d+) days after they’re sent\.$/, "ההתראות נעלמות מהאפליקציה $1 ימים אחרי שנשלחו."],
+  [/^This is (.+)’s copy\. Use \{name\} for each child’s name\.$/, "זה הנוסח ש־$1 קיבל/ה. כתבו {name} במקום שם הילד/ה."], [/^Read (\d+) of (\d+)$/, "נקרא $1 מתוך $2"], [/^\+(\d+) new$/, "+$1 חדשים"], [/^(\d+) students$/, "$1 תלמידים"], [/^(\d+) parents?$/, (m,n)=>+n===1?"הורה אחד":n+" הורים"], [/^Notification sent — (.+)$/, (m,x)=>"ההתראה נשלחה — "+x.split(" · ").map(heT).join(" · ")], [/^Notification sent to (\d+) students?(.*)$/, (m,n,r)=>"ההתראה נשלחה ל־"+n+" תלמידים"+(r.includes("and")?" ולהורים שלהם":r?" (להורים)":"")], [/^(\d+) more workouts? this week to keep your streak$/, (m,n)=>(+n===1?"עוד אימון אחד":"עוד "+n+" אימונים")+" השבוע כדי לשמור על הרצף"], [/^Now: (\d+ days?) in a row$/, (m,x)=>"עכשיו: "+heT(x)+" ברצף"], [/^Highest: (Pawn|Knight|Bishop|Rook|Queen|King)$/, (m,p)=>"הכי גבוה: "+heT(p)], [/^No practice logged for (\d+) days$/, "לא נרשם תרגול כבר $1 ימים"], [/^Nudge — (.+)$/, "תזכורת — $1"], [/^(\d+)-day practice streak$/, "רצף תרגול של $1 ימים"], [/^(\d+)-week fitness streak$/, "רצף כושר של $1 שבועות"], [/^(.+)’s medals$/, "המדליות של $1"],
   [/^(\d+) (days?|weeks?)$/, (m,n,u)=>(+n===1 ? (u[0]==="d"?"יום אחד":"שבוע אחד") : n+(u[0]==="d"?" ימים":" שבועות"))], [/^Now: (.+)$/, (m,x)=>"עכשיו: "+heT(x)], [/^Best: (.+)$/, (m,x)=>"הכי טוב: "+heT(x)],
   [/^(\d+ (?:days?|weeks?)) more to (Pawn|Knight|Bishop|Rook|Queen|King)$/, (m,x,t)=>"עוד "+heT(x)+" ל"+heT(t)], [/^Switch to online$/, "מעבר לאונליין"], [/^Switch to in person$/, "מעבר לפרונטלי"], [/^The lesson on (.+) is now online$/, "השיעור ב־$1 יהיה אונליין"], [/^The lesson on (.+) is now in person$/, "השיעור ב־$1 יהיה פרונטלי"], [/^(In person|Online) → (In person|Online)$/, (m,a,b)=>({"In person":"פרונטלי","Online":"אונליין"})[a]+" → "+({"In person":"פרונטלי","Online":"אונליין"})[b]], [/^Notes from your lesson on (.+)$/, "הערות מהשיעור ב־$1"], [/^(.+) challenge$/, "האתגר של $1"], [/^(\d+) to go$/, "עוד $1"], [/^You added (\d+) this month$/, "הוספת $1 החודש"], [/^(.+) added (\d+) this month$/, "$1 הוסיף/ה $2 החודש"], [/^(\d+) of (\d+) group workouts this month$/, "$1 מתוך $2 אימונים קבוצתיים החודש"],
   [/^Logged: (.+)$/, "תועד: $1"], [/^🔥 (\d+) weeks in a row reaching the fitness goal$/, "🔥 $1 שבועות ברצף ביעד הכושר"], [/^Points scored after 8 h or more:$/, "נקודות אחרי 8 שעות שינה ומעלה:"], [/^after less:$/, "אחרי פחות:"], [/^([\d.]+) h$/, "$1 ש׳"], [/^of (\d+) pages read$/, "מתוך $1 עמודים נקראו"], [/^(\d+) of (\d+) pages read$/, "$1 מתוך $2 עמודים נקראו"], [/^(\d+) pages read$/, "$1 עמודים נקראו"], [/^p\. ([\d–, ]+)$/, "עמ׳ $1"], [/^last stop p\. (\d+)$/, "עצירה אחרונה בעמ׳ $1"], [/^p\. (\d+)–(\d+)$/, "עמ׳ $1–$2"], [/^pages read$/, "עמודים נקראו"], [/^Whole group: (.+) \((\d+)\)$/, "כל הקבוצה: $1 ($2)"], [/^Assignment given to (\d+) students?$/, (m,n)=>+n===1 ? "המשימה ניתנה לתלמיד אחד" : "המשימה ניתנה ל־"+n+" תלמידים"], [/^(\d+) students?$/, (m,n)=>+n===1 ? "תלמיד אחד" : n+" תלמידים"], [/^(\d+) of (\d+) workouts this week$/, "$1 מתוך $2 אימונים השבוע"], [/^(\d+) more to reach the weekly goal$/, "עוד $1 כדי להגיע ליעד השבועי"], [/^(\d+) weeks in a row$/, "$1 שבועות ברצף"],
