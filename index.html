@@ -123,7 +123,7 @@ kbd{font-family:var(--body);font-size:.75rem;border:1px solid var(--line);border
 .student-mode .btn.lang-btn{display:inline-flex}
 .student-mode .side-search,.student-mode .topbar a[href="#/search"]{display:none}
 /* a parent's board is view-only apart from lesson requests and changes */
-.parent-mode #view button[data-a]:not([data-a="req"]):not([data-a="reqat"]):not([data-a="les"]):not([data-a="open"]):not([data-a="ans"]):not([data-a="unreq"]):not([data-a="reqx"]):not([data-a="view"]):not([data-a="wk"]):not([data-a="more"]):not([data-a="all"]):not([data-a="src"]):not([data-a="gf"]):not([data-a="f"]):not([data-a="sf"]):not([data-a="rf"]):not([data-a="period"]):not([data-a="board"]):not([data-a="games"]):not([data-a="clearT"]):not([data-a="clearRep"]):not([data-a="dl"]):not([data-a="pp"]):not([data-a="ps"]):not([data-a="seenAll"]):not([data-a="notes"]){display:none}
+.parent-mode #view button[data-a]:not([data-a="req"]):not([data-a="reqat"]):not([data-a="les"]):not([data-a="open"]):not([data-a="ans"]):not([data-a="unreq"]):not([data-a="reqx"]):not([data-a="view"]):not([data-a="wk"]):not([data-a="more"]):not([data-a="all"]):not([data-a="src"]):not([data-a="gf"]):not([data-a="f"]):not([data-a="sf"]):not([data-a="rf"]):not([data-a="period"]):not([data-a="board"]):not([data-a="games"]):not([data-a="clearT"]):not([data-a="clearO"]):not([data-a="opg"]):not([data-a="clearRep"]):not([data-a="dl"]):not([data-a="pp"]):not([data-a="ps"]):not([data-a="seenAll"]):not([data-a="notes"]){display:none}
 .parent-mode #view label:has(input[type=file]),.parent-mode #view .dropzone{display:none}
 .link-box{display:inline-block;direction:ltr;font-weight:600;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-sm);padding:2px 8px;word-break:break-all;user-select:all}
 .code-box{font-family:var(--display);font-size:1.6rem;font-weight:700;letter-spacing:.18em;background:var(--paper);border:1px dashed var(--line);border-radius:var(--r-sm);padding:6px 14px;display:inline-block;direction:ltr}
@@ -2825,7 +2825,7 @@ function familyDocs(f){
   return out;
 }
 function studentView(s){
-  return JSON.parse(JSON.stringify({id:s.id, name:s.name, level:s.level, rating:s.rating, ratingType:s.ratingType, fideId:s.fideId, icfId:s.icfId, fide:s.fide, icf:s.icf, noId:s.noId,
+  return JSON.parse(JSON.stringify({id:s.id, name:s.name, nameHe:s.nameHe||"", level:s.level, rating:s.rating, ratingType:s.ratingType, fideId:s.fideId, icfId:s.icfId, fide:s.fide, icf:s.icf, noId:s.noId,
     goals:s.goals, notes:s.notesShared ? s.notes : "", notesShared:!!s.notesShared, active:s.active, createdAt:s.createdAt,
     sessions:s.sessions.map(x=>({id:x.id, date:x.date, time:x.time, duration:x.duration, format:x.format, status:x.status, topics:x.topics, added:x.added, notes:isShared(x.shareNotes)?x.notes:"", slotId:x.slotId, slotDate:x.slotDate})),
     worklog:s.worklog, repertoire:s.repertoire, tournaments:s.tournaments.map(({assist, assistDays, assistFee, assistReason, ...x})=>x), books:s.books, ratings:s.ratings, training:s.training||[], requests:s.requests||[], checkins:s.checkins||[], notices:(s.notices||[]).filter(n=>(n.to||[]).includes("student") && liveNotice(n)), noticeReads:(s.noticeReads||[]), appSince:(s.portal && s.portal.linkedAt)||"", fitness:s.fitness||[], fitnessGoal:+s.fitnessGoal||0, fitnessMinGoal:+s.fitnessMinGoal||0, sleep:s.sleep||[],
@@ -4313,7 +4313,7 @@ function searchAll(q){
     if (g.kind==="study"){ if (hit(g.white,g.black,g.event,g.opening,g.theme,g.notes,g.year,g.source)) studied.push({s,g}); }
     else if (hit(g.opponent,gameEvent(g,s),g.opening,g.notes,g.round?"round "+g.round:"",g.timeControl)) own.push({s,g}); });
   add("games","Games", own.sort((a,b)=>(a.g.date||"")<(b.g.date||"")?1:-1).map(({s,g})=>({title:s.name+" "+gameTitle(g)+" "+(g.result||""), sub:[gameEvent(g,s), g.opening, fmtDate(g.date)].filter(Boolean).join(" · "), href:"#/student/"+s.id+"/games"})));
-  add("studied","Studied games", studied.map(({s,g})=>({title:studyTitle(g)+" "+(g.result||""), sub:[s.name, g.theme, g.event, g.year].filter(Boolean).join(" · "), href:"#/student/"+s.id+"/studied"})));
+  add("studied","Model games", studied.map(({s,g})=>({title:studyTitle(g)+" "+(g.result||""), sub:[s.name, g.theme, g.event, g.year].filter(Boolean).join(" · "), href:"#/student/"+s.id+"/studied"})));
   const rep = []; ss.forEach(s=>s.repertoire.forEach(x=>{ if (hit(x.name,x.eco,x.lines,x.notes,x.against,x.againstOther,x.firstMove)) rep.push({s,x}); }));
   add("repertoire","Repertoire", rep.map(({s,x})=>({title:x.name+(x.eco?" ("+x.eco+")":""), sub:s.name+" · "+x.color+(x.against?" · vs "+(x.againstOther||x.against):""), href:"#/student/"+s.id+"/repertoire", rep:x.name})));
   add("assignments","Assignments", state.assignments.filter(a=>byId(a.studentId) && hit(a.title,a.type,a.instructions,a.feedback,(a.games||[]).map(g=>[g.white,g.black,g.event,g.date,g.note].join(" ")).join(" ")))
@@ -4631,8 +4631,10 @@ const tabGroup = tab=>Object.keys(TAB_GROUPS).find(k=>TAB_GROUPS[k].includes(tab
 function groupNav(s, cur){
   const g = TAB_GROUPS[tabGroup(cur)]; if (!g) return "";
   const n = {games:studentGames(s.id).length, studied:studyGames(s.id).length};
-  const lab = STUDENT() ? {work:"Daily practice", fitness:"Fitness", books:"Reading", tournaments:"Tournaments", games:"Game history", studied:"Studied games", repertoire:"Openings"}
-    : {work:"Daily work", fitness:"Fitness", books:"Books", tournaments:"Tournaments", games:"Game history", studied:"Studied games", repertoire:"Repertoire"};
+  // the student's own games are "My games" for them, "Guy’s games" for the coach and parents
+  const own = STUDENT() && !PARENT() ? "My games" : ((lang()==="he" && (s.nameHe||"").trim()) || s.name.split(" ")[0])+"’s games";
+  const lab = STUDENT() ? {work:"Daily practice", fitness:"Fitness", books:"Reading", tournaments:"Tournaments", games:own, studied:"Model games", repertoire:"Openings"}
+    : {work:"Daily work", fitness:"Fitness", books:"Books", tournaments:"Tournaments", games:own, studied:"Model games", repertoire:"Repertoire"};
   return subNav(g.map(k=>[k, "#/student/"+s.id+"/"+k, lab[k]+(n[k]?" ("+n[k]+")":"")]), cur);
 }
 function pStudent(v, r){
@@ -5229,9 +5231,9 @@ function openPractice(s, entry, preset){
   const cbFiles = uniq(sortBy(s.worklog,"date",-1).map(w=>w.cbFile));
   const gameOpts = v=>{ const rank = {"Not analysed":1,"In progress":0,"Analysed by student":2,"Reviewed with coach":3};
     if (v.gWhose==="other"){ const st = studyGames(s.id).slice().sort((a,b)=>(rank[a.analysis||"Not analysed"]-rank[b.analysis||"Not analysed"]) || ((b.added||"")>(a.added||"")?1:-1));
-      return st.length ? st.map(g=>[g.id, studyOption(g)]) : [["","No studied games yet — add them in Daily work → Studied games"]]; }
+      return st.length ? st.map(g=>[g.id, studyOption(g)]) : [["","No model games yet — add them in Games → Model games"]]; }
     const gs = studentGames(s.id).slice().sort((a,b)=>(rank[a.analysis||"Not analysed"]-rank[b.analysis||"Not analysed"]) || (a.date<b.date?1:-1));
-    return gs.length ? gs.map(g=>[g.id, gameOption(g,s)]) : [["","No games yet — add them in Tournaments → Game history"]]; };
+    return gs.length ? gs.map(g=>[g.id, gameOption(g,s)]) : [["","No games yet — add them in the Games tab"]]; };
   const bookOpts = v=>{ const list = sortBy(s.books,"title").sort((a,b)=>(a.status==="Reading"?0:1)-(b.status==="Reading"?0:1)).map(b=>[b.id, bookLabel(b)]);
     return bookRequired(v) ? (list.length?list:[["","No books yet — add one in the Books tab"]]) : [["","Not from a book"], ...list]; };
   const fields = [
@@ -5258,7 +5260,7 @@ function openPractice(s, entry, preset){
   const validate = d=>{
     if ((d.what==="Tactics" && d.site==="Book / workbook") || (SOURCE_CATS.includes(d.what) && d.src==="Book")){ if (!d.bookId) return "Add this book in the Books tab first, then log the session."; }
     if (SOURCE_CATS.includes(d.what) && d.src==="ChessBase file" && !d.cbFile) return "Enter the name of the ChessBase file.";
-    if (d.what==="Game analysis" && !d.gameId) return d.gWhose==="other" ? "Pick the game. If it isn't listed, add it in Daily work → Studied games first." : "Pick the game. If it isn't listed, add it in Tournaments → Game history first.";
+    if (d.what==="Game analysis" && !d.gameId) return d.gWhose==="other" ? "Pick the game. If it isn't listed, add it in Games → Model games first." : "Pick the game. If it isn't listed, add it in the Games tab first.";
     if (d.bookId && d.pageFrom!=="" && d.page==="") return "Enter the page they read to.";
     if (d.bookId && d.page!==""){ const b = s.books.find(y=>y.id===d.bookId); if (b && b.pages && +d.page > +b.pages) return "Page "+d.page+" is past the end of the book ("+b.pages+" pages).";
       if (d.pageFrom!==""){ if (+d.pageFrom<1 || +d.pageFrom>+d.page) return "From page should be between 1 and the To page."; }
@@ -5486,7 +5488,7 @@ function importGames(s, text){
   render();
   toast(added ? "Imported "+added+" game"+(added===1?"":"s")+(unsure?". Check the side played for "+unsure+" — marked “Check side”":"")+(skipped?". "+skipped+" too large to import":"")+"." : "No games found in that file.");
 }
-let gameFilter = {status:"all", tid:""};
+let gameFilter = {status:"all", tid:"", op:""}; // op: an opening from "Openings in games" (its key)
 function tabSwitch(s, cur){
   return groupNav(s, cur);
   const n = studentGames(s.id).length;
@@ -5497,7 +5499,9 @@ function tGames(el, s){
   if (gameFilter.tid && !s.tournaments.some(t=>t.id===gameFilter.tid)) gameFilter.tid = "";
   const F = {all:()=>true, open:g=>(g.analysis||"Not analysed")==="Not analysed", prog:g=>g.analysis==="In progress"||g.analysis==="Analysed by student", done:g=>g.analysis==="Reviewed with coach"};
   const L = {all:"All", open:"Not analysed", prog:"In analysis", done:"Reviewed"};
-  const list = all.filter(F[gameFilter.status]).filter(g=>!gameFilter.tid || g.tournamentId===gameFilter.tid);
+  const opOf = g=>{ const o = openingOf(g); return o ? o.key : ""; };
+  const list = all.filter(F[gameFilter.status]).filter(g=>!gameFilter.tid || g.tournamentId===gameFilter.tid).filter(g=>!gameFilter.op || opOf(g)===gameFilter.op);
+  const opName = gameFilter.op ? gameFilter.op.replace("|", " · ") : "";
   const sc = scoreLine(all), sw = scoreLine(all.filter(g=>g.color!=="Black")), sb = scoreLine(all.filter(g=>g.color==="Black"));
   const wdl = x=>x.w+(x.w===1?" win":" wins")+", "+x.d+(x.d===1?" draw":" draws")+", "+x.l+(x.l===1?" loss":" losses")+" ("+x.pct+"%)";
   const statusTag = st=>'<span class="tag '+({"Reviewed with coach":"ok","Analysed by student":"warn","In progress":"board"}[st]||"")+'">'+esc(st||"Not analysed")+'</span>';
@@ -5508,6 +5512,7 @@ function tGames(el, s){
     '<section class="panel"><div class="panel-head" style="flex-wrap:wrap"><div class="seg" role="group" aria-label="Analysis filter" style="margin:0">'+Object.keys(F).map(k=>'<button type="button" class="'+(gameFilter.status===k?"on":"")+'" data-a="gf" data-id="'+k+'">'+L[k]+' ('+all.filter(F[k]).filter(g=>!gameFilter.tid||g.tournamentId===gameFilter.tid).length+')</button>').join("")+'</div>'+
       '<div class="row-actions"><label class="btn small" for="gImport">Import PGN</label><input id="gImport" type="file" accept=".pgn,.txt,application/x-chess-pgn,text/plain" multiple hidden><button class="btn small primary" data-a="addGame">Add game</button></div></div>'+
       (trName?'<p class="small" style="margin:0 0 8px">Showing games from <b>'+esc(trName)+'</b> · <button class="btn small ghost" data-a="clearT">Show all tournaments</button></p>':"")+
+      (opName?'<p class="small" style="margin:0 0 8px"><span>Games in this opening:</span> <b dir="ltr">'+esc(opName)+'</b> · <button class="btn small ghost" data-a="clearO">Show all games</button></p>':"")+
       (()=>{ const pf = performance(list); return pf ? '<p class="small muted" style="margin:0 0 8px">Performance <b class="num" style="color:var(--ink)">'+pf.rp+'</b> · '+pf.n+' rated game'+(pf.n===1?'':'s')+' · average opponent '+pf.avg+'</p>' : ""; })()+
       (list.length ? '<div class="table-wrap"><table class="cards-m"><thead><tr><th>Date</th><th>Opponent</th><th>Side</th><th>Result</th><th>Tournament</th><th>Analysis</th><th></th></tr></thead><tbody>'+
         list.map(g=>'<tr><td class="small" style="white-space:nowrap">'+esc(fmtDate(g.date))+'</td><td class="c-main"><b>'+esc(g.opponent)+'</b>'+(g.by==="student"&&!STUDENT()?' <span class="tag">by student</span>':'')+(g.opponentRating?' <span class="muted small num">'+esc(g.opponentRating)+'</span>':'')+(g.opening?'<div class="small muted">'+esc(g.opening)+'</div>':'')+(g.notes?'<div class="small">'+esc(g.notes)+'</div>':'')+'</td>'+
@@ -5523,6 +5528,7 @@ function tGames(el, s){
   bindActions(el,{
     gf:id=>{ gameFilter.status = id; render(); },
     clearT:()=>{ gameFilter.tid = ""; render(); },
+    clearO:()=>{ gameFilter.op = ""; render(); },
     addGame:()=>editGame(s, null, gameFilter.tid?{tournamentId:gameFilter.tid}:null),
     editGame:id=>editGame(s, state.games.find(g=>g.id===id)),
     board:id=>{ const g = state.games.find(x=>x.id===id); openViewer(null, {pgn:g.pgn, note:g.notes}, s, g.color==="Black"); },
@@ -5564,7 +5570,7 @@ function editStudyGame(s, g){
   const isNew = !g; const x = g || {id:"gm-"+uid(), kind:"study", studentId:s.id, white:"", black:"", year:"", event:"", result:"1-0", opening:"", theme:"", source:"Book", analysis:"Not analysed", notes:"", pgn:"", added:today()};
   const mine = studyGames(s.id), uniq = a=>[...new Set(a.filter(Boolean))];
   const names = uniq(mine.flatMap(y=>[y.white,y.black])), themes = uniq(mine.map(y=>y.theme));
-  openForm({title:isNew?"Add studied game":"Edit studied game", submit:isNew?"Add game":"Save changes", fields:[
+  openForm({title:isNew?"Add model game":"Edit model game", submit:isNew?"Add game":"Save changes", fields:[
       {name:"white",label:"White",value:x.white,placeholder:"e.g. Capablanca, José Raúl",suggest:names},
       {name:"black",label:"Black",value:x.black,placeholder:"e.g. Tartakower, Savielly",suggest:names},
       {name:"result",label:"Result",type:"select",options:[["1-0","1-0"],["½-½","½-½"],["0-1","0-1"],["*","Unfinished / unknown"]],value:x.result},
@@ -5622,7 +5628,7 @@ function tStudied(el, s){
             '<td>'+statusTag(g.analysis)+(g.lastAnalysed?'<div class="small muted">'+esc(fmtShort(g.lastAnalysed))+'</div>':'')+'</td>'+
             '<td class="c-act"><div class="row-actions" style="flex-wrap:nowrap">'+(g.pgn?'<button class="btn small" data-a="board" data-id="'+g.id+'">Board</button>':'')+'<button class="btn small ghost" data-a="analyse" data-id="'+g.id+'">Log analysis</button><button class="btn small ghost" data-a="editS" data-id="'+g.id+'">Edit</button></div></td></tr>'; }).join("")+
         '</tbody></table></div>'
-        :'<p class="empty">'+(all.length?"No games match this filter.":"No studied games yet. Add classic or model games "+esc(s.name.split(" ")[0])+" analyses — from a book, a ChessBase database, or games you choose — and log each analysis session against them.")+'</p>')+
+        :'<p class="empty">'+(all.length?"No games match this filter.":"No model games yet. Add classic or model games "+esc(s.name.split(" ")[0])+" analyses — from a book, a ChessBase database, or games you choose — and log each analysis session against them.")+'</p>')+
     '</section>';
   $("#sImport").onchange = async e=>{ const files = [...e.target.files]; e.target.value = ""; let txt = ""; for (const f of files){ if (f.size>4*1024*1024){ toast(f.name+" is too large (over 4 MB)."); continue; } txt += "\n\n"+await f.text(); } if (txt.trim()) importStudy(s, txt); };
   bindActions(el,{
@@ -5752,7 +5758,7 @@ function openingsPanel(s){
   const games = studentGames(s.id), withMoves = [], groups = {};
   games.forEach(g=>{ const o = openingOf(g); if (!o) return; withMoves.push(g); (groups[o.key] = groups[o.key] || Object.assign({games:[], replies:{}}, o)).games.push(g); if (o.reply) groups[o.key].replies[o.reply] = (groups[o.key].replies[o.reply]||0)+1; });
   if (!games.length) return "";
-  if (!withMoves.length) return '<p class="small muted" style="margin:0 0 12px">Add the moves (PGN) to games in Game history to see which openings '+esc(s.name.split(" ")[0])+' meets and how they score.</p>';
+  if (!withMoves.length) return '<p class="small muted" style="margin:0 0 12px">Add the moves (PGN) to the games in the Games tab to see which openings '+esc(s.name.split(" ")[0])+' meets and how they score.</p>';
   const lines = key=>s.repertoire.filter(x=>x.v===2 && repKey(x)===key);
   const rows = Object.values(groups).map(o=>Object.assign(o, {sc:scoreLine(o.games), have:lines(o.key)}))
     .sort((a,b)=>(a.have.length?1:0)-(b.have.length?1:0) || b.games.length-a.games.length);
@@ -5760,9 +5766,9 @@ function openingsPanel(s){
   return '<section class="panel" style="margin-bottom:16px"><div class="panel-head"><h2>Openings in games</h2>'+(missing?'<span class="tag flag">'+missing+(missing===1?' opening without a line':' openings without a line')+'</span>':'<span class="tag ok">Every opening met has a line</span>')+'</div>'+
     '<div class="table-wrap"><table class="cards-m"><thead><tr><th>Side</th><th>Opponent played</th><th class="r">Games</th><th class="r">Score</th><th>Prepared line</th></tr></thead><tbody>'+
     rows.map(o=>'<tr><td class="small"><span class="piece '+(o.color==="Black"?"b":"w")+'" style="display:inline-block;vertical-align:-2px;margin-inline-end:4px"></span>'+esc(o.color)+'</td>'+
-      '<td class="c-main"><b>'+(o.color==="White"?(o.firstMove==="Other first moves"?esc(o.firstMove):ltr(o.firstMove)+' · '+ltr(o.against)):ltr(o.against))+'</b>'+
+      '<td class="c-main"><button type="button" class="linkish" data-a="opg" data-id="'+esc(o.key)+'" title="Show these games">'+(o.color==="White"?(o.firstMove==="Other first moves"?esc(o.firstMove):ltr(o.firstMove)+' · '+ltr(o.against)):ltr(o.against))+'</button>'+
         (o.color==="Black"?'<div class="small muted"><span>Replies:</span> '+Object.entries(o.replies).sort((a,b)=>b[1]-a[1]).map(([mv,n])=>'<span dir="ltr">'+esc(mv)+(n>1?' ×'+n:'')+'</span>').join(", ")+'</div>':'')+'</td>'+
-      '<td class="r num">'+o.games.length+'</td>'+
+      '<td class="r num"><button type="button" class="linkish num" data-a="opg" data-id="'+esc(o.key)+'" aria-label="Show the '+o.games.length+' games">'+o.games.length+'</button></td>'+
       '<td class="r num'+(o.sc.n && o.sc.pct<40?' money-owed':'')+'">'+(o.sc.n?ltr(fmtPts(o.sc.pts)+'/'+o.sc.n)+' ('+o.sc.pct+'%)':'—')+'</td>'+
       '<td>'+(o.have.length?o.have.map(x=>'<span class="tag ok">'+esc(x.name)+'</span>').join(" "):'<span class="tag flag">No line</span> '+coachOnly('<button class="btn small" data-a="addp" data-id="'+esc(JSON.stringify(o.color==="White"?{color:"White", firstMove:o.firstMove, against:o.against}:{color:"Black", against:o.against}))+'">Add line</button>'))+'</td></tr>').join("")+
     '</tbody></table></div><p class="small muted" style="margin:8px 0 0">From '+withMoves.length+' game'+(withMoves.length===1?'':'s')+' with moves'+(games.length>withMoves.length?' · '+(games.length-withMoves.length)+' without moves not counted':'')+'.</p></section>';
@@ -5822,6 +5828,7 @@ function tRepertoire(el, s){
     rf:id=>{ repFilter = id; render(); },
     clearRep:()=>{ repOpening = ""; repQuery = ""; render(); },
     addp:id=>editRep(s, null, JSON.parse(id)),
+    opg:id=>{ gameFilter = {status:"all", tid:"", op:id}; location.hash = "#/student/"+s.id+"/games"; },
     edit:id=>editRep(s, s.repertoire.find(x=>x.id===id)),
     rev:id=>{ const x = s.repertoire.find(y=>y.id===id); x.reviewed = today(); if (!STUDENT()) delete x.studentEdited; if (x.status==="Needs review") x.status = "Studied"; saveStudent(s); render(); toast("Marked as reviewed"); }
   });
@@ -5834,7 +5841,7 @@ function parseScore(txt, rounds){
   if (txt===undefined || txt===null) return null;
   const t = String(txt).trim().replace(/½/g,".5").replace(/,/g,".").replace(/\s+/g,"");
   if (!t) return null;
-  const m = t.match(/^(\d+(?:\.5|\.0)?)(?:\/(\d+))?$/); if (!m) return null;
+  const m = t.match(/^(\d*(?:\.5|\.0)?)(?:\/(\d+))?$/); if (!m || !/\d/.test(m[1])) return null;
   const pts = parseFloat(m[1]), of = m[2] ? +m[2] : (+rounds||null);
   if (of && pts>of) return null;
   return {pts, of};
@@ -5857,10 +5864,11 @@ function diffLabel(c){
 function gamesScore(s, x){
   const sc = scoreLine(studentGames(s.id).filter(g=>g.tournamentId===x.id));
   if (!sc.n) return null;
-  return {text:fmtPts(sc.pts)+"/"+sc.n, n:sc.n, complete: !+x.rounds || sc.n>=+x.rounds};
+  return {text:fmtPts(sc.pts)+"/"+sc.n, n:sc.n, complete: +x.rounds ? sc.n>=+x.rounds : (x.end||x.start||"")<today()};
 }
 const resultOf = (s, x)=>{ if (x.result) return x.result; const g = gamesScore(s, x); return g && g.complete ? g.text : ""; };
-// The rating list a tournament counts for, and the student's last rating on it before the tournament ended.
+// The rating list a tournament counts for, and the student's last rating on it from before the tournament:
+// up to its first day, so a rating entered or fetched during or after it isn't taken as the starting point.
 const TC_SOURCE = {Rapid:"FIDE Rapid", Blitz:"FIDE Blitz", Online:"Online"};
 const tourSource = (s, format)=>TC_SOURCE[format] || mainSource(s);
 const ratingBefore = (s, src, date)=>sortBy(s.ratings.filter(r=>(r.source||mainSource(s))===src && r.date<=date),"date").pop();
@@ -5890,7 +5898,7 @@ function tTournaments(el, s){
       const c = compareScores(ex, ac);
       return '<div class="expect small"><span class="muted">Expected</span> <b class="num">'+(ex?esc(fmtScore(ex)):"—")+'</b> <span class="muted">→ Actual</span> <b class="num">'+(ac?esc(fmtScore(ac)):"—")+'</b>'+
         (c?' <span class="tag '+(c.d>0?"ok":c.d<0?"flag":"board")+'">'+esc(diffLabel(c))+'</span>':(ex&&!ac?' <span class="muted">— add the actual result</span>':''))+'</div>'; })()+'</div>'+
-    '<div class="row-actions" style="flex-direction:column;align-items:flex-end">'+(isUp?'<span class="tag '+(d<=7?"warn":"board")+'">'+(pd ? (rn>1?"Round "+rn+" ":"")+(d<=0?"today":d===1?"tomorrow":"in "+d+" days") : (d<=0?"In progress":d===1?"Tomorrow":"In "+d+" days"))+'</span>':(x.result?'<b class="num">'+esc(x.result)+'</b>':resultOf(s,x)?'<b class="num" title="Worked out from the games in Game history">'+esc(resultOf(s,x))+'</b><span class="small muted">from games</span>':'<span class="tag warn">Add result</span>')+(x.ratingChange!==""&&x.ratingChange!=null?'<span class="small num" style="color:'+(+x.ratingChange>=0?"var(--ok)":"var(--flag)")+'">'+(+x.ratingChange>=0?"+":"")+esc(x.ratingChange)+'</span>':""))+
+    '<div class="row-actions" style="flex-direction:column;align-items:flex-end">'+(isUp?'<span class="tag '+(d<=7?"warn":"board")+'">'+(pd ? (rn>1?"Round "+rn+" ":"")+(d<=0?"today":d===1?"tomorrow":"in "+d+" days") : (d<=0?"In progress":d===1?"Tomorrow":"In "+d+" days"))+'</span>':(x.result?'<b class="num">'+esc(x.result)+'</b>':resultOf(s,x)?'<b class="num" title="Worked out from the games entered">'+esc(resultOf(s,x))+'</b><span class="small muted">from games</span>':'<span class="tag warn">Add result</span>')+(x.ratingChange!==""&&x.ratingChange!=null?'<span class="small num" style="color:'+(+x.ratingChange>=0?"var(--ok)":"var(--flag)")+'">'+(+x.ratingChange>=0?"+":"")+esc(x.ratingChange)+'</span>':""))+
     (()=>{ const gs = studentGames(s.id).filter(g=>g.tournamentId===x.id); if (!gs.length) return isUp?"":'<button class="btn small" data-a="games" data-id="'+x.id+'">Add games</button>'; const sc = scoreLine(gs), pf = performance(gs); return '<button class="btn small" data-a="games" data-id="'+x.id+'">'+gs.length+' game'+(gs.length===1?"":"s")+(sc.n?' · '+sc.pts+'/'+sc.n:'')+'</button>'+
       (pf?'<span class="small" title="Average opponent '+pf.avg+' · '+pf.n+' rated game'+(pf.n===1?'':'s')+'">Performance <b class="num">'+pf.rp+'</b></span>':''); })()+
     '<button class="btn small ghost" data-a="edit" data-id="'+x.id+'">'+(isUp?"Edit":"Edit / result")+'</button></div></li>'; };
@@ -5909,11 +5917,11 @@ function tTournaments(el, s){
     {name:"location",label:"Location",value:x?.location||""},{name:"format",label:"Time control",type:"select",options:["Classical","Rapid","Blitz","Online"],value:x?.format||"Classical"},
     {name:"rounds",label:"Rounds",type:"number",value:x?.rounds??"",min:0},
     {name:"expected",label:"Expected score",value:x?.expected||"",placeholder:"e.g. 5/9",hint:"The student's own prediction, written before the first round"},
-    {name:"result",label:"Actual score",value:x?.result||(x?resultOf(s,x):""),placeholder:"e.g. 5.5/9",show:v=>!!begins(v)&&begins(v)<=today(),hint:(()=>{ const g = x && gamesScore(s,x); return g ? "From the "+g.n+" game"+(g.n===1?"":"s")+" in Game history: "+g.text+(g.complete?"":" (not every round has a game yet)") : ""; })()},
+    {name:"result",label:"Actual score",value:x?.result||(x?resultOf(s,x):""),placeholder:"e.g. 5.5/9",show:v=>!!begins(v)&&begins(v)<=today(),hint:(()=>{ const g = x && gamesScore(s,x); return g ? "From the "+g.n+" game"+(g.n===1?"":"s")+" entered: "+g.text+(g.complete?"":" (not every round has a game yet)") : ""; })()},
     {name:"ratingChange",label:"Rating change",type:"number",value:x?.ratingChange??"",show:v=>!!begins(v)&&begins(v)<=today(),
       hint:x?.ratingAdded?"Added to the "+x.ratingAdded.source+" history as "+x.ratingAdded.value:"Leave empty until results are in"},
     {name:"addRating",label:"Add to rating history",type:"select",options:[["","No"],...RATING_SOURCES.map(r=>[r,"Yes — "+r+" list"])],
-      value:(()=>{ const src = tourSource(s, x?.format||"Classical"); return x && ratingBefore(s, src, x.end||x.start) ? src : ""; })(),
+      value:(()=>{ const src = tourSource(s, x?.format||"Classical"); return x && ratingBefore(s, src, x.start) ? src : ""; })(),
       show:v=>!STUDENT() && !!begins(v) && begins(v)<=today() && v.ratingChange!=="" && !x?.ratingAdded, hint:"Adds a new rating: the last one before the tournament plus the change, dated the last day"},
     ...(STUDENT() ? [] : [
       {name:"assist",label:"Tournament assistance",type:"select",options:[["","No"],["1","Yes — charged per tournament day"]],value:x?.assist?"1":"",full:true,
@@ -5925,7 +5933,7 @@ function tTournaments(el, s){
     if (d.sched==="dates" && !d.roundDates.split(",").filter(Boolean).length) return "Add the date of at least one round.";
     if (d.expected && !parseScore(d.expected, d.rounds)) return "Write the expected score like 5/9 or 5.5/9 (and no more than the number of rounds).";
     if (d.result && !parseScore(d.result, d.rounds)) return "Write the actual score like 5/9 or 5.5/9 (and no more than the number of rounds).";
-    if (d.addRating && d.ratingChange!=="" && !ratingBefore(s, d.addRating, d.end||d.start)) return "There’s no "+d.addRating+" rating from before this tournament to add the change to. Add it in Overview → Add rating first, or choose No.";
+    if (d.addRating && d.ratingChange!=="" && !ratingBefore(s, d.addRating, begins(d))) return "There’s no "+d.addRating+" rating from before this tournament to add the change to. Add it in Overview → Add rating first, or choose No.";
   };
   // Adds the post-tournament rating once; `ratingAdded` stops a later edit from counting the change twice.
   const after = y=>{
@@ -5938,7 +5946,7 @@ function tTournaments(el, s){
       else if (!y.assistReason) y.assistFee = halfFee(s); } // the default price follows the lesson fee until it's changed by hand
     const src = y.addRating; delete y.addRating;
     if (!src || y.ratingChange==="" || y.ratingAdded) return;
-    const date = y.end||y.start, value = +ratingBefore(s, src, date).value + +y.ratingChange;
+    const date = y.end||y.start, value = +ratingBefore(s, src, y.start).value + +y.ratingChange;
     addRating(s, src, value, date); y.ratingAdded = {source:src, value, date};
     setTimeout(()=>toast(src+" rating "+value+" added to the history"), 30);
   };
@@ -5953,7 +5961,7 @@ function tTournaments(el, s){
         saveStudent(s); render(); toast("Assistance price saved"); }}); },
     expect:id=>{ const x = s.tournaments.find(y=>y.id===id); openForm({title:"Expected score — "+x.name, submit:"Save", fields:[{name:"expected",label:"Expected score",value:x.expected||"",placeholder:x.rounds?"e.g. "+Math.ceil(x.rounds/2)+"/"+x.rounds:"e.g. 5/9",hint:"The student's own prediction"}],
       onSubmit:d=>{ if (d.expected && !parseScore(d.expected, x.rounds)) return "Write it like 5/9 or 5.5/9."; x.expected = d.expected; saveStudent(s); render(); toast("Expected score saved"); }}); },
-    games:id=>{ gameFilter = {status:"all", tid:id}; location.hash = "#/student/"+s.id+"/games"; }, add:()=>crud(s,"tournaments",null,fields(null),"tournament","Tournament",validate,null,after), edit:id=>{ const x = s.tournaments.find(y=>y.id===id); crud(s,"tournaments",x,fields(x),"tournament","Tournament",validate,null,after); } });
+    games:id=>{ gameFilter = {status:"all", tid:id, op:""}; location.hash = "#/student/"+s.id+"/games"; }, add:()=>crud(s,"tournaments",null,fields(null),"tournament","Tournament",validate,null,after), edit:id=>{ const x = s.tournaments.find(y=>y.id===id); crud(s,"tournaments",x,fields(x),"tournament","Tournament",validate,null,after); } });
 }
 
 function editPayment(s, x){
@@ -7182,7 +7190,9 @@ const HE = {
   "Theme / what to learn":"נושא / מה ללמוד", "Found in":"נמצא ב־", "Lessons learned":"מה למדנו", "What the student took from this game":"מה התלמיד לקח מהמשחק",
   "Enter the names of both players.":"יש להזין את שמות שני השחקנים.", "e.g. Capablanca, José Raúl":"למשל קפבלנקה, חוסה ראול", "e.g. Tartakower, Savielly":"למשל טרטקובר, סבלי",
   "e.g. New York 1924":"למשל ניו יורק 1924", "e.g. Dutch Defence":"למשל ההגנה ההולנדית", "e.g. Rook endgame technique":"למשל טכניקה בסיומי צריחים",
-  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק נלמד",
+  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Show these games":"הצגת המשחקים האלה", "Games in this opening:":"משחקים בפתיחה הזו:", "Show all games":"הצגת כל המשחקים", "Model games":"משחקים לדוגמה", "My games":"המשחקים שלי", "Add model game":"הוספת משחק לדוגמה", "Edit model game":"עריכת משחק לדוגמה",
+  "No model games yet — add them in Games → Model games":"עדיין אין משחקים לדוגמה — אפשר להוסיף במשחקים ← משחקים לדוגמה", "No games yet — add them in the Games tab":"עדיין אין משחקים — אפשר להוסיף בלשונית משחקים",
+  "Pick the game. If it isn't listed, add it in Games → Model games first.":"יש לבחור משחק. אם הוא לא ברשימה, צריך להוסיף אותו קודם במשחקים ← משחקים לדוגמה.", "Pick the game. If it isn't listed, add it in the Games tab first.":"יש לבחור משחק. אם הוא לא ברשימה, צריך להוסיף אותו קודם בלשונית משחקים.",
   // repertoire
   "Add line":"הוספת וריאנט", "Add opening line":"הוספת וריאנט פתיחה", "Edit opening line":"עריכת וריאנט פתיחה", "Delete line":"מחיקת וריאנט", "Colour":"צבע",
   "White's first move":"המסע הראשון של הלבן", "The move the student opens with":"המסע שבו התלמיד פותח", "Against":"נגד", "What the opponent plays that this line answers":"מה היריב משחק שהוריאנט הזה עונה עליו",
@@ -7201,7 +7211,7 @@ const HE = {
   "Location":"מקום", "Rounds":"סיבובים", "Rating change":"שינוי דירוג", "Leave empty until results are in":"להשאיר ריק עד שהתוצאות מתפרסמות", "Preparation & reflection":"הכנה ורפלקציה",
   "The student's own prediction, written before the first round":"התחזית של התלמיד, לפני הסיבוב הראשון", "The student's own prediction":"התחזית של התלמיד", "Add to rating history":"הוספה להיסטוריית הדירוג",
   "Adds a new rating: the last one before the tournament plus the change, dated the last day":"מוסיף דירוג חדש: האחרון לפני הטורניר ועוד השינוי, בתאריך היום האחרון",
-  "Expected score saved":"הצפי נשמר", "Write it like 5/9 or 5.5/9.":"לכתוב כמו 5/9 או 5.5/9.", "exactly as expected":"בדיוק כצפוי", "from games":"מהמשחקים", "Worked out from the games in Game history":"חושב מהמשחקים בהיסטוריית המשחקים",
+  "Expected score saved":"הצפי נשמר", "Write it like 5/9 or 5.5/9.":"לכתוב כמו 5/9 או 5.5/9.", "exactly as expected":"בדיוק כצפוי", "from games":"מהמשחקים", "Worked out from the games entered":"חושב מהמשחקים שהוזנו",
   "Net rating change:":"שינוי דירוג נטו:", "Met or beat the expected score in":"עמד בצפי או עבר אותו ב־", "Tournament added":"הטורניר נוסף", "Tournament updated":"הטורניר עודכן", "Tournament deleted":"הטורניר נמחק",
   "Delete this tournament?":"למחוק את הטורניר?", "— add the actual result":"— יש להוסיף את התוצאה בפועל",
   "Write the expected score like 5/9 or 5.5/9 (and no more than the number of rounds).":"יש לכתוב את הצפי כמו 5/9 או 5.5/9 (ולא יותר ממספר הסיבובים).",
@@ -7388,6 +7398,7 @@ const HE_RX = [
   [/^(\d+) by you$/, "$1 שלך"], [/^(\d+) by the student$/, "$1 של התלמיד"],
   [/^(\d+) needs? review$/, "$1 דורשים חזרה"], [/^(\d+) lines? needs? review$/, (m,n)=>+n===1 ? "וריאנט אחד דורש חזרה" : n+" וריאנטים דורשים חזרה"],
   [/^(\d+) of (\d+)$/, "$1 מתוך $2"],
+  [/^(\S+)’s games$/, (m,n)=>"המשחקים של "+n], [/^Show the (\d+) games$/, "הצגת $1 המשחקים"],
   [/^(\d+) more minutes this week to keep your streak$/, "עוד $1 דקות השבוע כדי לשמור על הרצף"],
   [/^(\d+) more workouts? and (\d+) more minutes this week to keep your streak$/, (x,n,m)=>(+n===1?"עוד אימון אחד":"עוד "+n+" אימונים")+" ועוד "+m+" דקות השבוע כדי לשמור על הרצף"],
   [/^(\d+) more workouts? to reach the weekly goal$/, (x,n)=>(+n===1?"עוד אימון אחד":"עוד "+n+" אימונים")+" כדי להגיע ליעד השבועי"],
@@ -7426,9 +7437,9 @@ const HE_RX = [
   [/^(FIDE|ICF) checked (.+)$/, (m,a,d)=>heRating(a)+" נבדק "+d],
   [/^(.+) rating entries$/, (m,a)=>"רישומי דירוג "+heRating(a)],
   [/^Finished (.+)$/, "הסתיים $1"], [/^took (\d+) weeks?$/, "לקח $1 שבועות"],
-  [/^From the (\d+) games? in Game history: (\S+)( \(not every round has a game yet\))?$/, (m,n,sc,part)=>"לפי "+n+" המשחקים בהיסטוריה: "+sc+(part?" (עדיין אין משחק לכל סיבוב)":"")],
+  [/^From the (\d+) games? entered: (\S+)( \(not every round has a game yet\))?$/, (m,n,sc,part)=>"לפי "+n+" המשחקים שהוזנו: "+sc+(part?" (עדיין אין משחק לכל סיבוב)":"")],
   [/^From (\d+) games? with moves\.?$/, "לפי $1 משחקים עם מסעים."], [/^(\d+) without moves not counted\.?$/, "$1 ללא מסעים לא נספרו."],
-  [/^Add the moves \(PGN\) to games in Game history to see which openings (.+) meets and how they score\.$/, "הוספת המסעים (PGN) למשחקים בהיסטוריית המשחקים תראה אילו פתיחות $1 פוגש ומה הניקוד בהן."],
+  [/^Add the moves \(PGN\) to the games in the Games tab to see which openings (.+) meets and how they score\.$/, "הוספת המסעים (PGN) למשחקים בלשונית משחקים תראה אילו פתיחות $1 פוגש ומה הניקוד בהן."],
   [/^(\d+) openings? without a line$/, (m,n)=>+n===1 ? "פתיחה אחת בלי וריאנט" : n+" פתיחות בלי וריאנט"],
   [/^(\d+) rated games?$/, "$1 משחקים מדורגים"], [/^[Aa]verage opponent (\d+)$/, "יריב ממוצע $1"],
   [/^(\d+) overdue$/, "$1 באיחור"], [/^Last backup: (\d+) days ago — download a fresh copy\.$/, "הגיבוי האחרון לפני $1 ימים — כדאי להוריד עותק חדש."], [/^Last backup: (.+)$/, "גיבוי אחרון: $1"], [/^(\d+)d$/, "$1 ימים"],
@@ -7441,7 +7452,7 @@ const HE_RX = [
   [/^No assignments yet\. Add a task like “30 puzzles on pins”, or upload games in PGN for (.+) to analyse\.$/, "עדיין אין משימות. אפשר להוסיף משימה כמו ״30 פאזלים על ריתוקים״, או להעלות משחקים ב־PGN לניתוח של $1."],
   [/^No books yet\. Add the books (.+) is working through — then log reading here or from Daily work, and the current page, last-read date and pace update on their own\.$/, "עדיין אין ספרים. אפשר להוסיף את הספרים של $1 — ואז לרשום קריאה כאן או בעבודה יומית, והעמוד הנוכחי, תאריך הקריאה האחרון והקצב יתעדכנו מעצמם."],
   [/^No games yet\. Add them one by one, or import a PGN file from a tournament — games are matched to (.+)’s side and to tournaments automatically\.$/, "עדיין אין משחקים. אפשר להוסיף אחד־אחד או לייבא קובץ PGN מטורניר — המשחקים משויכים אוטומטית לצבע של $1 ולטורנירים."],
-  [/^No studied games yet\. Add classic or model games (.+) analyses — from a book, a ChessBase database, or games you choose — and log each analysis session against them\.$/, "עדיין אין משחקים נלמדים. אפשר להוסיף משחקי מופת לניתוח של $1 — מספר, ממאגר ChessBase או משחקים שבוחרים — ולרשום כל תרגול ניתוח."],
+  [/^No model games yet\. Add classic or model games (.+) analyses — from a book, a ChessBase database, or games you choose — and log each analysis session against them\.$/, "עדיין אין משחקים לדוגמה. אפשר להוסיף משחקי מופת לניתוח של $1 — מספר, ממאגר ChessBase או משחקים שבוחרים — ולרשום כל תרגול ניתוח."],
   [/^No weekly slot\. If (.+) has a fixed lesson time, add it here and the sessions are planned automatically, 8 weeks ahead\.$/, "אין שיעור קבוע. אם יש שעת שיעור קבועה עבור $1, אפשר להוסיף אותה כאן והשיעורים יתוכננו אוטומטית 8 שבועות קדימה."],
   [/^Not opened in (\d+) days$/, "לא נפתח $1 ימים"],
   [/^Nothing matches “(.*)”\.$/, "אין תוצאות עבור ״$1״."],
