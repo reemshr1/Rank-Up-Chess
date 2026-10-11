@@ -45,8 +45,9 @@ The daily overview.
   parents asked for. Approve or decline each one. When the coach declines a
   move, the student answers (keep the lesson, cancel it, or ask for another
   time) and the answer shows under **Answers to declined moves**.
-- **Payments reported by parents:** a parent pressed "I've paid". Confirm it
-  (it becomes a real payment) or mark it as not received.
+- **Payments reported in the app:** a parent (or a student the coach shows
+  their payments to) pressed "I've paid", marked "by the parent" or "by the
+  student". Confirm it (it becomes a real payment) or mark it as not received.
 - **Needs attention**, in three columns:
   - lessons in the past still marked as planned (marking them done adds the
     fee to the balance);
@@ -161,6 +162,9 @@ FIDE and ICF pages, and **Edit profile**. Six tabs:
   charge (lessons done, tournament assistance, extra charges) and payment,
   with a running balance.
 - Buttons: Send reminder, Add charge, Record payment. Payments can be edited.
+- **Show payments in Guy's app:** gives the student a Payments tab (balance,
+  statement, how to pay) and lets them report payments, for students who
+  manage their own payments. **Hide** takes it away again.
 
 ### Schedule
 
@@ -277,6 +281,10 @@ puzzle bests, recent lessons, goals, assignments and reading.
 The student's lessons, club classes, tournaments, assignment due dates and
 own training. **Plan training** adds the student's own training sessions.
 
+### Payments (only if the coach turns it on)
+The same page parents get: balance, statement, how to pay, and "I've made a
+payment" to report a payment for the coach to confirm.
+
 ### Request a lesson
 Pick a day and a start time inside the coach's free time (times already
 booked by others are hidden), the length, in person or online, and a note.
@@ -361,7 +369,7 @@ change them directly.
 | Practice, fitness, sleep, books, own training | Yes | Yes (deletes only their own) | No |
 | Games, tournaments, openings | Yes | Yes | No |
 | Assignments | Create, review, feedback | Mark done | No |
-| Payments | Record, edit, charge | No | Report "I've paid" |
+| Payments | Record, edit, charge, show to a student | Report "I've paid", if shown their payments | Report "I've paid" |
 | Notifications | Send | Read | Read |
 | Goals, notes, profile | Yes | No | No |
 
