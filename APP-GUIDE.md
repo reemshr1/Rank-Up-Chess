@@ -134,19 +134,23 @@ FIDE and ICF pages, and **Edit profile**. Six tabs:
 
 **Games** (four sub-tabs)
 - **Tournaments:** upcoming and past tournaments, rounds and dates, the
-  expected score and the actual score, rating change, performance, the games
+  expected score and the actual score (worked out from the games once the
+  tournament is over, or once every round has a game), rating change ("Add to
+  rating history" adds it to the last rating from before the first round),
+  performance (FIDE's table), the games
   played there, and **tournament assistance** (charged per tournament day,
   by default half the lesson fee; the price can be changed with a reason).
-- **Game history:** the student's own games, imported from PGN or added by
+- **Guy's games** (the student sees **My games**): the student's own games, imported from PGN or added by
   hand, with a score summary (overall, as White, as Black) and an analysis
   status (Not analysed / In analysis / Reviewed). Games open on a board, also
   in Lichess.
-- **Studied games:** games by other players that the student studies, with
+- **Model games:** games by other players that the student studies, with
   themes and hours of analysis.
 - **Repertoire:** opening lines with a status: Developing, Learning,
   Studied, or Needs review (automatic after a while without review). On top,
   **Openings in games** shows which openings opponents played against the
   student, the score in each, and which ones have no prepared line yet.
+  Pressing an opening (or its number of games) opens those games.
 
 **Assignments:** the student's assignments (see Assignments below).
 
@@ -259,9 +263,9 @@ marks it done.
 
 ### Games
 - **Tournaments:** add tournaments, rounds, results.
-- **Game history:** add games or import PGN, mark analysis progress.
-- **Studied games** and **Openings** (the opening lines, shown first, and how
-  they score in the student's games).
+- **My games:** add games or import PGN, mark analysis progress.
+- **Model games** and **Openings** (the opening lines, shown first, and how
+  they score in the student's games; pressing an opening opens its games).
 
 ### Progress
 Rating chart, practice per week, what the practice went on, tactics and
