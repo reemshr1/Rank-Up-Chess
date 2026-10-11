@@ -335,6 +335,7 @@ dialog.wide{width:min(960px,calc(100vw - 24px))}
 .new-tag{margin-inline-start:18px;align-self:center;flex:none}
 .notice-row{display:grid;grid-template-columns:1fr 64px 64px;align-items:center;gap:6px;padding:2px 0}.modal-form .notice-list .notice-row label.chk{display:flex;width:100%;justify-content:center;margin:0}.notice-row>span:not(:first-child){text-align:center}.notice-head{font-weight:600;text-align:center}.notice-head span:first-child{text-align:start}
 .push-box{padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-sm)}
+.push-fail{margin-top:8px;padding:8px 10px;border-radius:var(--r-sm);border:1px solid var(--warn);color:var(--ink)}
 .notice-list{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto;margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:var(--r-sm)}
 .modal-form label.chk,label.chk{display:inline-flex;align-items:center;gap:8px;font-weight:400;cursor:pointer;margin:0;text-align:start}
 .chk input[type=checkbox]{width:auto;min-width:0;margin:0;flex:none}
@@ -3334,13 +3335,19 @@ async function pushState(){
   catch(e){ return "off"; }
 }
 const b64u = v=>{ const b = atob((v+"=".repeat((4-v.length%4)%4)).replace(/-/g,"+").replace(/_/g,"/")); return Uint8Array.from(b, c=>c.charCodeAt(0)); };
+// Which browser this is, to suggest Chrome when another browser can't do alerts (Edge and others on Android often can't).
+function browserName(){ const u = navigator.userAgent;
+  return /; wv\)|FBAN|FBAV|Instagram|WhatsApp/.test(u) ? "in-app" : /EdgA|Edg\//.test(u) ? "Edge" : /SamsungBrowser/.test(u) ? "Samsung Internet" : /Firefox|FxiOS/.test(u) ? "Firefox" : /OPR\//.test(u) ? "Opera" : /Chrome\//.test(u) ? "Chrome" : ""; }
+// Each step is named and time-limited, so a failure says where it stopped and the button never stays stuck.
+const pushStep = (step, p, ms=20000)=>Promise.race([p, new Promise((_, no)=>setTimeout(()=>no(new Error("no answer")), ms))]).catch(e=>{ throw Object.assign(new Error(String(e && e.message || e)), {step, name:e && e.name || "Error"}); });
 async function pushOn(){
-  const perm = await Notification.requestPermission(); if (perm!=="granted") throw new Error(perm==="denied" ? "blocked" : "not allowed");
-  await navigator.serviceWorker.register("sw.js"); const reg = await navigator.serviceWorker.ready;
-  const { key } = await pushFn({action:"key"}); if (!key) throw new Error("no key");
-  const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:b64u(key)});
-  await pushFn({action:"subscribe", sub:sub.toJSON()});
+  const perm = await pushStep("permission", Notification.requestPermission(), 120000); if (perm!=="granted") throw new Error(perm==="denied" ? "blocked" : "not allowed");
+  await pushStep("worker", navigator.serviceWorker.register("sw.js")); const reg = await pushStep("worker", navigator.serviceWorker.ready);
+  const { key } = await pushStep("key", pushFn({action:"key"})); if (!key) throw Object.assign(new Error("no key"), {step:"key"});
+  const sub = (await pushStep("subscribe", reg.pushManager.getSubscription())) || await pushStep("subscribe", reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:b64u(key)}));
+  await pushStep("save", pushFn({action:"subscribe", sub:sub.toJSON()}));
 }
+let pushFail = null; // why turning alerts on failed last time, shown in the box until it works
 async function pushOff(){
   const reg = await navigator.serviceWorker.getRegistration(), sub = reg && await reg.pushManager.getSubscription(); if (!sub) return;
   await pushFn({action:"unsubscribe", endpoint:sub.endpoint}).catch(()=>{}); await sub.unsubscribe();
@@ -3352,19 +3359,28 @@ async function fillPush(el){
   if (st==="none"){ el.hidden = true; return; }
   const what = coach ? "Turn them on here to test them." : PARENT() ? "Get an alert on this phone for new notifications and lesson changes." : "Get an alert on this phone for new notifications, lesson changes and practice reminders.";
   el.hidden = false;
+  const f = st==="off" && pushFail, android = /Android/.test(navigator.userAgent), br = browserName();
+  const failBox = !f ? '' : '<div class="push-fail small"><p style="margin:0"><b>'+esc(f.title)+'</b></p>'+
+    (f.chrome ? '<p style="margin:4px 0 0">On Android, alerts work best in Chrome: open the app link in Chrome, sign in with the same email and password, and turn alerts on there.</p>' : '')+
+    '<p class="muted" dir="ltr" style="margin:4px 0 0;font-size:.75rem">'+esc(f.detail)+'</p></div>';
   el.innerHTML = '<div class="push-box"><b>📱 <span>Phone alerts</span></b> '+
     (st==="on" ? '<span class="tag ok">On for this device</span><div class="row-actions" style="margin-top:8px;justify-content:flex-start">'+(coach?'<button type="button" class="btn small" data-push="test">Send a test alert</button>':'')+'<button type="button" class="btn small ghost" data-push="off">Turn off</button></div>'
     : st==="install" ? '<p class="small" style="margin:6px 0 0">On iPhone, alerts work only from the Home Screen app: tap Share, then “Add to Home Screen”, open Rank Up from there and turn alerts on.</p>'
     : st==="blocked" ? '<p class="small" style="margin:6px 0 0">Alerts are blocked for Rank Up in this browser. Allow notifications for this site in the browser’s settings, then come back.</p>'
-    : '<p class="small muted" style="margin:6px 0 0">'+what+'</p><div class="row-actions" style="margin-top:8px;justify-content:flex-start"><button type="button" class="btn small primary" data-push="on">Turn on phone alerts</button></div>')+'</div>';
+    : '<p class="small muted" style="margin:6px 0 0">'+what+'</p>'+failBox+'<div class="row-actions" style="margin-top:8px;justify-content:flex-start"><button type="button" class="btn small primary" data-push="on">'+(f ? "Try again" : "Turn on phone alerts")+'</button></div>')+'</div>';
   el.querySelectorAll("[data-push]").forEach(b=>b.onclick = async ()=>{ const k = b.dataset.push; b.disabled = true;
     try {
-      if (k==="on"){ await pushOn(); toast("Phone alerts are on"); }
+      if (k==="on"){ pushFail = null; await pushOn(); toast("Phone alerts are on"); }
       if (k==="off"){ await pushOff(); toast("Phone alerts are off"); }
       if (k==="test"){ const r = await pushFn({action:"send", messages:[{to:webUser.id, title:"Rank Up", body:lang()==="he" ? "התראת בדיקה: ההתראות לטלפון עובדות." : "Test alert: phone alerts work.", tag:"test"}]});
         toast(r.sent ? "Test alert sent" : "No device got it — turn alerts off and on again"); }
-    } catch(e){ const m = String(e && e.message || e);
-      toast(m==="blocked" ? "Alerts are blocked in this browser’s settings" : m==="not allowed" ? "Alerts weren’t allowed" : /not found|404|Failed to send|FunctionsFetchError|FunctionsHttpError/i.test(m+(e&&e.name||"")) ? (coach ? "Phone alerts aren’t set up in Supabase yet" : "Phone alerts aren’t ready yet — tell your coach") : "Couldn’t change phone alerts. Try again."); }
+    } catch(e){ const m = String(e && e.message || e), server = /not found|404|Failed to send|FunctionsFetchError|FunctionsHttpError/i.test(m+(e&&e.name||""));
+      const msg = m==="blocked" ? "Alerts are blocked in this browser’s settings" : m==="not allowed" ? "Alerts weren’t allowed" : server ? (coach ? "Phone alerts aren’t set up in Supabase yet" : "Phone alerts aren’t ready yet — tell your coach") : "Couldn’t change phone alerts. Try again.";
+      toast(msg);
+      // keep the reason on screen: what happened, what to try, and a technical line for the coach
+      if (k==="on" && m!=="blocked") pushFail = {title: m==="not allowed" ? "Alerts weren’t allowed. Tap “Try again” and choose Allow." : server ? msg+"." : (e && e.step==="subscribe" ? "This browser couldn’t sign up for alerts." : "Turning on alerts didn’t finish."),
+        chrome: !server && m!=="not allowed" && android && br!=="Chrome",
+        detail: [br || "browser", android ? "Android" : isIOS() ? "iPhone" : "", e && e.step ? "step: "+e.step : "", (e && e.name && e.name!=="Error" ? e.name+": " : "")+m].filter(Boolean).join(" · ").slice(0, 200)}; }
     fillPush(el); });
 }
 
@@ -6840,6 +6856,10 @@ function pSettings(v){
 /* ---------- Hebrew ---------- */
 const HE = {
   "Report another payment":"דיווח על תשלום נוסף", "Payment sent":"התשלום נשלח", "Paid something else as well?":"שילמת גם על משהו נוסף?", "Sent!":"נשלח!", "OK":"אישור", "Unpaid":"לא שולם", "Possible duplicate":"ייתכן שזה כפול",
+  "This browser couldn’t sign up for alerts.":"הדפדפן הזה לא הצליח להירשם להתראות.", "Turning on alerts didn’t finish.":"הפעלת ההתראות לא הסתיימה.",
+  "Alerts weren’t allowed. Tap “Try again” and choose Allow.":"ההתראות לא אושרו. הקישו על „לנסות שוב” ובחרו „אישור”.",
+  "Phone alerts aren’t ready yet — tell your coach.":"ההתראות לטלפון עוד לא מוכנות — ספרו למאמן.", "Phone alerts aren’t set up in Supabase yet.":"ההתראות לטלפון עוד לא הוגדרו ב־Supabase.",
+  "On Android, alerts work best in Chrome: open the app link in Chrome, sign in with the same email and password, and turn alerts on there.":"באנדרואיד ההתראות עובדות הכי טוב ב־Chrome: פתחו את הקישור לאפליקציה ב־Chrome, התחברו עם אותו מייל וסיסמה, והפעילו שם את ההתראות.",
   "Minutes per week":"דקות בשבוע", "minutes this week":"דקות השבוע", "0 means no minutes goal. With both set, a week counts when both are reached.":"0 = בלי יעד דקות. אם נקבעו שניהם, שבוע נחשב כשהגיעו לשניהם.",
   "Choose up to 1500 minutes a week.":"אפשר לבחור עד 1500 דקות בשבוע.",
   "Phone alerts":"התראות לטלפון", "On for this device":"פועלות במכשיר הזה", "Send a test alert":"שליחת התראת בדיקה", "Turn off":"כיבוי",
