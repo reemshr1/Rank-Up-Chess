@@ -33,8 +33,10 @@ and books.
 The daily overview.
 
 - **Top buttons:** 🔔 Notifications, Record payment, Plan session.
-- **Numbers:** active students, sessions in the next 7 days, money
-  outstanding, money received this month.
+- **Tiles** (title on top, number below): active students; **Sessions this
+  week** split into **Total** (this week's lessons, not cancelled) and **Left**
+  (planned lessons that haven't ended yet); money outstanding; money received
+  this month.
 - **Backup reminder** if no backup has been downloaded for a while.
 - **Problems with the student and parent app:** a change sent by a student or
   parent that couldn't be taken in. It can be retried or discarded; nothing
