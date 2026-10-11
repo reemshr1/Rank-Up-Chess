@@ -199,7 +199,7 @@ tr:last-child td{border-bottom:0}
 /* Stats strip */
 .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface);margin-bottom:20px;overflow:hidden}
 .stat{padding:16px 18px;border-inline-start:1px solid var(--line)}
-.stat-split{display:grid;grid-template-columns:1fr 1fr;gap:12px}.stat-split>div+div{border-inline-start:1px dashed var(--line);padding-inline-start:12px}
+.stat-split{display:grid;grid-template-columns:1fr 1fr;gap:12px}.stat-split>div+div{border-inline-start:1px dashed var(--line);padding-inline-start:12px}.stat-split .l{white-space:nowrap}
 .stat:first-child{border-inline-start:0}
 .stat .v{font-family:var(--display);font-size:1.45rem;font-weight:600}
 .stat .l{color:var(--muted);font-size:.85rem}
@@ -4071,7 +4071,7 @@ function pDashboard(v){
     const ws = weekStartOf(t), we = addDays(ws,6), nowMin = new Date().getHours()*60+new Date().getMinutes(), wk = [];
     active.forEach(s=>s.sessions.forEach(x=>{ if (x.date>=ws && x.date<=we && x.status!=="cancelled") wk.push(x); }));
     const left = wk.filter(x=>x.status==="planned" && (x.date>t || (x.date===t && (toMin(x.time)===null || toMin(x.time)+(+x.duration||60)>nowMin)))).length;
-    return '<div class="stat stat-split"><div><div class="v num">'+wk.length+'</div><div class="l">Total sessions this week</div></div><div><div class="v num">'+left+'</div><div class="l">Sessions left this week</div></div></div>'; })()+
+    return '<div class="stat stat-split"><div><div class="v num">'+wk.length+'</div><div class="l">This week</div></div><div><div class="v num">'+left+'</div><div class="l">Left</div></div></div>'; })()+
   '<div class="stat"><div class="v num'+(outstanding>0?" money-owed":"")+'">'+money(outstanding)+'</div><div class="l">Outstanding</div></div>'+
   '<div class="stat"><div class="v num">'+money(received)+'</div><div class="l">Received this month</div></div></div>'+
   backupNote(t)+
@@ -7080,7 +7080,7 @@ const HE = {
   "Show all":"הצגת הכול", "Show 25 more":"הצגת 25 נוספים", "Show all tournaments":"הצגת כל הטורנירים", "Yes":"כן", "No":"לא", "optional":"לא חובה", "Board":"לוח",
   // dashboard
   "Good morning":"בוקר טוב", "Good afternoon":"צהריים טובים", "Good evening":"ערב טוב", "Record payment":"רישום תשלום", "Plan session":"תכנון שיעור",
-  "Active students":"תלמידים פעילים", "Sessions in the next 7 days":"שיעורים ב־7 הימים הקרובים", "Total sessions this week":"סה״כ שיעורים השבוע", "Sessions left this week":"שיעורים שנותרו השבוע", "Outstanding":"חוב פתוח", "Received this month":"התקבל החודש",
+  "Active students":"תלמידים פעילים", "Sessions in the next 7 days":"שיעורים ב־7 הימים הקרובים", "This week":"השבוע", "Left":"נותרו", "Outstanding":"חוב פתוח", "Received this month":"התקבל החודש",
   "Coming up this week":"השבוע הקרוב", "Who owes you":"מי חייב לך", "Tournaments ahead":"טורנירים קרובים", "Assignments due":"משימות להגשה",
   "No topic yet":"עדיין אין נושא", "No payments yet":"עדיין אין תשלומים", "Everyone is paid up.":"כולם שילמו.", "No sessions planned for the next 7 days.":"אין שיעורים מתוכננים ב־7 הימים הקרובים.",
   "No tournaments in the next 60 days.":"אין טורנירים ב־60 הימים הקרובים.", "Nothing due in the next 3 days.":"אין משימות להגשה ב־3 הימים הקרובים.", "In progress":"בתהליך", "Tomorrow":"מחר",
