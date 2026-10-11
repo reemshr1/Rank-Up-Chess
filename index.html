@@ -201,7 +201,10 @@ tr:last-child td{border-bottom:0}
 .stat{padding:16px 18px;border-inline-start:1px solid var(--line)}
 /* Today: the label on top, the number under it */
 .stats-top .stat,.stats-top .stat-split>div{display:flex;flex-direction:column;justify-content:space-between}.stats-top .stat-split{display:grid}.stats-top .l{order:-1;margin:0 0 4px}
-.stat-sessions .stat-split{margin-top:2px}.stat-sessions .l.sub{font-size:.75rem;margin:0}
+.stat-sessions .stat-split{margin-top:2px}.stat-sessions .l.sub{font-size:.75rem;margin:0;font-weight:600}
+.stats-top .stat{text-align:center;align-items:center}.stats-top .stat-split{width:100%}.stats-top .stat-split>div{align-items:center}
+.stats-top .stat>.l{font-weight:700;color:var(--ink)}
+.stats-top .stat-split>div+div{border-inline-start:2px solid color-mix(in srgb,var(--ink) 25%,transparent)}
 .stat-split{display:grid;grid-template-columns:1fr 1fr;gap:12px}.stat-split>div+div{border-inline-start:1px dashed var(--line);padding-inline-start:12px}.stat-split .l{white-space:nowrap}
 .stat:first-child{border-inline-start:0}
 .stat .v{font-family:var(--display);font-size:1.45rem;font-weight:600}
