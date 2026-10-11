@@ -199,6 +199,8 @@ tr:last-child td{border-bottom:0}
 /* Stats strip */
 .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface);margin-bottom:20px;overflow:hidden}
 .stat{padding:16px 18px;border-inline-start:1px solid var(--line)}
+/* Today: the label on top, the number under it */
+.stats-top .stat,.stats-top .stat-split>div{display:flex;flex-direction:column;justify-content:space-between}.stats-top .stat-split{display:grid}.stats-top .l{order:-1;margin:0 0 4px}
 .stat-split{display:grid;grid-template-columns:1fr 1fr;gap:12px}.stat-split>div+div{border-inline-start:1px dashed var(--line);padding-inline-start:12px}.stat-split .l{white-space:nowrap}
 .stat:first-child{border-inline-start:0}
 .stat .v{font-family:var(--display);font-size:1.45rem;font-weight:600}
@@ -4066,7 +4068,7 @@ function pDashboard(v){
   const hr = new Date().getHours(); const greet = hr<12?"Good morning":hr<18?"Good afternoon":"Good evening";
 
   v.innerHTML = '<div class="page-head"><div><p class="sub" style="margin:0 0 4px">'+esc(fmtDay(t))+'</p><h1>'+greet+(state.settings.coachName?", "+esc(state.settings.coachName):"")+'</h1></div><div class="row-actions"><button class="btn" id="dNote">🔔 Notifications'+(newReads()?' <i class="nav-badge" style="position:static" aria-label="'+newReads()+' new reads">'+newReads()+'</i>':'')+'</button><button class="btn" id="dPay">Record payment</button><button class="btn primary" id="dSes">Plan session</button></div></div>'+
-  '<div class="stats"><div class="stat"><div class="v num">'+active.length+'</div><div class="l">Active students</div></div>'+
+  '<div class="stats stats-top"><div class="stat"><div class="v num">'+active.length+'</div><div class="l">Active students</div></div>'+
   (()=>{ // this week's lessons (the week as set in Settings): all of them, and those still to come (today's count until they end)
     const ws = weekStartOf(t), we = addDays(ws,6), nowMin = new Date().getHours()*60+new Date().getMinutes(), wk = [];
     active.forEach(s=>s.sessions.forEach(x=>{ if (x.date>=ws && x.date<=we && x.status!=="cancelled") wk.push(x); }));
