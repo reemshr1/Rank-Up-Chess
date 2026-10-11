@@ -343,6 +343,7 @@ dialog.wide{width:min(960px,calc(100vw - 24px))}
 @media (max-width:480px){.tstats{grid-template-columns:1fr 1fr}}
 .new-tag{margin-inline-start:18px;align-self:center;flex:none}
 .notice-row{display:grid;grid-template-columns:1fr 64px 64px;align-items:center;gap:6px;padding:2px 0}.modal-form .notice-list .notice-row label.chk{display:flex;width:100%;justify-content:center;margin:0}.notice-row>span:not(:first-child){text-align:center}.notice-head{font-weight:600;text-align:center}.notice-head span:first-child{text-align:start}
+.pay-share{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 14px}
 .push-box{padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-sm)}
 .push-fail{margin-top:8px;padding:8px 10px;border-radius:var(--r-sm);border:1px solid var(--warn);color:var(--ink)}
 .notice-list{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto;margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:var(--r-sm)}
@@ -2848,7 +2849,7 @@ function stampView(v){ v.syncedAt = new Date().toISOString(); return v;
 // Every document the student's app reads, by id.
 function portalDocs(s){
   const out = {}, parts = splitStudent(studentView(s));
-  out.student = stampView(parts.main); Object.keys(parts.logs).forEach(k=>{ out[k] = parts.logs[k]; });
+  out.student = stampView(Object.assign(parts.main, s.payShared ? {pay:payView(s)} : {})); // payments only when the coach shares them Object.keys(parts.logs).forEach(k=>{ out[k] = parts.logs[k]; });
   state.assignments.filter(a=>a.studentId===s.id).forEach(a=>{ out[a.id] = a; });
   state.games.filter(g=>g.studentId===s.id).forEach(g=>{ out[g.id] = g; });
   return out;
@@ -3587,7 +3588,7 @@ function renderNav(){
   const r = route();
   document.querySelectorAll("[data-lang]").forEach(b=>{ b.textContent = lang()==="he" ? "English" : "עברית"; });
   if (STUDENT()){
-    const s = state.students[0], cur = r.page==="student" ? tabGroup(r.tab) : r.page==="assignment" ? "assignments" : r.page==="schedule" ? "schedule" : r.page==="payments" && PARENT() ? "payments" : r.page==="progress" ? "progress" : "home";
+    const s = state.students[0], cur = r.page==="student" ? tabGroup(r.tab) : r.page==="assignment" ? "assignments" : r.page==="schedule" ? "schedule" : r.page==="payments" && (PARENT() || (s && s.pay)) ? "payments" : r.page==="progress" ? "progress" : "home";
     // a family with more than one child picks whose board to show
     const fam = PARENT() && state.family, pick = $("#childPick");
     if (pick){ pick.hidden = !(fam && fam.children.length>1); if (fam) pick.innerHTML = fam.children.map(k=>'<option value="'+esc(k.id)+'"'+(k.id===fam.current?" selected":"")+'>'+esc(k.name)+'</option>').join(""); }
@@ -3606,7 +3607,7 @@ function renderNav(){
   const mine = me ? '<a href="#/student/'+me.id+'/overview"'+(meOn?' aria-current="page"':'')+'>'+ICONS.progress+'<span>My chess</span></a>' : "";
   $("#nav").innerHTML = html+mine; $("#bnav").innerHTML = html;
 }
-const studentNav = s=>{ const b = "#/student/"+s.id+"/"; return [["home","#/home","Home",ICONS.dash], ["assignments",b+"assignments","Tasks",ICONS.assign], ["work",b+"work","Practice",ICONS.practice], ["tournaments",b+"tournaments","Games",ICONS.games], ["progress","#/progress","Progress",ICONS.progress], ["schedule","#/schedule","Schedule",ICONS.schedule], ...(PARENT()?[["payments","#/payments","Payments",ICONS.pay]]:[])]; };
+const studentNav = s=>{ const b = "#/student/"+s.id+"/"; return [["home","#/home","Home",ICONS.dash], ["assignments",b+"assignments","Tasks",ICONS.assign], ["work",b+"work","Practice",ICONS.practice], ["tournaments",b+"tournaments","Games",ICONS.games], ["progress","#/progress","Progress",ICONS.progress], ["schedule","#/schedule","Schedule",ICONS.schedule], ...(PARENT() || s.pay ?[["payments","#/payments","Payments",ICONS.pay]]:[])]; };
 document.addEventListener("change", e=>{ if (e.target.id==="childPick" && store && store.pickChild) store.pickChild(e.target.value); });
 // The language button students have (the coach changes language in Settings).
 document.addEventListener("click", e=>{ const b = e.target.closest("[data-lang]"); if (!b) return;
@@ -3642,7 +3643,7 @@ function renderStudent(v, r){
   if (r.page==="progress") markSeen(ups.filter(u=>updateArea(u)==="progress").map(u=>u.key));
   if (r.page==="assignment") return pAssignment(v, r);
   if (r.page==="schedule") return pSchedule(v);
-  if (r.page==="payments" && PARENT()) return pFamilyPay(v, s);
+  if (r.page==="payments" && (PARENT() || s.pay)) return pFamilyPay(v, s);
   if (r.page==="progress") return pProgress(v, s);
   return pHome(v, s);
 }
@@ -3779,7 +3780,7 @@ function pFamilyPay(v, s){
     (p.upcoming && p.upcoming.length ? panel("Coming up", '<ul class="list stmt">'+
       p.upcoming.map(r=>'<li><div class="main"><div class="title">'+esc(r.label)+'</div><div class="small muted">'+esc(fmtDate(r.date))+(r.end&&r.end!==r.date?' – '+esc(fmtDate(r.end)):'')+'</div></div><b class="num">'+m(r.amount)+'</b></li>').join("")+'</ul>'+
       '<p class="small muted" style="margin:8px 0 0">Not charged yet: these are added to the balance once the tournament is played.</p>') : '')+
-    payReportsBox(s)+
+    (PARENT() ? payReportsBox(s) : '')+ // payments are reported by parents only
     (p.howToPay?panel("How to pay", '<p class="pre" style="margin:0">'+esc(p.howToPay)+'</p>'):'')+
     panel("Statement", p.rows.length ? '<ul class="list stmt">'+ // one small card per line, so it reads well on a phone
       p.rows.map(r=>'<li><div class="main"><div class="title">'+esc(r.label)+'</div><div class="small muted" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">'+esc(fmtDate(r.date))+(r.sessionId ? ' '+lessonPayTag(s, r) : '')+'</div></div>'+
@@ -6001,13 +6002,20 @@ function tPayments(el, s){
   const rows = [...l.charges.map(c=>({date:c.date,label:c.label,charge:c.amount})), ...s.payments.map(p=>({date:p.date,label:payLabel(s,p),pay:+p.amount,id:p.id,kind:"pay",note:p.note})), ...s.charges.map(c=>({date:c.date,id:c.id,kind:"chargeRef"}))]
     .filter(r=>r.kind!=="chargeRef").sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:(a.pay?1:-1));
   rows.forEach(r=>{ run += (r.charge||0)-(r.pay||0); r.bal = run; });
-  el.innerHTML = '<div class="stats" style="grid-template-columns:repeat(4,minmax(0,1fr))"><div class="stat"><div class="v num'+(l.balance>0.009?" money-owed":"")+'">'+money(Math.max(0,l.balance))+'</div><div class="l">'+(l.balance<-0.009?"In credit: "+money(-l.balance):"Owed now")+'</div></div><div class="stat"><div class="v num">'+money(l.charged)+'</div><div class="l">Total charged</div></div><div class="stat"><div class="v num">'+money(l.paid)+'</div><div class="l">Total paid</div></div><div class="stat"><div class="v num">'+money(s.rate)+'</div><div class="l">Per session</div></div></div>'+
+  const first = s.name.split(" ")[0];
+  const share = '<div class="pay-share">'+(s.payShared
+      ? '<span class="tag ok">Visible in '+esc(first)+'’s app</span> <span class="small muted">'+esc(first)+' sees a Payments tab with the balance and statement.</span> <button class="btn small ghost" data-a="payHide">Hide from '+esc(first)+'’s app</button>'
+      : '<span class="small muted">Only you'+(familyOf(s) ? ' and the parent' : '')+' see these payments.</span> <button class="btn small" data-a="payShow">Show payments in '+esc(first)+'’s app</button>')+
+    (s.portal ? '' : '<span class="small muted"> · '+esc(first)+' isn’t connected to the app yet</span>')+'</div>';
+  el.innerHTML = share+'<div class="stats" style="grid-template-columns:repeat(4,minmax(0,1fr))"><div class="stat"><div class="v num'+(l.balance>0.009?" money-owed":"")+'">'+money(Math.max(0,l.balance))+'</div><div class="l">'+(l.balance<-0.009?"In credit: "+money(-l.balance):"Owed now")+'</div></div><div class="stat"><div class="v num">'+money(l.charged)+'</div><div class="l">Total charged</div></div><div class="stat"><div class="v num">'+money(l.paid)+'</div><div class="l">Total paid</div></div><div class="stat"><div class="v num">'+money(s.rate)+'</div><div class="l">Per session</div></div></div>'+
     (l.overdue?'<p class="tag flag" style="display:block;padding:10px 14px;border-radius:var(--r-sm);margin:0 0 16px;font-size:.9rem;white-space:normal">Oldest unpaid charge is from '+esc(fmtDate(l.oldestUnpaid))+' — '+l.age+' days ago.</p>':"")+
     '<section class="panel"><div class="panel-head"><h2>Ledger</h2><div class="row-actions">'+(l.balance>0.009?'<button class="btn small" data-a="remind">Send reminder</button>':'')+'<button class="btn small" data-a="charge">Add charge</button><button class="btn small primary" data-a="pay">Record payment</button></div></div>'+
     (rows.length?'<div class="table-wrap"><table><thead><tr><th>Date</th><th>Item</th><th class="r">Charge</th><th class="r">Paid</th><th class="r">Balance</th><th></th></tr></thead><tbody>'+rows.slice().reverse().map(r=>'<tr><td style="white-space:nowrap">'+esc(fmtDate(r.date))+'</td><td>'+esc(r.label)+(r.note?'<div class="small muted">'+esc(r.note)+'</div>':"")+'</td><td class="r num">'+(r.charge?money(r.charge):"")+'</td><td class="r num" style="color:var(--ok)">'+(r.pay?money(r.pay):"")+'</td><td class="r num">'+money(r.bal)+'</td><td>'+(r.kind==="pay"?'<button class="btn small ghost" data-a="editPay" data-id="'+r.id+'">Edit</button>':"")+'</td></tr>').join("")+'</tbody></table></div>':'<p class="empty">Charges appear here when sessions are marked done. Record payments as they come in.</p>')+'</section>'+
     (s.charges.length?'<section class="panel" style="margin-top:16px"><div class="panel-head"><h2>Extra charges</h2></div><ul class="list">'+sortBy(s.charges,"date",-1).map(c=>'<li><div class="main"><div class="title">'+esc(c.note||"Charge")+'</div><div class="small muted">'+esc(fmtDate(c.date))+'</div></div><span class="num">'+money(c.amount)+'</span><button class="btn small ghost" data-a="editCharge" data-id="'+c.id+'">Edit</button></li>').join("")+'</ul></section>':"");
   const chargeFields = x=>[{name:"date",label:"Date",type:"date",value:x?.date||today()},{name:"amount",label:"Amount ("+state.settings.currency+")",type:"number",value:x?.amount??"",min:0,step:"any",required:true},{name:"note",label:"What for",value:x?.note||"",full:true,placeholder:"e.g. Tournament entry fee, game analysis package"}];
-  bindActions(el,{ remind:()=>sendReminder(s), pay:()=>editPayment(s,null), editPay:id=>editPayment(s,s.payments.find(x=>x.id===id)),
+  bindActions(el,{ payShow:()=>{ s.payShared = true; saveStudent(s); render(); toast("Payments are now visible in "+first+"’s app"); },
+    payHide:()=>{ s.payShared = false; saveStudent(s); render(); toast("Payments are hidden from "+first+"’s app"); },
+    remind:()=>sendReminder(s), pay:()=>editPayment(s,null), editPay:id=>editPayment(s,s.payments.find(x=>x.id===id)),
     charge:()=>crud(s,"charges",null,chargeFields(null),"charge","Charge"), editCharge:id=>{ const c = s.charges.find(x=>x.id===id); crud(s,"charges",c,chargeFields(c),"charge","Charge"); } });
 }
 
@@ -7203,7 +7211,7 @@ const HE = {
   "Theme / what to learn":"נושא / מה ללמוד", "Found in":"נמצא ב־", "Lessons learned":"מה למדנו", "What the student took from this game":"מה התלמיד לקח מהמשחק",
   "Enter the names of both players.":"יש להזין את שמות שני השחקנים.", "e.g. Capablanca, José Raúl":"למשל קפבלנקה, חוסה ראול", "e.g. Tartakower, Savielly":"למשל טרטקובר, סבלי",
   "e.g. New York 1924":"למשל ניו יורק 1924", "e.g. Dutch Defence":"למשל ההגנה ההולנדית", "e.g. Rook endgame technique":"למשל טכניקה בסיומי צריחים",
-  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Show these games":"הצגת המשחקים האלה", "Games in this opening:":"משחקים בפתיחה הזו:", "Show all games":"הצגת כל המשחקים", "Model games":"משחקים לדוגמה", "My games":"המשחקים שלי", "Add model game":"הוספת משחק לדוגמה", "Edit model game":"עריכת משחק לדוגמה",
+  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Only you see these payments.":"רק את/ה רואה את התשלומים האלה.", "Only you and the parent see these payments.":"רק את/ה וההורה רואים את התשלומים האלה.", "Show these games":"הצגת המשחקים האלה", "Games in this opening:":"משחקים בפתיחה הזו:", "Show all games":"הצגת כל המשחקים", "Model games":"משחקים לדוגמה", "My games":"המשחקים שלי", "Add model game":"הוספת משחק לדוגמה", "Edit model game":"עריכת משחק לדוגמה",
   "No model games yet — add them in Games → Model games":"עדיין אין משחקים לדוגמה — אפשר להוסיף במשחקים ← משחקים לדוגמה", "No games yet — add them in the Games tab":"עדיין אין משחקים — אפשר להוסיף בלשונית משחקים",
   "Pick the game. If it isn't listed, add it in Games → Model games first.":"יש לבחור משחק. אם הוא לא ברשימה, צריך להוסיף אותו קודם במשחקים ← משחקים לדוגמה.", "Pick the game. If it isn't listed, add it in the Games tab first.":"יש לבחור משחק. אם הוא לא ברשימה, צריך להוסיף אותו קודם בלשונית משחקים.",
   // repertoire
@@ -7411,7 +7419,10 @@ const HE_RX = [
   [/^(\d+) by you$/, "$1 שלך"], [/^(\d+) by the student$/, "$1 של התלמיד"],
   [/^(\d+) needs? review$/, "$1 דורשים חזרה"], [/^(\d+) lines? needs? review$/, (m,n)=>+n===1 ? "וריאנט אחד דורש חזרה" : n+" וריאנטים דורשים חזרה"],
   [/^(\d+) of (\d+)$/, "$1 מתוך $2"],
-  [/^(\S+)’s games$/, (m,n)=>"המשחקים של "+n], [/^Show the (\d+) games$/, "הצגת $1 המשחקים"],
+  [/^(\S+)’s games$/, (m,n)=>"המשחקים של "+n],
+  [/^Visible in (\S+)’s app$/, "מוצג באפליקציה של $1"], [/^Hide from (\S+)’s app$/, "הסתרה מהאפליקציה של $1"], [/^Show payments in (\S+)’s app$/, "הצגת התשלומים באפליקציה של $1"],
+  [/^(\S+) sees a Payments tab with the balance and statement\.$/, "$1 רואה לשונית תשלומים עם היתרה והפירוט."], [/^Payments are now visible in (\S+)’s app$/, "התשלומים מוצגים עכשיו באפליקציה של $1"],
+  [/^Payments are hidden from (\S+)’s app$/, "התשלומים הוסתרו מהאפליקציה של $1"], [/^(\S+) isn’t connected to the app yet$/, "$1 עוד לא מחובר/ת לאפליקציה"], [/^Show the (\d+) games$/, "הצגת $1 המשחקים"],
   [/^(\d+) more minutes this week to keep your streak$/, "עוד $1 דקות השבוע כדי לשמור על הרצף"],
   [/^(\d+) more workouts? and (\d+) more minutes this week to keep your streak$/, (x,n,m)=>(+n===1?"עוד אימון אחד":"עוד "+n+" אימונים")+" ועוד "+m+" דקות השבוע כדי לשמור על הרצף"],
   [/^(\d+) more workouts? to reach the weekly goal$/, (x,n)=>(+n===1?"עוד אימון אחד":"עוד "+n+" אימונים")+" כדי להגיע ליעד השבועי"],
