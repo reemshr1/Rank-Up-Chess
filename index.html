@@ -344,6 +344,12 @@ dialog.wide{width:min(960px,calc(100vw - 24px))}
 .new-tag{margin-inline-start:18px;align-self:center;flex:none}
 .notice-row{display:grid;grid-template-columns:1fr 64px 64px;align-items:center;gap:6px;padding:2px 0}.modal-form .notice-list .notice-row label.chk{display:flex;width:100%;justify-content:center;margin:0}.notice-row>span:not(:first-child){text-align:center}.notice-head{font-weight:600;text-align:center}.notice-head span:first-child{text-align:start}
 .pay-share{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 14px}
+#pvWrap{position:fixed;inset:0;z-index:1000;background:rgba(15,23,42,.72);display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px}
+.pv-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;width:100%;max-width:1280px;background:var(--surface);border-radius:var(--r-md);padding:10px 14px}
+.pv-bar .btn.primary{margin-inline-start:auto}
+#pvFrame{flex:1;width:100%;max-width:1280px;border:0;border-radius:var(--r-md);background:var(--bg,#fff);transition:max-width .2s}
+#pvWrap.pv-phone #pvFrame{max-width:400px}
+.preview-mode [data-signout]{display:none!important}
 .push-box{padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-sm)}
 .push-fail{margin-top:8px;padding:8px 10px;border-radius:var(--r-sm);border:1px solid var(--warn);color:var(--ink)}
 .notice-list{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto;margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:var(--r-sm)}
@@ -3191,6 +3197,7 @@ function makeStudentStore(db, account){
 }
 function setSync(kind, msg){
   const el = $("#syncState"); if (!el) return;
+  if (PREVIEW){ el.innerHTML = '<span class="dot local"></span>'+esc("Preview — nothing is saved"); return; }
   const text = {ok:"All changes saved", busy:"Saving…", local:"Saved on this device only", err: msg||"Couldn't save"}[kind];
   el.innerHTML = '<span class="dot '+kind+'"></span>'+esc(text);
   if (kind==="err") toast(text + ". Check your connection and try again.");
@@ -3339,7 +3346,7 @@ const isIOS = ()=>/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.pla
 const standalone = ()=>(window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone===true;
 // "on" · "off" · "blocked" (refused in the browser's settings) · "install" (iPhone: only from the Home Screen app) · "none"
 async function pushState(){
-  if (!WEB || !sb) return "none";
+  if (!WEB || !sb || PREVIEW) return "none";
   if (isIOS() && !standalone()) return "install";
   if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return "none";
   if (Notification.permission==="denied") return "blocked";
@@ -3396,7 +3403,7 @@ async function fillPush(el){
     fillPush(el); });
 }
 
-async function signOut(){ try { if (WEB && "serviceWorker" in navigator) await pushOff().catch(()=>{}); } catch(e){} try { await sb.auth.signOut({scope:"local"}); } catch(e){} location.hash = ""; location.reload(); }
+async function signOut(){ if (PREVIEW) return; try { if (WEB && "serviceWorker" in navigator) await pushOff().catch(()=>{}); } catch(e){} try { await sb.auth.signOut({scope:"local"}); } catch(e){} location.hash = ""; location.reload(); }
 document.addEventListener("click", e=>{ if (e.target.closest("[data-signout]")) confirmBox("Sign out?", "You'll need your email and password to sign in again on this device.", "Sign out", signOut); });
 // Signs in (showing the screens above as needed) and returns the storage and the account; null if it can't connect.
 async function webStart(){
@@ -3446,6 +3453,44 @@ function movedNotice(){
     $("#gOld").onclick = ()=>{ ungate(); done(); };
   });
 }
+/* ---------- student view: the coach sees the app as one student sees it ----------
+   It opens in a frame (index.html?preview=<student id>): that copy loads the coach's records, builds exactly the
+   documents the student's app gets, and runs the student's app on them. Nothing in it is saved or sent. */
+const PREVIEW = (()=>{ try { return new URLSearchParams(location.search).get("preview")||""; } catch(e){ return ""; } })();
+function previewDb(docs, me){
+  const snap = (id, data)=>({id, exists:data!==undefined, data:()=>data});
+  const colSnap = obj=>({docs:Object.keys(obj).map(id=>snap(id, obj[id])), docChanges:()=>Object.keys(obj).map(id=>({type:"added", doc:snap(id, obj[id])})), metadata:{}});
+  const quiet = ()=>Promise.resolve(), told = ()=>{ toast("Preview — nothing was sent"); return Promise.resolve(); };
+  const col = (obj, write)=>({ get:async()=>colSnap(obj), onSnapshot:cb=>{ setTimeout(()=>cb(colSnap(obj)), 0); return ()=>{}; },
+    doc:id=>({ set:write, delete:quiet, get:async()=>snap(id, obj[id]) }) });
+  return { doc:()=>({ get:async()=>snap("me", me), set:quiet, onSnapshot:cb=>{ setTimeout(()=>cb(snap("me", me)), 0); return ()=>{}; },
+    collection:name=>name==="view" ? col(docs, quiet) : col({}, told) }) };
+}
+async function startPreview(){
+  const s = byId(PREVIEW);
+  if (!s){ $("#view").innerHTML = '<p class="empty">This student no longer exists.</p>'; loaded = true; return; }
+  const docs = JSON.parse(JSON.stringify(portalDocs(s)));
+  portal = null; ROLE = "student"; document.body.classList.add("student-mode", "preview-mode");
+  store = makeStudentStore(previewDb(docs, {linked:true, role:"student", lang:state.settings.lang||"en"}), "preview");
+  await store.loadAll(); store.subscribe(); setSync("ok");
+  loaded = true; render();
+}
+// The coach's button: the frame over the page, a phone or computer width, and a way out.
+function openPreview(s){
+  closePreview();
+  const first = s.name.split(" ")[0], w = document.createElement("div"); w.id = "pvWrap"; w.setAttribute("role", "dialog"); w.setAttribute("aria-label", "Student view");
+  w.innerHTML = '<div class="pv-bar"><b>👁 <span>'+esc("Viewing as "+first)+'</span></b> <span class="small muted">'+esc("What "+first+" sees in the app · nothing here is saved or sent")+'</span>'+
+    '<span class="seg" role="group" aria-label="Size" style="margin:0"><button type="button" class="on" data-pv="wide">Computer</button><button type="button" data-pv="phone">Phone</button></span>'+
+    '<button type="button" class="btn small primary" id="pvExit">Exit student view</button></div>'+
+    '<iframe id="pvFrame" title="'+esc("Student view — "+s.name)+'" src="'+esc(location.pathname+"?preview="+encodeURIComponent(s.id)+"#/home")+'"></iframe>';
+  document.body.appendChild(w); applyLang();
+  w.querySelector("#pvExit").onclick = closePreview;
+  w.querySelectorAll("[data-pv]").forEach(b=>b.onclick = ()=>{ w.querySelectorAll("[data-pv]").forEach(x=>x.classList.toggle("on", x===b)); w.classList.toggle("pv-phone", b.dataset.pv==="phone"); });
+  document.addEventListener("keydown", pvKey);
+}
+function closePreview(){ const w = $("#pvWrap"); if (w) w.remove(); document.removeEventListener("keydown", pvKey); }
+function pvKey(e){ if (e.key==="Escape") closePreview(); }
+
 async function initStore(){
   let db = null, userApi = null, userId = null;
   if (WEB && /\.netlify\.app$/.test(location.hostname) && !window.__stayHere) await movedNotice(); // the app moved to GitHub Pages
@@ -3467,6 +3512,7 @@ async function initStore(){
   }
   if (db && userId){
     store = makeDbStore(db, userId);
+    if (PREVIEW){ try { applyLoaded(await store.loadAll()); } catch(e){} return startPreview(); } // read once, never written
     try { applyLoaded(await store.loadAll()); setSync("ok"); store.tidy(); store.subscribe(); portal = makePortal(db); portal.start();
       if (WEB) setTimeout(()=>{ const t = today(), st = state.settings;
         const monthly = (st.ratingsSyncedAt||"").slice(0,7)!==t.slice(0,7) && +t.slice(8)>=2, retry = (st.ratingsFailed||[]).length && st.ratingsTriedAt!==t;
@@ -3475,7 +3521,7 @@ async function initStore(){
       const dg = store.deleteGame, da = store.deleteAssignment;
       store.deleteGame = id=>{ dg(id); portal.scheduleAll(); }; store.deleteAssignment = id=>{ da(id); portal.scheduleAll(); }; }
     catch(e){ store = makeLocalStore(); applyLoaded(await store.loadAll()); setSync("local"); }
-  } else { store = makeLocalStore(); applyLoaded(await store.loadAll()); setSync("local"); }
+  } else { store = makeLocalStore(); applyLoaded(await store.loadAll()); if (PREVIEW) return startPreview(); setSync("local"); }
   loaded = true; render();
 }
 const saveStudent = s => { store && store.saveStudent(s.id); portal && (freeRules().length ? portal.scheduleAll() : portal.schedule(s.id)); };
@@ -3866,7 +3912,7 @@ function studentUpdates(s){
 }
 // What a student or parent has already seen: kept on their account (so it follows them across devices),
 // with this browser as a fallback. An update stays "New" until they open it or mark all as read.
-const seenKey = ()=>"cb-seen-"+((webUser && webUser.id) || "local"); // one per account, even on a shared tablet
+const seenKey = ()=>"cb-seen-"+(PREVIEW ? "preview" : (webUser && webUser.id) || "local"); // one per account, even on a shared tablet
 function seenSet(){
   const out = new Set((store && store.me && (store.me()||{}).seen) || []);
   try { JSON.parse(localStorage.getItem(seenKey())||"[]").forEach(k=>out.add(k)); } catch(e){}
@@ -4661,9 +4707,10 @@ function pStudent(v, r){
     (l.balance>0.009?'<span class="tag '+(l.overdue?"flag":"warn")+'" style="font-size:.85rem;padding:4px 10px">Owes '+money(l.balance)+'</span>':'')+
     (s.fideId?'<a class="btn small" href="'+fideUrl(s.fideId)+'" target="_blank" rel="noopener">FIDE '+esc(s.fideId)+' ↗</a>':'')+
     (s.icfId?'<a class="btn small" href="'+icfUrl(s.icfId)+'" target="_blank" rel="noopener">ICF '+esc(s.icfId)+' ↗</a>':'')+
-    '<button class="btn" id="stEdit">Edit profile</button></div>'+
+    (s.self ? '' : '<button class="btn" id="stView" title="See the app as '+esc(s.name.split(" ")[0])+' sees it">👁 Student view</button>')+'<button class="btn" id="stEdit">Edit profile</button></div>'+
     '<nav class="tabs" aria-label="Student sections">'+TABS.filter(([k])=>!((s.self || !hasMoney(s)) && k==="payments")).map(([k,lab])=>'<a href="#/student/'+s.id+'/'+k+'"'+(tabGroup(r.tab)===k?' aria-current="page"':"")+'>'+lab+'</a>').join("")+'</nav><div id="tab"></div>';
   $("#stEdit").onclick = ()=>editStudent(s);
+  if ($("#stView")) $("#stView").onclick = ()=>openPreview(s);
   const T = {overview:tOverview, sessions:tSessions, work:tWork, fitness:tFitness, assignments:tAssignments, books:tBooks, games:tGames, studied:tStudied, repertoire:tRepertoire, tournaments:tTournaments, payments:tPayments};
   (T[r.tab]||tOverview)($("#tab"), s);
 }
@@ -7213,7 +7260,7 @@ const HE = {
   "Theme / what to learn":"נושא / מה ללמוד", "Found in":"נמצא ב־", "Lessons learned":"מה למדנו", "What the student took from this game":"מה התלמיד לקח מהמשחק",
   "Enter the names of both players.":"יש להזין את שמות שני השחקנים.", "e.g. Capablanca, José Raúl":"למשל קפבלנקה, חוסה ראול", "e.g. Tartakower, Savielly":"למשל טרטקובר, סבלי",
   "e.g. New York 1924":"למשל ניו יורק 1924", "e.g. Dutch Defence":"למשל ההגנה ההולנדית", "e.g. Rook endgame technique":"למשל טכניקה בסיומי צריחים",
-  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Payments reported in the app":"תשלומים שדווחו באפליקציה", "by the student":"על ידי התלמיד/ה", "by the parent":"על ידי ההורה", "Only you see these payments.":"רק את/ה רואה את התשלומים האלה.", "Only you and the parent see these payments.":"רק את/ה וההורה רואים את התשלומים האלה.", "Show these games":"הצגת המשחקים האלה", "Games in this opening:":"משחקים בפתיחה הזו:", "Show all games":"הצגת כל המשחקים", "Model games":"משחקים לדוגמה", "My games":"המשחקים שלי", "Add model game":"הוספת משחק לדוגמה", "Edit model game":"עריכת משחק לדוגמה",
+  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "👁 Student view":"👁 תצוגת תלמיד", "Exit student view":"יציאה מתצוגת תלמיד", "Computer":"מחשב", "Phone":"טלפון", "Preview — nothing was sent":"תצוגה מקדימה — שום דבר לא נשלח", "Preview — nothing is saved":"תצוגה מקדימה — שום דבר לא נשמר", "Payments reported in the app":"תשלומים שדווחו באפליקציה", "by the student":"על ידי התלמיד/ה", "by the parent":"על ידי ההורה", "Only you see these payments.":"רק את/ה רואה את התשלומים האלה.", "Only you and the parent see these payments.":"רק את/ה וההורה רואים את התשלומים האלה.", "Show these games":"הצגת המשחקים האלה", "Games in this opening:":"משחקים בפתיחה הזו:", "Show all games":"הצגת כל המשחקים", "Model games":"משחקים לדוגמה", "My games":"המשחקים שלי", "Add model game":"הוספת משחק לדוגמה", "Edit model game":"עריכת משחק לדוגמה",
   "No model games yet — add them in Games → Model games":"עדיין אין משחקים לדוגמה — אפשר להוסיף במשחקים ← משחקים לדוגמה", "No games yet — add them in the Games tab":"עדיין אין משחקים — אפשר להוסיף בלשונית משחקים",
   "Pick the game. If it isn't listed, add it in Games → Model games first.":"יש לבחור משחק. אם הוא לא ברשימה, צריך להוסיף אותו קודם במשחקים ← משחקים לדוגמה.", "Pick the game. If it isn't listed, add it in the Games tab first.":"יש לבחור משחק. אם הוא לא ברשימה, צריך להוסיף אותו קודם בלשונית משחקים.",
   // repertoire
@@ -7424,6 +7471,8 @@ const HE_RX = [
   [/^(\d+) needs? review$/, "$1 דורשים חזרה"], [/^(\d+) lines? needs? review$/, (m,n)=>+n===1 ? "וריאנט אחד דורש חזרה" : n+" וריאנטים דורשים חזרה"],
   [/^(\d+) of (\d+)$/, "$1 מתוך $2"],
   [/^(\S+)’s games$/, (m,n)=>"המשחקים של "+n],
+  [/^Viewing as (\S+)$/, "צפייה כמו $1"], [/^What (\S+) sees in the app · nothing here is saved or sent$/, "מה ש־$1 רואה באפליקציה · שום דבר כאן לא נשמר ולא נשלח"],
+  [/^See the app as (\S+) sees it$/, "לראות את האפליקציה כמו ש־$1 רואה אותה"],
   [/^Visible in (\S+)’s app$/, "מוצג באפליקציה של $1"], [/^Hide from (\S+)’s app$/, "הסתרה מהאפליקציה של $1"], [/^Show payments in (\S+)’s app$/, "הצגת התשלומים באפליקציה של $1"],
   [/^(\S+) sees a Payments tab with the balance and statement\.$/, "$1 רואה לשונית תשלומים עם היתרה והפירוט."], [/^Payments are now visible in (\S+)’s app$/, "התשלומים מוצגים עכשיו באפליקציה של $1"],
   [/^Payments are hidden from (\S+)’s app$/, "התשלומים הוסתרו מהאפליקציה של $1"], [/^(\S+) isn’t connected to the app yet$/, "$1 עוד לא מחובר/ת לאפליקציה"], [/^Show the (\d+) games$/, "הצגת $1 המשחקים"],
