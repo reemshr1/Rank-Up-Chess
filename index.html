@@ -3460,7 +3460,8 @@ const PREVIEW = (()=>{ try { return new URLSearchParams(location.search).get("pr
 function previewDb(docs, me){
   const snap = (id, data)=>({id, exists:data!==undefined, data:()=>data});
   const colSnap = obj=>({docs:Object.keys(obj).map(id=>snap(id, obj[id])), docChanges:()=>Object.keys(obj).map(id=>({type:"added", doc:snap(id, obj[id])})), metadata:{}});
-  const quiet = ()=>Promise.resolve(), told = ()=>{ toast("Preview — nothing was sent"); return Promise.resolve(); };
+  // shown after the app's own message ("Practice logged"…), so it's the one left on screen
+  const quiet = ()=>Promise.resolve(), told = ()=>{ setTimeout(()=>toast("Preview — nothing was sent"), 250); return Promise.resolve(); };
   const col = (obj, write)=>({ get:async()=>colSnap(obj), onSnapshot:cb=>{ setTimeout(()=>cb(colSnap(obj)), 0); return ()=>{}; },
     doc:id=>({ set:write, delete:quiet, get:async()=>snap(id, obj[id]) }) });
   return { doc:()=>({ get:async()=>snap("me", me), set:quiet, onSnapshot:cb=>{ setTimeout(()=>cb(snap("me", me)), 0); return ()=>{}; },

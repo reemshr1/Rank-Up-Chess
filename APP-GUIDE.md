@@ -90,7 +90,14 @@ sees them). "Who is this?" marks the coach's own profile (My chess).
 ### A student's page
 
 The header shows name, rating, title and level, what they owe, links to their
-FIDE and ICF pages, and **Edit profile**. Six tabs:
+FIDE and ICF pages, **👁 Student view** and **Edit profile**.
+
+**Student view** opens the student's app over the page, built from exactly what
+their app receives, at computer or phone size. Nothing in it is saved or sent
+(anything that would send shows "Preview — nothing was sent"); **Exit student
+view** or Escape closes it.
+
+Six tabs:
 
 **Overview**
 - Five tiles, each linking to its tab: next lesson, balance, open
