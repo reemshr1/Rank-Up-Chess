@@ -4079,7 +4079,7 @@ function pDashboard(v){
     const ws = weekStartOf(t), we = addDays(ws,6), nowMin = new Date().getHours()*60+new Date().getMinutes(), wk = [];
     active.forEach(s=>s.sessions.forEach(x=>{ if (x.date>=ws && x.date<=we && x.status!=="cancelled") wk.push(x); }));
     const left = wk.filter(x=>x.status==="planned" && (x.date>t || (x.date===t && (toMin(x.time)===null || toMin(x.time)+(+x.duration||60)>nowMin)))).length;
-    return '<div class="stat stat-sessions"><div class="l">Sessions</div><div class="stat-split"><div><div class="v num">'+wk.length+'</div><div class="l sub">This week</div></div><div><div class="v num">'+left+'</div><div class="l sub">Left</div></div></div></div>'; })()+
+    return '<div class="stat stat-sessions"><div class="l">Sessions this week</div><div class="stat-split"><div><div class="v num">'+wk.length+'</div><div class="l sub">Total</div></div><div><div class="v num">'+left+'</div><div class="l sub">Left</div></div></div></div>'; })()+
   '<div class="stat"><div class="v num'+(outstanding>0?" money-owed":"")+'">'+money(outstanding)+'</div><div class="l">Outstanding</div></div>'+
   '<div class="stat"><div class="v num">'+money(received)+'</div><div class="l">Received this month</div></div></div>'+
   backupNote(t)+
@@ -7088,7 +7088,7 @@ const HE = {
   "Show all":"הצגת הכול", "Show 25 more":"הצגת 25 נוספים", "Show all tournaments":"הצגת כל הטורנירים", "Yes":"כן", "No":"לא", "optional":"לא חובה", "Board":"לוח",
   // dashboard
   "Good morning":"בוקר טוב", "Good afternoon":"צהריים טובים", "Good evening":"ערב טוב", "Record payment":"רישום תשלום", "Plan session":"תכנון שיעור",
-  "Active students":"תלמידים פעילים", "Sessions in the next 7 days":"שיעורים ב־7 הימים הקרובים", "This week":"השבוע", "Left":"נותרו", "Sessions":"שיעורים", "Outstanding":"חוב פתוח", "Received this month":"התקבל החודש",
+  "Active students":"תלמידים פעילים", "Sessions in the next 7 days":"שיעורים ב־7 הימים הקרובים", "This week":"השבוע", "Left":"נותרו", "Sessions":"שיעורים", "Sessions this week":"שיעורים השבוע", "Total":"סה״כ", "Outstanding":"חוב פתוח", "Received this month":"התקבל החודש",
   "Coming up this week":"השבוע הקרוב", "Who owes you":"מי חייב לך", "Tournaments ahead":"טורנירים קרובים", "Assignments due":"משימות להגשה",
   "No topic yet":"עדיין אין נושא", "No payments yet":"עדיין אין תשלומים", "Everyone is paid up.":"כולם שילמו.", "No sessions planned for the next 7 days.":"אין שיעורים מתוכננים ב־7 הימים הקרובים.",
   "No tournaments in the next 60 days.":"אין טורנירים ב־60 הימים הקרובים.", "Nothing due in the next 3 days.":"אין משימות להגשה ב־3 הימים הקרובים.", "In progress":"בתהליך", "Tomorrow":"מחר",
