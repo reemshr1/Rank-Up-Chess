@@ -6958,7 +6958,7 @@ function pSettings(v){
   const editLink = l=>openForm({title:l?"Edit link":"Add link", submit:"Save", fields:[{name:"name",label:"Name",value:l?.name||"",full:true,placeholder:"e.g. Lichess"},
       {name:"url",label:"Address",value:l?.url||"",full:true,placeholder:"https://…"},{name:"note",label:"What it's for (optional)",value:l?.note||"",full:true,placeholder:"e.g. Daily tactics"}],
     onSubmit:d=>{ const name = d.name.trim(); let url = d.url.trim(); if (!name) return "Enter a name.";
-      if (url && !/^https?:\/\//i.test(url)) url = "https://"+url; if (!linkHost(url)) return "Enter the site's address, e.g. lichess.org.";
+      if (url && !/^https?:\/\//i.test(url)) url = "https://"+url; if (!/^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/i.test(linkHost(url))) return "Enter the site's address, e.g. lichess.org.";
       st.links = coachLinks().map(x=>Object.assign({}, x));
       if (l){ const x = st.links.find(y=>y.id===l.id); Object.assign(x, {name, url, note:d.note.trim()}); } else st.links.push({id:"ln-"+uid(), name, url, note:d.note.trim()});
       saveSettings(); render(); toast(l?"Link saved":"Link added"); }});
