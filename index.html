@@ -357,7 +357,9 @@ dialog.wide{width:min(960px,calc(100vw - 24px))}
 .link-card.moving{border-style:dashed}.link-move{display:flex;gap:6px;justify-content:flex-end}.link-move .btn{min-width:36px;padding:2px 8px;font-size:1rem}.link-user a{color:var(--ink);font-weight:700;text-decoration:none}.link-user a:hover{text-decoration:underline}.link-user:has(>span:first-child){display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:8px}.link-user>span:first-child{grid-column:1/-1;color:var(--muted,#5b6472)}.link-user>a,.link-user>b{overflow-wrap:anywhere}
 .link-card:hover{border-color:var(--accent,#1E4E9C)}.link-card span{font-weight:400}.link-card b span{font-weight:inherit}
 .dmy{position:relative;display:flex;align-items:center;width:100%}
-.dmy>input[type=text]{flex:1;min-width:0;width:100%;padding-inline-end:44px}
+.dmy>input[type=text]{flex:1;min-width:0;width:100%;padding-right:44px}
+/* the field types left to right, but in Hebrew the button sits on the left: room for it there, the date on the right */
+[dir="rtl"] .dmy>input[type=text]{padding-right:10px;padding-left:44px;text-align:right}
 .dmy-pick{position:absolute;inset-inline-end:4px;top:50%;transform:translateY(-50%);width:36px;height:34px;display:grid;place-items:center;cursor:pointer;overflow:hidden;border-radius:6px}
 .dmy-pick:hover{background:color-mix(in srgb,var(--ink) 8%,transparent)}
 .dmy-pick>input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;padding:0;margin:0;border:0;min-width:0}
