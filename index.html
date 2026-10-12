@@ -3536,6 +3536,7 @@ async function initStore(){
     store = makeDbStore(db, userId);
     if (PREVIEW){ try { applyLoaded(await store.loadAll()); } catch(e){} return startPreview(); } // read once, never written
     try { applyLoaded(await store.loadAll()); setSync("ok"); store.tidy(); store.subscribe(); portal = makePortal(db); portal.start();
+      if (WEB) autoFolder();
       if (WEB) setTimeout(()=>{ const t = today(), st = state.settings;
         const monthly = (st.ratingsSyncedAt||"").slice(0,7)!==t.slice(0,7) && +t.slice(8)>=2, retry = (st.ratingsFailed||[]).length && st.ratingsTriedAt!==t;
         if (monthly || retry) syncRatings(false); }, 4000);
@@ -3564,9 +3565,83 @@ async function saveFile(filename, data){
   return false;
 }
 // Download every record as one JSON file, and remember when, for the backup reminder on Today.
+const backupJson = ()=>JSON.stringify({app:"rank-up",version:1,exportedAt:new Date().toISOString(),...state},null,2);
 async function downloadBackup(){
-  const data = JSON.stringify({app:"rank-up",version:1,exportedAt:new Date().toISOString(),...state},null,2);
-  if (await saveFile("rank-up-backup-"+today()+".json", data)){ state.settings.lastBackup = today(); saveSettings(); toast("Backup downloaded"); render(); }
+  if (await saveFile("rank-up-backup-"+today()+".json", backupJson())){ state.settings.lastBackup = today(); saveSettings(); toast("Backup downloaded"); render(); }
+}
+/* ---------- automatic backups ----------
+   Every night Supabase copies the coach's records into the "backups" table and keeps 30 days (supabase/schema.sql).
+   A nightly copy holds the raw documents; downloading one turns it into the same file as "Download backup",
+   so "Restore from backup" reads both. */
+function backupFromDocs(docs, exportedAt){
+  const mains = {}, logs = {}, out = {app:"rank-up", version:1, exportedAt, settings:{}, students:[], assignments:[], games:[]};
+  Object.entries(docs||{}).forEach(([id, v])=>{ if (!v) return;
+    if (id==="settings") out.settings = v; else if (id.startsWith("st-")) mains[id] = v; else if (id.startsWith("lg-")) logs[id] = v;
+    else if (id.startsWith("as-")) out.assignments.push(v); else if (id.startsWith("gm-")) out.games.push(v); });
+  out.students = Object.keys(mains).map(id=>joinStudent(mains[id], Object.values(logs).filter(l=>l.sid===id)));
+  return out;
+}
+let nightlyAll = false;
+async function fillNightly(el){
+  if (!el) return;
+  let r; try { r = await sb.from("backups").select("day").order("day", {ascending:false}); } catch(e){ r = {error:e}; }
+  if (!el.isConnected) return;
+  if (r.error){ el.innerHTML = '<p class="small muted" style="margin:0">Nightly backups aren’t turned on yet.</p>'; return; }
+  const days = (r.data||[]).map(x=>String(x.day).slice(0,10));
+  if (!days.length){ el.innerHTML = '<p class="small muted" style="margin:0">No nightly backup yet — the first one is made tonight.</p>'; return; }
+  const shown = nightlyAll ? days : days.slice(0, 5);
+  el.innerHTML = '<ul class="list nightly">'+shown.map(d=>'<li><div class="main">'+esc(fmtDate(d,{weekday:"short",day:"numeric",month:"short",year:"numeric"}))+'</div><button type="button" class="btn small" data-nb="'+esc(d)+'">Download</button></li>').join("")+'</ul>'+
+    (days.length>5 ? '<button type="button" class="btn small ghost" data-nb="all">'+(nightlyAll?"Show less":"Show all")+'</button>' : '');
+  el.onclick = async e=>{ const b = e.target.closest("[data-nb]"); if (!b) return; const d = b.dataset.nb;
+    if (d==="all"){ nightlyAll = !nightlyAll; return fillNightly(el); }
+    let x; try { x = await sb.from("backups").select("data").eq("day", d).maybeSingle(); } catch(err){ x = {error:err}; }
+    if (x.error || !x.data) return toast("Couldn’t load that backup.");
+    const data = x.data.data || {};
+    if (await saveFile("rank-up-backup-"+d+".json", JSON.stringify(backupFromDocs(data.docs, data.exportedAt), null, 2))) toast("Backup downloaded"); };
+}
+// A folder on this computer (Chrome or Edge): the app saves a backup file into it once a day, when it's opened.
+// The folder is remembered by this browser only (IndexedDB), so each computer has its own.
+const FOLDER_OK = typeof window.showDirectoryPicker==="function";
+let backupFolder = null, folderAsk = false;
+function kv(key, val){ return new Promise((ok, fail)=>{ const o = indexedDB.open("rank-up", 1);
+  o.onupgradeneeded = ()=>o.result.createObjectStore("kv"); o.onerror = ()=>fail(o.error);
+  o.onsuccess = ()=>{ const tx = o.result.transaction("kv", val===undefined ? "readonly" : "readwrite"), st = tx.objectStore("kv");
+    const r = val===undefined ? st.get(key) : val===null ? st.delete(key) : st.put(val, key); r.onsuccess = ()=>ok(r.result); r.onerror = ()=>fail(r.error); }; }); }
+const folderSaved = ()=>{ try { return localStorage.getItem("cb-folder-saved")||""; } catch(e){ return ""; } };
+async function saveToFolder(ask){
+  const h = backupFolder; if (!h) return false;
+  try {
+    let p = await h.queryPermission({mode:"readwrite"});
+    if (p!=="granted" && ask) p = await h.requestPermission({mode:"readwrite"});
+    if (p!=="granted"){ folderAsk = true; return false; }
+    const f = await h.getFileHandle("rank-up-backup-"+today()+".json", {create:true}), w = await f.createWritable();
+    await w.write(backupJson()); await w.close();
+  } catch(e){ if (ask) toast("The backup couldn’t be saved in that folder."); return false; }
+  folderAsk = false; try { localStorage.setItem("cb-folder-saved", today()); } catch(e){}
+  if (state.settings.lastBackup!==today()){ state.settings.lastBackup = today(); saveSettings(); }
+  return true;
+}
+async function chooseFolder(){
+  let h; try { h = await window.showDirectoryPicker({id:"rank-up-backups", mode:"readwrite", startIn:"documents"}); } catch(e){ if (e && e.name!=="AbortError") toast("That folder can’t be used."); return; }
+  backupFolder = h; try { await kv("backupFolder", h); } catch(e){}
+  if (await saveToFolder(true)) toast("Backup saved to your folder"); render();
+}
+async function stopFolder(){ backupFolder = null; folderAsk = false; try { await kv("backupFolder", null); localStorage.removeItem("cb-folder-saved"); } catch(e){} toast("Backups to the folder stopped"); render(); }
+// Settings → Backup, on the web: the nightly copies and the folder on this computer.
+function backupMore(){
+  const saved = folderSaved();
+  return '<h3 class="subh">Every night</h3><p class="small muted" style="margin-top:0">A copy of all your records is saved every night and kept for 30 days.</p><div id="nightly"><p class="small muted" style="margin:0">Loading…</p></div>'+
+    '<h3 class="subh">Folder on this computer</h3>'+
+    (!FOLDER_OK ? '<p class="small muted" style="margin-top:0">To save a backup into a folder automatically, open the app in Chrome or Edge on a computer.</p>'
+    : !backupFolder ? '<p class="small muted" style="margin-top:0">Choose a folder and the app saves a backup into it once a day, when you open the app on this computer.</p><div class="row-actions"><button type="button" class="btn" data-bf="choose">Choose a folder</button></div>'
+    : '<p class="small" style="margin-top:0"><span class="muted">Folder:</span> <b dir="auto">'+esc(backupFolder.name)+'</b></p><p class="small" style="margin-top:0">'+(saved ? "Last saved: "+esc(fmtDate(saved)) : "Not saved yet.")+'</p>'+
+      '<div class="row-actions"><button type="button" class="btn" data-bf="save">Save now</button><button type="button" class="btn ghost" data-bf="choose">Change folder</button><button type="button" class="btn ghost" data-bf="stop">Stop</button></div>');
+}
+// On opening the app: today's file, if it isn't there yet. If Chrome wants permission again, Today shows a button.
+async function autoFolder(){
+  if (!FOLDER_OK) return;
+  try { backupFolder = await kv("backupFolder") || null; } catch(e){ backupFolder = null; }
+  if (backupFolder && folderSaved()!==today()){ await saveToFolder(false); render(); }
 }
 // CSV that Excel opens with Hebrew names intact (BOM) and values containing commas or quotes kept whole.
 const toCsv = rows => "﻿"+rows.map(r=>r.map(v=>{ const x = v==null ? "" : String(v); return /[",\n\r]/.test(x) ? '"'+x.replace(/"/g,'""')+'"' : x; }).join(",")).join("\r\n")+"\r\n";
@@ -4208,7 +4283,7 @@ function pDashboard(v){
   $("#dPay").onclick = ()=>pickStudent("Record a payment from…", s=>editPayment(s,null));
   const find = id=>{ const [a,b] = id.split("|"); const s = byId(a); return [s, s && s.sessions.find(y=>y.id===b)]; };
   const req = id=>{ const [a,b] = id.split("|"); const s = byId(a); return [s, s && (s.requests||[]).find(y=>y.id===b)]; };
-  bindActions(v,{ prOk:id=>decidePayReport(id, true), prNo:id=>decidePayReport(id, false), done:id=>{ const [s,x] = find(id); if (x) markDone(s,x); }, plan:id=>planSession({sid:id}), backup:()=>downloadBackup(),
+  bindActions(v,{ prOk:id=>decidePayReport(id, true), prNo:id=>decidePayReport(id, false), done:id=>{ const [s,x] = find(id); if (x) markDone(s,x); }, plan:id=>planSession({sid:id}), backup:()=>downloadBackup(), folderSave:async()=>{ if (await saveToFolder(true)) toast("Backup saved to your folder"); render(); },
     approve:id=>{ const [s,r] = req(id); if (r) approveRequest(s,r); },
     remind:id=>{ const x = byId(id); if (x) sendReminder(x); },
     nudge:id=>{ const x = byId(id); if (x) nudgeStudent(x); },
@@ -4342,9 +4417,10 @@ function approveRequest(s, r){
       sendConfirm("added", s, {date:x.date, time:x.time});
     }});
 }
-// A reminder on Today when the last backup file is over a month old (or never, once the board has been in use for two weeks).
-const BACKUP_EVERY_DAYS = 30;
+// A reminder on Today when the last backup file is over a week old (or never, once the board has been in use for two weeks).
+const BACKUP_EVERY_DAYS = 7;
 function backupNote(t){
+  if (backupFolder && folderAsk) return '<div class="note-bar"><span>Save today’s backup to your folder on this computer.</span><button class="btn small" data-a="folderSave">Save backup</button></div>';
   const last = state.settings.lastBackup, age = last ? daysBetween(last, t) : null;
   const since = state.students.reduce((m,s)=>s.createdAt && s.createdAt<m ? s.createdAt : m, t);
   if (last ? age<BACKUP_EVERY_DAYS : daysBetween(since, t)<14) return "";
@@ -7015,7 +7091,7 @@ function pSettings(v){
       '<div class="row-actions" style="margin-top:10px;justify-content:flex-start"><button type="button" class="btn small primary" data-ln="add">Add link</button>'+(Array.isArray(st.links)?'<button type="button" class="btn small ghost" data-ln="reset">Restore the suggested list</button>':'')+'</div>')+
     (WEB && webUser ? panel("Phone alerts", '<p class="small muted" style="margin-top:0">Students and parents get an alert on their phone for new notifications, lesson changes and, for students, the practice check-in. Each of them turns alerts on from the 🔔 window in their app.</p><div id="pushBox"></div>') : '')+
     (WEB && webUser ? panel("Account", '<p style="margin-top:0">Signed in as <bdi dir="ltr">'+esc(webUser.email||"")+'</bdi></p><button class="btn" data-signout>Sign out</button>') : '')+
-    panel("Backup", '<p class="small muted" style="margin-top:0">'+(WEB?"Your data is saved to your account online. Students and parents only see what you share with them.":store&&store.kind==="db"?"Your data is saved to your account and is private to you, even if you share this page.":"Your data is saved in this browser only. Download a backup regularly.")+'</p><p class="small" style="margin-top:0">'+(st.lastBackup?"Last backup: "+esc(fmtDate(st.lastBackup)):"No backup downloaded yet.")+'</p><div class="row-actions"><button class="btn" id="exp">Download backup</button><label class="btn" for="imp">Restore from backup</label><input id="imp" type="file" accept="application/json,.json" hidden></div>')+
+    panel("Backup", '<p class="small muted" style="margin-top:0">'+(WEB?"Your data is saved to your account online. Students and parents only see what you share with them.":store&&store.kind==="db"?"Your data is saved to your account and is private to you, even if you share this page.":"Your data is saved in this browser only. Download a backup regularly.")+'</p><p class="small" style="margin-top:0">'+(st.lastBackup?"Last backup: "+esc(fmtDate(st.lastBackup)):"No backup downloaded yet.")+'</p><div class="row-actions"><button class="btn" id="exp">Download backup</button><label class="btn" for="imp">Restore from backup</label><input id="imp" type="file" accept="application/json,.json" hidden></div>'+(WEB ? backupMore() : ''))+
   '</div>';
   fillPush($("#pushBox"));
   // useful links: the first change copies the suggested list into the settings
@@ -7037,6 +7113,10 @@ function pSettings(v){
     put("overdueDays", Math.max(1,+f.overdueDays.value||30)); put("lang", f.lang.value); put("payInfo", f.payInfo.value.trim()); if (f.appLink.value.trim()!==APP_LINK()) put("appLink", f.appLink.value.trim());
     saveSettings(); render(); toast("Settings saved"); };
   $("#exp").onclick = downloadBackup;
+  if (WEB){ fillNightly($("#nightly"));
+    document.querySelectorAll("[data-bf]").forEach(b=>b.onclick = async ()=>{ const k = b.dataset.bf;
+      if (k==="choose") chooseFolder(); else if (k==="stop") stopFolder();
+      else if (await saveToFolder(true)){ toast("Backup saved to your folder"); render(); } }); }
   $("#imp").onchange = e=>{
     const file = e.target.files[0]; if (!file) return;
     file.text().then(txt=>{
@@ -7386,7 +7466,7 @@ const HE = {
   "Theme / what to learn":"נושא / מה ללמוד", "Found in":"נמצא ב־", "Lessons learned":"מה למדנו", "What the student took from this game":"מה התלמיד לקח מהמשחק",
   "Enter the names of both players.":"יש להזין את שמות שני השחקנים.", "e.g. Capablanca, José Raúl":"למשל קפבלנקה, חוסה ראול", "e.g. Tartakower, Savielly":"למשל טרטקובר, סבלי",
   "e.g. New York 1924":"למשל ניו יורק 1924", "e.g. Dutch Defence":"למשל ההגנה ההולנדית", "e.g. Rook endgame technique":"למשל טכניקה בסיומי צריחים",
-  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Useful links":"קישורים שימושיים", "Choose a date":"בחירת תאריך","Choose a time":"בחירת שעה", "Change order":"שינוי סדר", "Put the sites you use most at the top.":"שימו למעלה את האתרים שאתם משתמשים בהם הכי הרבה.", "Username:":"שם משתמש:", "Username":"שם משתמש", "Change":"שינוי", "Add your username":"הוספת שם המשתמש שלך", "Add username":"הוספת שם משתמש", "Username saved":"שם המשתמש נשמר", "Username removed":"שם המשתמש הוסר", "Leave empty to remove it":"להסרה — להשאיר ריק", "Shown to students and parents on their Practice page.":"מוצגים לתלמידים ולהורים בדף התרגול.", "Add link":"הוספת קישור", "Edit link":"עריכת קישור",
+  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Useful links":"קישורים שימושיים", "Choose a date":"בחירת תאריך", "Every night":"כל לילה", "A copy of all your records is saved every night and kept for 30 days.":"בכל לילה נשמר עותק של כל הנתונים שלך, למשך 30 יום.", "Nightly backups aren’t turned on yet.":"הגיבוי הלילי עדיין לא הופעל.", "No nightly backup yet — the first one is made tonight.":"עדיין אין גיבוי לילי — הראשון ייעשה הלילה.", "Download":"הורדה", "Folder on this computer":"תיקייה במחשב הזה", "To save a backup into a folder automatically, open the app in Chrome or Edge on a computer.":"כדי לשמור גיבוי בתיקייה באופן אוטומטי, יש לפתוח את האפליקציה ב־Chrome או ב־Edge במחשב.", "Choose a folder and the app saves a backup into it once a day, when you open the app on this computer.":"בוחרים תיקייה, והאפליקציה שומרת בה גיבוי פעם ביום, כשפותחים אותה במחשב הזה.", "Choose a folder":"בחירת תיקייה", "Folder:":"תיקייה:", "Not saved yet.":"עוד לא נשמר.", "Save now":"שמירה עכשיו", "Change folder":"החלפת תיקייה", "Stop":"הפסקה", "Save today’s backup to your folder on this computer.":"שמירת הגיבוי של היום בתיקייה שלך במחשב הזה.", "Save backup":"שמירת גיבוי", "Couldn’t load that backup.":"לא ניתן היה לטעון את הגיבוי הזה.", "The backup couldn’t be saved in that folder.":"לא ניתן היה לשמור את הגיבוי בתיקייה הזו.", "That folder can’t be used.":"אי אפשר להשתמש בתיקייה הזו.", "Backup saved to your folder":"הגיבוי נשמר בתיקייה שלך", "Backups to the folder stopped":"הגיבויים לתיקייה הופסקו", "Loading…":"טוען…", "Choose a time":"בחירת שעה", "Change order":"שינוי סדר", "Put the sites you use most at the top.":"שימו למעלה את האתרים שאתם משתמשים בהם הכי הרבה.", "Username:":"שם משתמש:", "Username":"שם משתמש", "Change":"שינוי", "Add your username":"הוספת שם המשתמש שלך", "Add username":"הוספת שם משתמש", "Username saved":"שם המשתמש נשמר", "Username removed":"שם המשתמש הוסר", "Leave empty to remove it":"להסרה — להשאיר ריק", "Shown to students and parents on their Practice page.":"מוצגים לתלמידים ולהורים בדף התרגול.", "Add link":"הוספת קישור", "Edit link":"עריכת קישור",
   "Restore the suggested list":"שחזור הרשימה המומלצת", "No links yet.":"עדיין אין קישורים.", "Address":"כתובת", "What it's for (optional)":"למה זה טוב (לא חובה)", "Link saved":"הקישור נשמר", "Link added":"הקישור נוסף", "Link removed":"הקישור הוסר",
   "Students and parents won't see this link any more.":"תלמידים והורים לא יראו יותר את הקישור הזה.", "Restore the suggested list?":"לשחזר את הרשימה המומלצת?", "Your own links and changes will be replaced by the suggested list.":"הקישורים והשינויים שלך יוחלפו ברשימה המומלצת.",
   "Restore":"שחזור", "Suggested list restored":"הרשימה המומלצת שוחזרה", "Enter the site's address, e.g. lichess.org.":"יש להזין את כתובת האתר, למשל lichess.org.",
@@ -7650,7 +7730,7 @@ const HE_RX = [
   [/^Add the moves \(PGN\) to the games in the Games tab to see which openings (.+) meets and how they score\.$/, "הוספת המסעים (PGN) למשחקים בלשונית משחקים תראה אילו פתיחות $1 פוגש ומה הניקוד בהן."],
   [/^(\d+) openings? without a line$/, (m,n)=>+n===1 ? "פתיחה אחת בלי וריאנט" : n+" פתיחות בלי וריאנט"],
   [/^(\d+) rated games?$/, "$1 משחקים מדורגים"], [/^[Aa]verage opponent (\d+)$/, "יריב ממוצע $1"],
-  [/^(\d+) overdue$/, "$1 באיחור"], [/^Last backup: (\d+) days ago — download a fresh copy\.$/, "הגיבוי האחרון לפני $1 ימים — כדאי להוריד עותק חדש."], [/^Last backup: (.+)$/, "גיבוי אחרון: $1"], [/^(\d+)d$/, "$1 ימים"],
+  [/^(\d+) overdue$/, "$1 באיחור"], [/^Last backup: (\d+) days ago — download a fresh copy\.$/, "הגיבוי האחרון לפני $1 ימים — כדאי להוריד עותק חדש."], [/^Last backup: (.+)$/, "גיבוי אחרון: $1"], [/^Last saved: (.+)$/, "נשמר לאחרונה: $1"], [/^(\d+)d$/, "$1 ימים"],
   [/^From (.+) until (.+)$/, "מ־$1 עד $2"], [/^From (.+)$/, "מ־$1"],
   [/^(Good morning|Good afternoon|Good evening), (.+)$/, (m,g,n)=>HE[g]+", "+n],
   [/^In (\d+) days$/, "בעוד $1 ימים"],

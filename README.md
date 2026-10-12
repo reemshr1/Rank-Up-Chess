@@ -19,6 +19,9 @@ The whole app lives in `index.html` and runs in two places:
   `const SUPABASE` (both are meant to be public).
 - `supabase/schema.sql` — creates the tables and access rules. Run it once in
   Supabase → SQL Editor; running it again is safe.
+  It also sets up the nightly backup: every night (00:00 UTC) a copy of the
+  coach's records goes into the `backups` table, kept 30 days, scheduled with
+  pg_cron. Settings → Backup lists and downloads them.
 - `supabase/functions/ratings` — fetches official FIDE and ICF ratings.
 - `supabase/functions/push` — sends phone alerts (push notifications). To set
   it up: run `supabase/schema.sql` again in the SQL Editor; then in Supabase →
