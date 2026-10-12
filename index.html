@@ -356,6 +356,12 @@ dialog.wide{width:min(960px,calc(100vw - 24px))}
 .link-user{border-top:1px dashed var(--line);padding-top:6px}
 .link-card.moving{border-style:dashed}.link-move{display:flex;gap:6px;justify-content:flex-end}.link-move .btn{min-width:36px;padding:2px 8px;font-size:1rem}.link-user a{color:var(--ink);font-weight:700;text-decoration:none}.link-user a:hover{text-decoration:underline}.link-user:has(>span:first-child){display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:8px}.link-user>span:first-child{grid-column:1/-1;color:var(--muted,#5b6472)}.link-user>a,.link-user>b{overflow-wrap:anywhere}
 .link-card:hover{border-color:var(--accent,#1E4E9C)}.link-card span{font-weight:400}.link-card b span{font-weight:inherit}
+.dmy{position:relative;display:flex;align-items:center;width:100%}
+.dmy>input[type=text]{flex:1;min-width:0;width:100%;padding-inline-end:44px}
+.dmy-pick{position:absolute;inset-inline-end:4px;top:50%;transform:translateY(-50%);width:36px;height:34px;display:grid;place-items:center;cursor:pointer;overflow:hidden;border-radius:6px}
+.dmy-pick:hover{background:color-mix(in srgb,var(--ink) 8%,transparent)}
+.dmy-pick>input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;padding:0;margin:0;border:0;min-width:0}
+.dmy>input[aria-invalid=true]{border-color:#c0392b;box-shadow:inset 0 -2px 0 #c0392b;background:color-mix(in srgb,#c0392b 12%,var(--card,#fff));color:#a5281b}
 .push-box{padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-sm)}
 .push-fail{margin-top:8px;padding:8px 10px;border-radius:var(--r-sm);border:1px solid var(--warn);color:var(--ink)}
 .notice-list{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto;margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:var(--r-sm)}
@@ -2474,7 +2480,7 @@ const ltr = x => '<bdi dir="ltr">'+esc(x)+'</bdi>';
 // or dates in them) as it appears. Stored values such as categories and statuses stay in English, so the
 // data is the same in either language. Text fields, move lists and the board are never touched.
 const lang = ()=>state.settings.lang==="he" ? "he" : "en";
-const LOCALE = ()=>lang()==="he" ? "he-IL" : undefined;
+const LOCALE = ()=>lang()==="he" ? "he-IL" : "en-GB"; // day before month, whatever the phone's own setting
 const TR_SKIP = "textarea,script,style,.moves,.line-box,.cboard,.no-tr";
 const TR_ATTRS = ["placeholder","title","aria-label"];
 const heWord = w => (Object.prototype.hasOwnProperty.call(HE, w) ? HE[w] : w); // translate a captured value if it is a known word (a category, a status)
@@ -3565,6 +3571,43 @@ async function downloadBackup(){
 // CSV that Excel opens with Hebrew names intact (BOM) and values containing commas or quotes kept whole.
 const toCsv = rows => "﻿"+rows.map(r=>r.map(v=>{ const x = v==null ? "" : String(v); return /[",\n\r]/.test(x) ? '"'+x.replace(/"/g,'""')+'"' : x; }).join(",")).join("\r\n")+"\r\n";
 
+/* ---------- date fields: always shown and typed as dd/mm/yyyy, whatever the phone's language ----------
+   The browser's own date input (which shows mm/dd/yyyy on many phones) stays in the form, invisible, under a 📅
+   button that opens the phone's calendar; it keeps the value (2026-10-12) the rest of the app reads. */
+const isoToDmy = v=>/^\d{4}-\d{2}-\d{2}$/.test(v||"") ? v.slice(8,10)+"/"+v.slice(5,7)+"/"+v.slice(0,4) : "";
+const ymd = (y,mo,d)=>{ const dt = new Date(y, mo-1, d); return dt.getFullYear()===y && dt.getMonth()===mo-1 && dt.getDate()===d ? iso(dt) : null; };
+// "12/10/2026", "12.10.2026", "2026-10-12"; while typing only a full year counts (so "1/2/20" isn't taken as 2020 too soon)
+function dmyToIso(t, typing){ t = String(t||"").trim(); if (!t) return "";
+  let m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(t); if (m) return ymd(+m[1], +m[2], +m[3]);
+  m = (typing ? /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/ : /^(\d{1,2})[\/.\-\s](\d{1,2})[\/.\-\s](\d{2}|\d{4})$/).exec(t); if (!m) return null;
+  return ymd(m[3].length===2 ? 2000 + +m[3] : +m[3], +m[2], +m[1]); }
+// times in 24 hours: "17:00", "17.30", "1730", "9:05", "9"; while typing only a full hh:mm counts
+function hmTo24(t, typing){ t = String(t||"").trim(); if (!t) return "";
+  const m = (typing ? /^(\d{1,2})[:.](\d{2})$/ : /^(\d{1,2})(?:[:. ]?(\d{2}))?$/).exec(t); if (!m) return null;
+  const h = +m[1], mi = +(m[2]||0); return h<24 && mi<60 ? String(h).padStart(2,"0")+":"+String(mi).padStart(2,"0") : null; }
+function dateFields(root){
+  if (!root) return;
+  root.querySelectorAll('input[type="date"]:not([data-dmy]), input[type="time"]:not([data-dmy])').forEach(nat=>{
+    nat.setAttribute("data-dmy", "1");
+    const T = nat.type==="time", toText = T ? (v=>/^\d{2}:\d{2}/.test(v||"") ? v.slice(0,5) : "") : isoToDmy, parse = T ? hmTo24 : dmyToIso;
+    const wrap = document.createElement("span"), txt = document.createElement("input"), pick = document.createElement("span");
+    wrap.className = "dmy"; pick.className = "dmy-pick"; if (T) pick.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'; else pick.textContent = "📅"; pick.title = T ? "Choose a time" : "Choose a date";
+    Object.assign(txt, {type:"text", inputMode:"numeric", placeholder:T ? "hh:mm" : "dd/mm/yyyy", autocomplete:"off", required:nat.required}); txt.dir = "ltr";
+    if (nat.id){ txt.id = nat.id; nat.id = nat.id+"_pick"; }
+    if (nat.getAttribute("aria-label")) txt.setAttribute("aria-label", nat.getAttribute("aria-label"));
+    nat.parentNode.insertBefore(wrap, nat); wrap.append(txt, pick); pick.appendChild(nat); nat.tabIndex = -1; nat.setAttribute("aria-hidden", "true");
+    let own = false;
+    const show = ()=>{ if (own) return; txt.value = toText(nat.value); txt.removeAttribute("aria-invalid"); };
+    const put = v=>{ if (v===nat.value) return; nat.value = v; own = true; nat.dispatchEvent(new Event("input", {bubbles:true})); nat.dispatchEvent(new Event("change", {bubbles:true})); own = false; };
+    show();
+    txt.addEventListener("input", ()=>{ const v = parse(txt.value, true); if (v!==null) put(v); });
+    txt.addEventListener("blur", ()=>{ const v = parse(txt.value); if (v===null){ txt.setAttribute("aria-invalid", "true"); put(""); } else { put(v); show(); } });
+    nat.addEventListener("change", show);
+    nat.addEventListener("click", ()=>{ try { nat.showPicker(); } catch(e){} });
+    nat._dmyShow = show;
+  });
+}
+const syncDates = root=>root && root.querySelectorAll('input[data-dmy]').forEach(n=>n._dmyShow && n._dmyShow());
 function openForm({title, fields, submit="Save", onSubmit, danger, parentOk}){
   // Parents view their child's records; only lesson requests and changes are open to them.
   if (PARENT() && !parentOk){ toast("View only — "+(state.students[0]?state.students[0].name.split(" ")[0]:"your child")+" or the coach can change this"); return; }
@@ -3582,6 +3625,7 @@ function openForm({title, fields, submit="Save", onSubmit, danger, parentOk}){
     }).join("")+
     '</div><p class="form-err" role="alert" hidden></p><footer>'+(danger?'<button type="button" class="btn danger" data-act="danger" style="margin-inline-end:auto">'+esc(danger.label)+'</button>':"")+'<button type="button" class="btn" data-act="cancel">Cancel</button><button type="submit" class="btn primary">'+esc(submit)+'</button></footer></form>';
   const form = m.querySelector("form");
+  dateFields(form); form.addEventListener("change", e=>{ if (!e.target.closest(".dmy")) syncDates(form); }); // a field can set a date in another one
   // A list of dates (one per row), kept in a hidden field as "2026-10-05,2026-10-12".
   fields.filter(f=>f.type==="dates").forEach(f=>{
     const hid = form.elements[f.name], box = form.querySelector('[data-dates="'+f.name+'"]');
@@ -3589,11 +3633,12 @@ function openForm({title, fields, submit="Save", onSubmit, danger, parentOk}){
     const store = list=>{ hid.value = list.join(","); form.dispatchEvent(new Event("change")); };
     const draw = ()=>{ const list = vals();
       box.innerHTML = list.map((d,i)=>'<div class="date-row"><span class="muted small">'+esc((f.itemLabel||"Date")+" "+(i+1))+'</span><input type="date" value="'+esc(d)+'" data-i="'+i+'" aria-label="'+esc((f.itemLabel||"Date")+" "+(i+1))+'"><button type="button" class="btn small ghost" data-del="'+i+'" aria-label="Remove">✕</button></div>').join("");
-      box.querySelectorAll("input").forEach(inp=>inp.onchange = ()=>{ const l = vals(); l[+inp.dataset.i] = inp.value; store(l); });
+      box.querySelectorAll('input[type="date"]').forEach(inp=>inp.onchange = ()=>{ const l = vals(); l[+inp.dataset.i] = inp.value; store(l); });
+      dateFields(box);
       box.querySelectorAll("[data-del]").forEach(b=>b.onclick = ()=>{ const l = vals(); l.splice(+b.dataset.del,1); store(l); draw(); }); };
     form.querySelector('[data-adddate="'+f.name+'"]').onclick = ()=>{ const l = vals().filter(Boolean), last = l.slice().sort().pop();
       l.push(last ? addDays(last, f.step||7) : (typeof f.first==="function" ? f.first(readVals()) : today())); store(l); draw();
-      const ins = box.querySelectorAll("input"); if (ins.length) ins[ins.length-1].focus(); };
+      const ins = box.querySelectorAll('input[type="text"]'); if (ins.length) ins[ins.length-1].focus(); };
     draw();
   });
   // Fields can depend on each other: `show(values)` hides a field, `options(values)` rebuilds a select's choices.
@@ -7341,7 +7386,7 @@ const HE = {
   "Theme / what to learn":"נושא / מה ללמוד", "Found in":"נמצא ב־", "Lessons learned":"מה למדנו", "What the student took from this game":"מה התלמיד לקח מהמשחק",
   "Enter the names of both players.":"יש להזין את שמות שני השחקנים.", "e.g. Capablanca, José Raúl":"למשל קפבלנקה, חוסה ראול", "e.g. Tartakower, Savielly":"למשל טרטקובר, סבלי",
   "e.g. New York 1924":"למשל ניו יורק 1924", "e.g. Dutch Defence":"למשל ההגנה ההולנדית", "e.g. Rook endgame technique":"למשל טכניקה בסיומי צריחים",
-  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Useful links":"קישורים שימושיים", "Change order":"שינוי סדר", "Put the sites you use most at the top.":"שימו למעלה את האתרים שאתם משתמשים בהם הכי הרבה.", "Username:":"שם משתמש:", "Username":"שם משתמש", "Change":"שינוי", "Add your username":"הוספת שם המשתמש שלך", "Add username":"הוספת שם משתמש", "Username saved":"שם המשתמש נשמר", "Username removed":"שם המשתמש הוסר", "Leave empty to remove it":"להסרה — להשאיר ריק", "Shown to students and parents on their Practice page.":"מוצגים לתלמידים ולהורים בדף התרגול.", "Add link":"הוספת קישור", "Edit link":"עריכת קישור",
+  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Useful links":"קישורים שימושיים", "Choose a date":"בחירת תאריך","Choose a time":"בחירת שעה", "Change order":"שינוי סדר", "Put the sites you use most at the top.":"שימו למעלה את האתרים שאתם משתמשים בהם הכי הרבה.", "Username:":"שם משתמש:", "Username":"שם משתמש", "Change":"שינוי", "Add your username":"הוספת שם המשתמש שלך", "Add username":"הוספת שם משתמש", "Username saved":"שם המשתמש נשמר", "Username removed":"שם המשתמש הוסר", "Leave empty to remove it":"להסרה — להשאיר ריק", "Shown to students and parents on their Practice page.":"מוצגים לתלמידים ולהורים בדף התרגול.", "Add link":"הוספת קישור", "Edit link":"עריכת קישור",
   "Restore the suggested list":"שחזור הרשימה המומלצת", "No links yet.":"עדיין אין קישורים.", "Address":"כתובת", "What it's for (optional)":"למה זה טוב (לא חובה)", "Link saved":"הקישור נשמר", "Link added":"הקישור נוסף", "Link removed":"הקישור הוסר",
   "Students and parents won't see this link any more.":"תלמידים והורים לא יראו יותר את הקישור הזה.", "Restore the suggested list?":"לשחזר את הרשימה המומלצת?", "Your own links and changes will be replaced by the suggested list.":"הקישורים והשינויים שלך יוחלפו ברשימה המומלצת.",
   "Restore":"שחזור", "Suggested list restored":"הרשימה המומלצת שוחזרה", "Enter the site's address, e.g. lichess.org.":"יש להזין את כתובת האתר, למשל lichess.org.",
