@@ -2869,7 +2869,8 @@ function stampView(v){ v.syncedAt = new Date().toISOString(); return v;
 // Every document the student's app reads, by id.
 function portalDocs(s){
   const out = {}, parts = splitStudent(studentView(s));
-  out.student = stampView(Object.assign(parts.main, s.payShared ? {pay:payView(s), payReports:recentReports(s)} : {})); // payments only when the coach shares them Object.keys(parts.logs).forEach(k=>{ out[k] = parts.logs[k]; });
+  out.student = stampView(Object.assign(parts.main, s.payShared ? {pay:payView(s), payReports:recentReports(s)} : {})); // payments only when the coach shares them
+  Object.keys(parts.logs).forEach(k=>{ out[k] = parts.logs[k]; });
   state.assignments.filter(a=>a.studentId===s.id).forEach(a=>{ out[a.id] = a; });
   state.games.filter(g=>g.studentId===s.id).forEach(g=>{ out[g.id] = g; });
   return out;
@@ -3032,8 +3033,10 @@ function makePortal(db){
     const old = {}; Object.keys(want).forEach(id=>{ if ((id==="student" || id.startsWith("ch-")) && have[id]) old[id] = have[id]; });
     const bare = j=>j && j.replace(/"syncedAt":"[^"]*"/, "");
     const stale = j=>{ const m = /"syncedAt":"([^"]*)"/.exec(j||""); return !m || Date.now()-Date.parse(m[1]) > 30*60000; };
+    const big = Object.keys(want).find(id=>JSON.stringify(want[id]).length>DOC_LIMIT);
+    if (big) throw new Error("Part of their board ("+big+") is too big to save");
     Object.keys(want).forEach(id=>{ const j = JSON.stringify(want[id]), stamped = /"syncedAt"/.test(j);
-      if ((bare(have[id])!==bare(j) || (stamped && stale(have[id]))) && j.length<=DOC_LIMIT) writes.push(col.doc(id).set(want[id]).then(()=>{ have[id] = j; })); });
+      if (bare(have[id])!==bare(j) || (stamped && stale(have[id]))) writes.push(col.doc(id).set(want[id]).then(()=>{ have[id] = j; })); });
     Object.keys(have).forEach(id=>{ if (!want[id]) writes.push(col.doc(id).delete().then(()=>{ delete have[id]; })); });
     await Promise.all(writes);
     const he = (accLang[uid]||lang())==="he", kids = want.family ? want.family.children||[] : [];
