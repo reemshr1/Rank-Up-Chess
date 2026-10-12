@@ -353,7 +353,7 @@ dialog.wide{width:min(960px,calc(100vw - 24px))}
 .links-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
 .link-card{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface)}
 .link-card>a{display:flex;flex-direction:column;gap:2px;text-decoration:none;color:var(--ink)}
-.link-user{border-top:1px dashed var(--line);padding-top:6px}.link-user a{color:var(--ink);font-weight:700;text-decoration:none}.link-user a:hover{text-decoration:underline}.link-user>span:first-child{display:block;color:var(--muted,#5b6472)}
+.link-user{border-top:1px dashed var(--line);padding-top:6px}.link-user a{color:var(--ink);font-weight:700;text-decoration:none}.link-user a:hover{text-decoration:underline}.link-user:has(>span:first-child){display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:8px}.link-user>span:first-child{grid-column:1/-1;color:var(--muted,#5b6472)}.link-user>a,.link-user>b{overflow-wrap:anywhere}
 .link-card:hover{border-color:var(--accent,#1E4E9C)}.link-card span{font-weight:400}.link-card b span{font-weight:inherit}
 .push-box{padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-sm)}
 .push-fail{margin-top:8px;padding:8px 10px;border-radius:var(--r-sm);border:1px solid var(--warn);color:var(--ink)}
