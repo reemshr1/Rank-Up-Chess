@@ -82,3 +82,36 @@ create table if not exists public.push_subs (
   created_at timestamptz not null default now()
 );
 alter table public.push_subs enable row level security;
+
+-- Nightly backups. Every night at 00:00 UTC (02:00 or 03:00 in Israel) a copy of all the coach's records is
+-- saved here, and copies older than 30 days are removed. The coach sees them in Settings → Backup and can
+-- download any of them. Only the coach can read them; nobody can change them from the app.
+create table if not exists public.backups (
+  day date primary key,
+  data jsonb not null,
+  created_at timestamptz not null default now()
+);
+alter table public.backups enable row level security;
+drop policy if exists "the coach can read the backups" on public.backups;
+create policy "the coach can read the backups" on public.backups
+  for select to authenticated using (public.is_coach());
+
+create or replace function public.nightly_backup() returns void
+  language plpgsql security definer set search_path = public
+  as $$
+declare c text; d date := (now() at time zone 'Asia/Jerusalem')::date;
+begin
+  select 'data/users/' || user_id::text into c from public.coach;
+  if c is null then return; end if;
+  insert into public.backups (day, data)
+    select d, jsonb_build_object('app', 'rank-up', 'kind', 'nightly', 'exportedAt', now(),
+                                 'docs', coalesce(jsonb_object_agg(id, data), '{}'::jsonb))
+    from public.docs where col = c and id not like 'lock-%'
+  on conflict (day) do update set data = excluded.data, created_at = now();
+  delete from public.backups where day < d - 30;
+end $$;
+revoke execute on function public.nightly_backup() from public, anon, authenticated;
+
+create extension if not exists pg_cron with schema pg_catalog;
+select cron.schedule('rank-up-nightly-backup', '0 0 * * *', 'select public.nightly_backup()');
+select public.nightly_backup(); -- the first copy, right away

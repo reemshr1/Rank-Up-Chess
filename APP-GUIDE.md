@@ -42,7 +42,8 @@ The daily overview.
   week** split into **Total** (this week's lessons, not cancelled) and **Left**
   (planned lessons that haven't ended yet); money outstanding; money received
   this month.
-- **Backup reminder** if no backup has been downloaded for a while.
+- **Backup reminder** if no backup has been saved for over a week. When a backup folder is set and Chrome
+  asks for permission again, a **Save backup** button instead (one click saves today's file).
 - **Problems with the student and parent app:** a change sent by a student or
   parent that couldn't be taken in. It can be retried or discarded; nothing
   is lost.
@@ -232,6 +233,14 @@ All the money in one place.
   Chess-Results, Israel Chess Federation). Add, edit, remove, or restore the
   suggested list.
 - **Backup:** download all records as a file, or restore from one.
+  - **Every night:** Supabase saves a copy of all the coach's records at 00:00 UTC and keeps 30 days
+    (table `backups`, set up by `supabase/schema.sql` with pg_cron). Settings lists the copies, newest first
+    (5, then "Show all"), each with **Download**. A downloaded copy is the same kind of file as
+    "Download backup", so "Restore from backup" reads it. Only the coach can read the copies.
+  - **Folder on this computer** (Chrome or Edge on a computer): **Choose a folder**, and the app saves
+    `rank-up-backup-<date>.json` into it once a day, when the app is opened on that computer. The folder is
+    remembered by that browser only. **Save now**, **Change folder**, **Stop**. Other browsers and phones
+    see a line saying this needs Chrome or Edge on a computer.
 
 ### My chess
 
