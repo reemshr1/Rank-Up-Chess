@@ -4264,7 +4264,7 @@ function pDashboard(v){
   const received = state.students.filter(s=>!s.self).reduce((tt,s)=>tt+s.payments.filter(p=>p.date.slice(0,7)===month).reduce((a,p)=>a+(+p.amount||0),0),0);
   const hr = new Date().getHours(); const greet = hr<12?"Good morning":hr<18?"Good afternoon":"Good evening";
 
-  v.innerHTML = '<div class="page-head"><div><p class="sub" style="margin:0 0 4px">'+esc(fmtDay(t))+'</p><h1>'+greet+(state.settings.coachName?", "+esc(state.settings.coachName):"")+'</h1></div><div class="row-actions"><button class="btn" id="dNote">🔔 Notifications'+(newReads()?' <i class="nav-badge" style="position:static" aria-label="'+newReads()+' new reads">'+newReads()+'</i>':'')+'</button><button class="btn" id="dPay">Record payment</button><button class="btn primary" id="dSes">Plan session</button></div></div>'+
+  v.innerHTML = '<div class="page-head"><div><p class="sub" style="margin:0 0 4px">'+esc(fmtDay(t))+'</p><h1>'+greet+(signName(lang())?", "+esc(signName(lang())):"")+'</h1></div><div class="row-actions"><button class="btn" id="dNote">🔔 Notifications'+(newReads()?' <i class="nav-badge" style="position:static" aria-label="'+newReads()+' new reads">'+newReads()+'</i>':'')+'</button><button class="btn" id="dPay">Record payment</button><button class="btn primary" id="dSes">Plan session</button></div></div>'+
   '<div class="stats stats-top"><div class="stat"><div class="v num">'+active.length+'</div><div class="l">Active students</div></div>'+
   (()=>{ // this week's lessons (the week as set in Settings): all of them, and those still to come (today's count until they end)
     const ws = weekStartOf(t), we = addDays(ws,6), nowMin = new Date().getHours()*60+new Date().getMinutes(), wk = [];
