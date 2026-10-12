@@ -276,6 +276,8 @@ marks it done.
   the student's username there. The student adds or changes their username;
   on Chess.com and Lichess it links to their profile. The coach sees and edits
   the same cards on the student's Practice tab; parents see them read-only.
+  **Change order** lets the student put the sites they use most at the top
+  (↑ ↓ on each card); each student keeps their own order.
 - **Medals** (Pawn → Knight → Bishop → Rook → Queen → King):
   - practice: days in a row (3 / 7 / 14 / 30 / 60 / 100); missing 2 days in
     a row drops 2 levels, never below Pawn;
