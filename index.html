@@ -351,7 +351,9 @@ dialog.wide{width:min(960px,calc(100vw - 24px))}
 #pvWrap.pv-phone #pvFrame{max-width:400px}
 .preview-mode [data-signout]{display:none!important}
 .links-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
-.link-card{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-sm);text-decoration:none;color:var(--ink);background:var(--surface)}
+.link-card{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface)}
+.link-card>a{display:flex;flex-direction:column;gap:2px;text-decoration:none;color:var(--ink)}
+.link-user{border-top:1px dashed var(--line);padding-top:6px}.link-user a{color:var(--accent,#1E4E9C);font-weight:700;text-decoration:underline}
 .link-card:hover{border-color:var(--accent,#1E4E9C)}.link-card span{font-weight:400}.link-card b span{font-weight:inherit}
 .push-box{padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-sm)}
 .push-fail{margin-top:8px;padding:8px 10px;border-radius:var(--r-sm);border:1px solid var(--warn);color:var(--ink)}
@@ -2850,7 +2852,7 @@ function studentView(s){
     goals:s.goals, notes:s.notesShared ? s.notes : "", notesShared:!!s.notesShared, active:s.active, createdAt:s.createdAt,
     sessions:s.sessions.map(x=>({id:x.id, date:x.date, time:x.time, duration:x.duration, format:x.format, status:x.status, topics:x.topics, added:x.added, notes:isShared(x.shareNotes)?x.notes:"", slotId:x.slotId, slotDate:x.slotDate})),
     worklog:s.worklog, repertoire:s.repertoire, tournaments:s.tournaments.map(({assist, assistDays, assistFee, assistReason, ...x})=>x), books:s.books, ratings:s.ratings, training:s.training||[], requests:s.requests||[], checkins:s.checkins||[], notices:(s.notices||[]).filter(n=>(n.to||[]).includes("student") && liveNotice(n)), noticeReads:(s.noticeReads||[]), appSince:(s.portal && s.portal.linkedAt)||"", fitness:s.fitness||[], fitnessGoal:+s.fitnessGoal||0, fitnessMinGoal:+s.fitnessMinGoal||0, sleep:s.sleep||[],
-    coachName:state.settings.coachName||"", coachNameHe:state.settings.coachNameHe||"", weekStart:state.settings.weekStart||0, links:coachLinks().map(({name,url,note})=>({name,url,note})),
+    coachName:state.settings.coachName||"", coachNameHe:state.settings.coachNameHe||"", weekStart:state.settings.weekStart||0, links:coachLinks().map(({id,name,url,note})=>({id,name,url,note})), usernames:s.usernames||{},
     clubOnly:!!s.clubOnly, clubs:clubsOf(s).map(({rate, ...r})=>Object.assign(r, {challenge:groupChallenge(r, s)})),
     freeSet:freeRules().some(r=>r.kind!=="off"), free:openSlots(today(), addDays(today(),56), s.id).free, taken:[]})); // other students' bookings just leave a gap
 }
@@ -2924,6 +2926,11 @@ function applyOp(s, op, coachSide){
     const les = s.sessions.find(x=>x.id===r.sessionId);
     if (op.choice==="cancel" && les && les.status==="planned" && les.date>=today()) les.status = "cancelled";
     r.needsAnswer = false; r.answer = op.choice; r.answered = (op.at||"").slice(0,10)||today();
+    return true;
+  }
+  if (t==="username.set"){ // the student's own username on one of the useful sites
+    const id = String(op.linkId||"").slice(0,40), name = String(op.name||"").trim().slice(0,40); if (!id) return false;
+    s.usernames = Object.assign({}, s.usernames); if (name) s.usernames[id] = name; else delete s.usernames[id];
     return true;
   }
   if (t==="notice.read"){ // "Mark read" on a notification from the coach
@@ -3142,7 +3149,7 @@ function makeStudentStore(db, account){
     const mine = Object.values(inbox).filter(op=>!fam || op.sid===sid);
     mine.sort((a,b)=>(a.at||"")<(b.at||"")?-1:1).forEach(op=>applyOp(s, op, false));
     const head = fam || main;
-    Object.assign(state.settings, {links:main.links||[], club:main.clubs||[], coachName:head.coachName||"", coachNameHe:head.coachNameHe||"", weekStart:head.weekStart||0, currency:(main.pay && main.pay.currency)||""});
+    Object.assign(state.settings, {links:fam ? (fam.links||main.links||[]) : main.links||[], club:main.clubs||[], coachName:head.coachName||"", coachNameHe:head.coachNameHe||"", weekStart:head.weekStart||0, currency:(main.pay && main.pay.currency)||""});
     s.syncedAt = (fam && fam.syncedAt > (main.syncedAt||"") ? fam.syncedAt : main.syncedAt)||""; s.waiting = mine.length;
     s.waitingSince = mine.reduce((m,op)=>!m || (op.at && op.at<m) ? op.at : m, "");
     s.pay = main.pay || null;
@@ -4189,7 +4196,7 @@ function whyNotApplied(s, o){
   if (o.type==="move.answer") return "The question it answers was already settled.";
   return "It didn't match anything current.";
 }
-const OP_LABEL = {"request":"a lesson request", "request.cancel":"a withdrawn request", "move.answer":"an answer about a lesson", "assignment.status":"an assignment marked done",
+const OP_LABEL = {"username.set":"a username", "request":"a lesson request", "request.cancel":"a withdrawn request", "move.answer":"an answer about a lesson", "assignment.status":"an assignment marked done",
   "worklog.upsert":"a practice entry", "worklog.delete":"a deleted practice entry", "fitness.upsert":"a workout", "fitness.delete":"a deleted workout", "sleep.upsert":"a night's sleep", "sleep.delete":"a deleted night's sleep", "tournaments.upsert":"a tournament", "books.upsert":"a book", "training.upsert":"a training plan", "game.upsert":"a game", "repertoire.upsert":"an opening line", "checkin":"a practice check-in", "notice.read":"a notification read", "payment.report":"a payment report", "repertoire.delete":"a deleted opening line"};
 function issuesPanel(){
   const list = portal ? portal.issues() : []; if (!list.length) return "";
@@ -5113,11 +5120,28 @@ const DEFAULT_LINKS = [
   {name:"Israel Chess Federation", url:"https://www.chess.org.il", note:"Ratings and tournaments"}].map((x,i)=>Object.assign({id:"ln-"+i}, x));
 const coachLinks = ()=>Array.isArray(state.settings.links) ? state.settings.links : DEFAULT_LINKS;
 const linkHost = u=>{ try { return new URL(u).hostname.replace(/^www\./,""); } catch(e){ return ""; } };
-function linksPanel(list){
+// A username on Chess.com or Lichess links to the player's profile there.
+function profileUrl(url, user){ const h = linkHost(url), u = encodeURIComponent(user);
+  return h==="chess.com" ? "https://www.chess.com/member/"+u : h==="lichess.org" ? "https://lichess.org/@/"+u : ""; }
+function linksPanel(list, s){
   if (!list.length) return "";
+  const names = (s && s.usernames)||{}, canEdit = !PARENT(), own = STUDENT() && !PARENT();
   return '<section class="panel" style="margin-top:16px"><div class="panel-head"><h2>Useful links</h2></div><div class="links-grid">'+
-    list.map(l=>'<a class="link-card" href="'+esc(l.url)+'" target="_blank" rel="noopener"><b>'+esc(l.name)+' <span aria-hidden="true">↗</span></b>'+
-      (l.note?'<span class="small muted">'+esc(l.note)+'</span>':'')+'<span class="small muted" dir="ltr">'+esc(linkHost(l.url))+'</span></a>').join("")+'</div></section>';
+    list.map(l=>{ const key = linkHost(l.url), u = key && names[key], pu = u && profileUrl(l.url, u); // one username per site (Lichess and Lichess puzzles share it)
+      return '<div class="link-card"><a href="'+esc(l.url)+'" target="_blank" rel="noopener"><b>'+esc(l.name)+' <span aria-hidden="true">↗</span></b>'+
+        (l.note?'<span class="small muted">'+esc(l.note)+'</span>':'')+'<span class="small muted" dir="ltr">'+esc(linkHost(l.url))+'</span></a>'+
+        (!key ? '' : u ? '<div class="link-user small"><span>Username:</span> '+(pu ? '<a href="'+esc(pu)+'" target="_blank" rel="noopener" dir="ltr">'+esc(u)+'</a>' : '<b dir="ltr">'+esc(u)+'</b>')+
+            (canEdit ? ' <button type="button" class="linkish" data-un="'+esc(key)+'">Change</button>' : '')+'</div>'
+          : canEdit ? '<div class="link-user small"><button type="button" class="linkish" data-un="'+esc(key)+'">'+(own ? "Add your username" : "Add username")+'</button></div>' : '')+'</div>'; }).join("")+'</div></section>';
+}
+// Setting a username: the student sends it to the coach; the coach saves it on the student.
+function bindUsernames(el, s, list){
+  el.querySelectorAll("[data-un]").forEach(b=>b.onclick = ()=>{ const key = b.dataset.un, l = list.find(x=>linkHost(x.url)===key); if (!l) return; const cur = (s.usernames||{})[key]||"";
+    openForm({title:"Username on "+key, submit:"Save", fields:[{name:"name",label:"Username",value:cur,full:true,placeholder:"e.g. guy_levi",hint:"Leave empty to remove it"}],
+      onSubmit:d=>{ const name = d.name.trim().slice(0,40);
+        if (STUDENT()){ const op = {type:"username.set", linkId:key, name}; store.send(op); applyOp(s, op, false); }
+        else { s.usernames = Object.assign({}, s.usernames); if (name) s.usernames[key] = name; else delete s.usernames[key]; saveStudent(s); }
+        render(); toast(name ? "Username saved" : "Username removed"); }}); });
 }
 function tWork(el, s){
   const t = today();
@@ -5132,7 +5156,8 @@ function tWork(el, s){
       (()=>{ const n = s.worklog.length, shown = Math.min(n, workShown[s.id]||25); return n>shown ? '<div class="row-actions" style="margin-top:8px;align-items:center"><span class="small muted" style="margin-inline-end:auto">Showing '+shown+' of '+n+'</span><button class="btn small" data-a="more">Show 25 more</button><button class="btn small ghost" data-a="all">Show all</button></div>' : ""; })(),
       '<button class="btn small primary" data-a="addLog">Log practice</button>')+
     panel("Tactics statistics", '<div class="seg" role="group" aria-label="Period">'+periods.map(([n,l])=>'<button type="button" class="'+(tacPeriod===n?"on":"")+'" data-a="period" data-id="'+n+'">'+l+'</button>').join("")+'</div>'+tacticsStats(s, tacPeriod))+
-  '</div>'+(STUDENT() ? linksPanel(state.settings.links||[]) : '');
+  '</div>'+linksPanel(STUDENT() ? state.settings.links||[] : coachLinks(), s);
+  bindUsernames(el, s, STUDENT() ? state.settings.links||[] : coachLinks());
   bindActions(el,{
     period:id=>{ tacPeriod = +id; render(); },
     more:()=>{ workShown[s.id] = (workShown[s.id]||25) + 25; render(); },
@@ -7297,7 +7322,7 @@ const HE = {
   "Theme / what to learn":"נושא / מה ללמוד", "Found in":"נמצא ב־", "Lessons learned":"מה למדנו", "What the student took from this game":"מה התלמיד לקח מהמשחק",
   "Enter the names of both players.":"יש להזין את שמות שני השחקנים.", "e.g. Capablanca, José Raúl":"למשל קפבלנקה, חוסה ראול", "e.g. Tartakower, Savielly":"למשל טרטקובר, סבלי",
   "e.g. New York 1924":"למשל ניו יורק 1924", "e.g. Dutch Defence":"למשל ההגנה ההולנדית", "e.g. Rook endgame technique":"למשל טכניקה בסיומי צריחים",
-  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Useful links":"קישורים שימושיים", "Shown to students and parents on their Practice page.":"מוצגים לתלמידים ולהורים בדף התרגול.", "Add link":"הוספת קישור", "Edit link":"עריכת קישור",
+  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Useful links":"קישורים שימושיים", "Username:":"שם משתמש:", "Username":"שם משתמש", "Change":"שינוי", "Add your username":"הוספת שם המשתמש שלך", "Add username":"הוספת שם משתמש", "Username saved":"שם המשתמש נשמר", "Username removed":"שם המשתמש הוסר", "Leave empty to remove it":"להסרה — להשאיר ריק", "Shown to students and parents on their Practice page.":"מוצגים לתלמידים ולהורים בדף התרגול.", "Add link":"הוספת קישור", "Edit link":"עריכת קישור",
   "Restore the suggested list":"שחזור הרשימה המומלצת", "No links yet.":"עדיין אין קישורים.", "Address":"כתובת", "What it's for (optional)":"למה זה טוב (לא חובה)", "Link saved":"הקישור נשמר", "Link added":"הקישור נוסף", "Link removed":"הקישור הוסר",
   "Students and parents won't see this link any more.":"תלמידים והורים לא יראו יותר את הקישור הזה.", "Restore the suggested list?":"לשחזר את הרשימה המומלצת?", "Your own links and changes will be replaced by the suggested list.":"הקישורים והשינויים שלך יוחלפו ברשימה המומלצת.",
   "Restore":"שחזור", "Suggested list restored":"הרשימה המומלצת שוחזרה", "Enter the site's address, e.g. lichess.org.":"יש להזין את כתובת האתר, למשל lichess.org.",
@@ -7512,7 +7537,7 @@ const HE_RX = [
   [/^(\d+) by you$/, "$1 שלך"], [/^(\d+) by the student$/, "$1 של התלמיד"],
   [/^(\d+) needs? review$/, "$1 דורשים חזרה"], [/^(\d+) lines? needs? review$/, (m,n)=>+n===1 ? "וריאנט אחד דורש חזרה" : n+" וריאנטים דורשים חזרה"],
   [/^(\d+) of (\d+)$/, "$1 מתוך $2"],
-  [/^(\S+)’s games$/, (m,n)=>"המשחקים של "+n], [/^Remove (.+)\?$/, "להסיר את $1?"],
+  [/^(\S+)’s games$/, (m,n)=>"המשחקים של "+n], [/^Remove (.+)\?$/, "להסיר את $1?"], [/^Username on (.+)$/, "שם משתמש ב־$1"],
   [/^Viewing as (\S+)$/, "צפייה כמו $1"], [/^What (\S+) sees in the app · nothing here is saved or sent$/, "מה ש־$1 רואה באפליקציה · שום דבר כאן לא נשמר ולא נשלח"],
   [/^See the app as (\S+) sees it$/, "לראות את האפליקציה כמו ש־$1 רואה אותה"],
   [/^Visible in (\S+)’s app$/, "מוצג באפליקציה של $1"], [/^Hide from (\S+)’s app$/, "הסתרה מהאפליקציה של $1"], [/^Show payments in (\S+)’s app$/, "הצגת התשלומים באפליקציה של $1"],
