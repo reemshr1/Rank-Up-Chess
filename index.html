@@ -350,6 +350,9 @@ dialog.wide{width:min(960px,calc(100vw - 24px))}
 #pvFrame{flex:1;width:100%;max-width:1280px;border:0;border-radius:var(--r-md);background:var(--bg,#fff);transition:max-width .2s}
 #pvWrap.pv-phone #pvFrame{max-width:400px}
 .preview-mode [data-signout]{display:none!important}
+.links-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.link-card{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-sm);text-decoration:none;color:var(--ink);background:var(--surface)}
+.link-card:hover{border-color:var(--accent,#1E4E9C)}.link-card span{font-weight:400}.link-card b span{font-weight:inherit}
 .push-box{padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-sm)}
 .push-fail{margin-top:8px;padding:8px 10px;border-radius:var(--r-sm);border:1px solid var(--warn);color:var(--ink)}
 .notice-list{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto;margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:var(--r-sm)}
@@ -2847,7 +2850,7 @@ function studentView(s){
     goals:s.goals, notes:s.notesShared ? s.notes : "", notesShared:!!s.notesShared, active:s.active, createdAt:s.createdAt,
     sessions:s.sessions.map(x=>({id:x.id, date:x.date, time:x.time, duration:x.duration, format:x.format, status:x.status, topics:x.topics, added:x.added, notes:isShared(x.shareNotes)?x.notes:"", slotId:x.slotId, slotDate:x.slotDate})),
     worklog:s.worklog, repertoire:s.repertoire, tournaments:s.tournaments.map(({assist, assistDays, assistFee, assistReason, ...x})=>x), books:s.books, ratings:s.ratings, training:s.training||[], requests:s.requests||[], checkins:s.checkins||[], notices:(s.notices||[]).filter(n=>(n.to||[]).includes("student") && liveNotice(n)), noticeReads:(s.noticeReads||[]), appSince:(s.portal && s.portal.linkedAt)||"", fitness:s.fitness||[], fitnessGoal:+s.fitnessGoal||0, fitnessMinGoal:+s.fitnessMinGoal||0, sleep:s.sleep||[],
-    coachName:state.settings.coachName||"", coachNameHe:state.settings.coachNameHe||"", weekStart:state.settings.weekStart||0,
+    coachName:state.settings.coachName||"", coachNameHe:state.settings.coachNameHe||"", weekStart:state.settings.weekStart||0, links:coachLinks().map(({name,url,note})=>({name,url,note})),
     clubOnly:!!s.clubOnly, clubs:clubsOf(s).map(({rate, ...r})=>Object.assign(r, {challenge:groupChallenge(r, s)})),
     freeSet:freeRules().some(r=>r.kind!=="off"), free:openSlots(today(), addDays(today(),56), s.id).free, taken:[]})); // other students' bookings just leave a gap
 }
@@ -3139,7 +3142,7 @@ function makeStudentStore(db, account){
     const mine = Object.values(inbox).filter(op=>!fam || op.sid===sid);
     mine.sort((a,b)=>(a.at||"")<(b.at||"")?-1:1).forEach(op=>applyOp(s, op, false));
     const head = fam || main;
-    Object.assign(state.settings, {club:main.clubs||[], coachName:head.coachName||"", coachNameHe:head.coachNameHe||"", weekStart:head.weekStart||0, currency:(main.pay && main.pay.currency)||""});
+    Object.assign(state.settings, {links:main.links||[], club:main.clubs||[], coachName:head.coachName||"", coachNameHe:head.coachNameHe||"", weekStart:head.weekStart||0, currency:(main.pay && main.pay.currency)||""});
     s.syncedAt = (fam && fam.syncedAt > (main.syncedAt||"") ? fam.syncedAt : main.syncedAt)||""; s.waiting = mine.length;
     s.waitingSince = mine.reduce((m,op)=>!m || (op.at && op.at<m) ? op.at : m, "");
     s.pay = main.pay || null;
@@ -5099,6 +5102,23 @@ function tacticsStats(s, days){
 }
 let tacPeriod = 30;
 const workShown = {}; // how many practice entries to list, per student
+/* ---------- useful links: sites the coach recommends, shown on the student's Practice page ---------- */
+const DEFAULT_LINKS = [
+  {name:"Chess.com", url:"https://www.chess.com", note:"Play, puzzles and lessons"},
+  {name:"Lichess", url:"https://lichess.org", note:"Play and analyse — free"},
+  {name:"Lichess puzzles", url:"https://lichess.org/training", note:"Daily tactics"},
+  {name:"ChessTempo", url:"https://chesstempo.com", note:"Tactics training"},
+  {name:"Chessable", url:"https://www.chessable.com", note:"Opening and endgame courses"},
+  {name:"Chess-Results", url:"https://chess-results.com", note:"Tournament results and pairings"},
+  {name:"Israel Chess Federation", url:"https://www.chess.org.il", note:"Ratings and tournaments"}].map((x,i)=>Object.assign({id:"ln-"+i}, x));
+const coachLinks = ()=>Array.isArray(state.settings.links) ? state.settings.links : DEFAULT_LINKS;
+const linkHost = u=>{ try { return new URL(u).hostname.replace(/^www\./,""); } catch(e){ return ""; } };
+function linksPanel(list){
+  if (!list.length) return "";
+  return '<section class="panel" style="margin-top:16px"><div class="panel-head"><h2>Useful links</h2></div><div class="links-grid">'+
+    list.map(l=>'<a class="link-card" href="'+esc(l.url)+'" target="_blank" rel="noopener"><b>'+esc(l.name)+' <span aria-hidden="true">↗</span></b>'+
+      (l.note?'<span class="small muted">'+esc(l.note)+'</span>':'')+'<span class="small muted" dir="ltr">'+esc(linkHost(l.url))+'</span></a>').join("")+'</div></section>';
+}
 function tWork(el, s){
   const t = today();
   const days = []; for (let i=6;i>=0;i--){ const d = addDays(t,-i); const m = s.worklog.filter(w=>w.date===d).reduce((a,w)=>a+(+w.minutes||0),0); days.push({d,m}); }
@@ -5112,7 +5132,7 @@ function tWork(el, s){
       (()=>{ const n = s.worklog.length, shown = Math.min(n, workShown[s.id]||25); return n>shown ? '<div class="row-actions" style="margin-top:8px;align-items:center"><span class="small muted" style="margin-inline-end:auto">Showing '+shown+' of '+n+'</span><button class="btn small" data-a="more">Show 25 more</button><button class="btn small ghost" data-a="all">Show all</button></div>' : ""; })(),
       '<button class="btn small primary" data-a="addLog">Log practice</button>')+
     panel("Tactics statistics", '<div class="seg" role="group" aria-label="Period">'+periods.map(([n,l])=>'<button type="button" class="'+(tacPeriod===n?"on":"")+'" data-a="period" data-id="'+n+'">'+l+'</button>').join("")+'</div>'+tacticsStats(s, tacPeriod))+
-  '</div>';
+  '</div>'+(STUDENT() ? linksPanel(state.settings.links||[]) : '');
   bindActions(el,{
     period:id=>{ tacPeriod = +id; render(); },
     more:()=>{ workShown[s.id] = (workShown[s.id]||25) + 25; render(); },
@@ -6900,11 +6920,27 @@ function pSettings(v){
       '<div class="field full"><label for="s8">App link (in invite messages)</label><input id="s8" name="appLink" dir="ltr" value="'+esc(st.appLink||APP_LINK())+'"></div>'+
       '<div class="field full"><label for="s5">Week starts on</label><select id="s5" name="weekStart"><option value="0"'+(+st.weekStart===0?" selected":"")+'>Sunday</option><option value="1"'+(+st.weekStart===1?" selected":"")+'>Monday</option></select></div>'+
       '<div class="full"><button class="btn primary" type="submit">Save settings</button></div></form>')+
+    panel("Useful links", '<p class="small muted" style="margin-top:0">Shown to students and parents on their Practice page.</p>'+
+      (coachLinks().length ? '<ul class="list">'+coachLinks().map(l=>'<li><div class="main"><div class="title"><a href="'+esc(l.url)+'" target="_blank" rel="noopener">'+esc(l.name)+'</a></div><div class="small muted"><span dir="ltr">'+esc(linkHost(l.url))+'</span>'+(l.note?' · '+esc(l.note):'')+'</div></div>'+
+        '<div class="row-actions"><button type="button" class="btn small ghost" data-ln="edit" data-id="'+esc(l.id)+'">Edit</button><button type="button" class="btn small ghost" data-ln="del" data-id="'+esc(l.id)+'">Remove</button></div></li>').join("")+'</ul>' : '<p class="empty">No links yet.</p>')+
+      '<div class="row-actions" style="margin-top:10px;justify-content:flex-start"><button type="button" class="btn small primary" data-ln="add">Add link</button>'+(Array.isArray(st.links)?'<button type="button" class="btn small ghost" data-ln="reset">Restore the suggested list</button>':'')+'</div>')+
     (WEB && webUser ? panel("Phone alerts", '<p class="small muted" style="margin-top:0">Students and parents get an alert on their phone for new notifications, lesson changes and, for students, the practice check-in. Each of them turns alerts on from the 🔔 window in their app.</p><div id="pushBox"></div>') : '')+
     (WEB && webUser ? panel("Account", '<p style="margin-top:0">Signed in as <bdi dir="ltr">'+esc(webUser.email||"")+'</bdi></p><button class="btn" data-signout>Sign out</button>') : '')+
     panel("Backup", '<p class="small muted" style="margin-top:0">'+(WEB?"Your data is saved to your account online. Students and parents only see what you share with them.":store&&store.kind==="db"?"Your data is saved to your account and is private to you, even if you share this page.":"Your data is saved in this browser only. Download a backup regularly.")+'</p><p class="small" style="margin-top:0">'+(st.lastBackup?"Last backup: "+esc(fmtDate(st.lastBackup)):"No backup downloaded yet.")+'</p><div class="row-actions"><button class="btn" id="exp">Download backup</button><label class="btn" for="imp">Restore from backup</label><input id="imp" type="file" accept="application/json,.json" hidden></div>')+
   '</div>';
   fillPush($("#pushBox"));
+  // useful links: the first change copies the suggested list into the settings
+  const editLink = l=>openForm({title:l?"Edit link":"Add link", submit:"Save", fields:[{name:"name",label:"Name",value:l?.name||"",full:true,placeholder:"e.g. Lichess"},
+      {name:"url",label:"Address",value:l?.url||"",full:true,placeholder:"https://…"},{name:"note",label:"What it's for (optional)",value:l?.note||"",full:true,placeholder:"e.g. Daily tactics"}],
+    onSubmit:d=>{ const name = d.name.trim(); let url = d.url.trim(); if (!name) return "Enter a name.";
+      if (url && !/^https?:\/\//i.test(url)) url = "https://"+url; if (!linkHost(url)) return "Enter the site's address, e.g. lichess.org.";
+      st.links = coachLinks().map(x=>Object.assign({}, x));
+      if (l){ const x = st.links.find(y=>y.id===l.id); Object.assign(x, {name, url, note:d.note.trim()}); } else st.links.push({id:"ln-"+uid(), name, url, note:d.note.trim()});
+      saveSettings(); render(); toast(l?"Link saved":"Link added"); }});
+  v.querySelectorAll("[data-ln]").forEach(b=>b.onclick = ()=>{ const k = b.dataset.ln, l = coachLinks().find(x=>x.id===b.dataset.id);
+    if (k==="add") editLink(null); if (k==="edit" && l) editLink(l);
+    if (k==="del" && l) confirmBox("Remove "+l.name+"?", "Students and parents won't see this link any more.", "Remove", ()=>{ st.links = coachLinks().filter(x=>x.id!==l.id); saveSettings(); render(); toast("Link removed"); });
+    if (k==="reset") confirmBox("Restore the suggested list?", "Your own links and changes will be replaced by the suggested list.", "Restore", ()=>{ delete st.links; saveSettings(); render(); toast("Suggested list restored"); }); });
   $("#setF").onsubmit = e=>{ e.preventDefault(); const f = e.target.elements;
     // only fields changed in this form are saved, so edits made on another device meanwhile are kept
     const put = (k, v)=>{ if (String(st[k]??"")!==String(v)) st[k] = v; };
@@ -7261,7 +7297,12 @@ const HE = {
   "Theme / what to learn":"נושא / מה ללמוד", "Found in":"נמצא ב־", "Lessons learned":"מה למדנו", "What the student took from this game":"מה התלמיד לקח מהמשחק",
   "Enter the names of both players.":"יש להזין את שמות שני השחקנים.", "e.g. Capablanca, José Raúl":"למשל קפבלנקה, חוסה ראול", "e.g. Tartakower, Savielly":"למשל טרטקובר, סבלי",
   "e.g. New York 1924":"למשל ניו יורק 1924", "e.g. Dutch Defence":"למשל ההגנה ההולנדית", "e.g. Rook endgame technique":"למשל טכניקה בסיומי צריחים",
-  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "👁 Student view":"👁 תצוגת תלמיד", "Exit student view":"יציאה מתצוגת תלמיד", "Computer":"מחשב", "Phone":"טלפון", "Preview — nothing was sent":"תצוגה מקדימה — שום דבר לא נשלח", "Preview — nothing is saved":"תצוגה מקדימה — שום דבר לא נשמר", "Payments reported in the app":"תשלומים שדווחו באפליקציה", "by the student":"על ידי התלמיד/ה", "by the parent":"על ידי ההורה", "Only you see these payments.":"רק את/ה רואה את התשלומים האלה.", "Only you and the parent see these payments.":"רק את/ה וההורה רואים את התשלומים האלה.", "Show these games":"הצגת המשחקים האלה", "Games in this opening:":"משחקים בפתיחה הזו:", "Show all games":"הצגת כל המשחקים", "Model games":"משחקים לדוגמה", "My games":"המשחקים שלי", "Add model game":"הוספת משחק לדוגמה", "Edit model game":"עריכת משחק לדוגמה",
+  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Useful links":"קישורים שימושיים", "Shown to students and parents on their Practice page.":"מוצגים לתלמידים ולהורים בדף התרגול.", "Add link":"הוספת קישור", "Edit link":"עריכת קישור",
+  "Restore the suggested list":"שחזור הרשימה המומלצת", "No links yet.":"עדיין אין קישורים.", "Address":"כתובת", "What it's for (optional)":"למה זה טוב (לא חובה)", "Link saved":"הקישור נשמר", "Link added":"הקישור נוסף", "Link removed":"הקישור הוסר",
+  "Students and parents won't see this link any more.":"תלמידים והורים לא יראו יותר את הקישור הזה.", "Restore the suggested list?":"לשחזר את הרשימה המומלצת?", "Your own links and changes will be replaced by the suggested list.":"הקישורים והשינויים שלך יוחלפו ברשימה המומלצת.",
+  "Restore":"שחזור", "Suggested list restored":"הרשימה המומלצת שוחזרה", "Enter the site's address, e.g. lichess.org.":"יש להזין את כתובת האתר, למשל lichess.org.",
+  "Play, puzzles and lessons":"משחק, פאזלים ושיעורים", "Play and analyse — free":"משחק וניתוח — בחינם", "Daily tactics":"טקטיקה יומית", "Tactics training":"אימון טקטיקה", "Opening and endgame courses":"קורסים בפתיחות ובסיומים",
+  "Tournament results and pairings":"תוצאות והגרלות של טורנירים", "Ratings and tournaments":"דירוגים וטורנירים", "Lichess puzzles":"פאזלים בליצ'ס", "Israel Chess Federation":"איגוד השחמט בישראל", "👁 Student view":"👁 תצוגת תלמיד", "Exit student view":"יציאה מתצוגת תלמיד", "Computer":"מחשב", "Phone":"טלפון", "Preview — nothing was sent":"תצוגה מקדימה — שום דבר לא נשלח", "Preview — nothing is saved":"תצוגה מקדימה — שום דבר לא נשמר", "Payments reported in the app":"תשלומים שדווחו באפליקציה", "by the student":"על ידי התלמיד/ה", "by the parent":"על ידי ההורה", "Only you see these payments.":"רק את/ה רואה את התשלומים האלה.", "Only you and the parent see these payments.":"רק את/ה וההורה רואים את התשלומים האלה.", "Show these games":"הצגת המשחקים האלה", "Games in this opening:":"משחקים בפתיחה הזו:", "Show all games":"הצגת כל המשחקים", "Model games":"משחקים לדוגמה", "My games":"המשחקים שלי", "Add model game":"הוספת משחק לדוגמה", "Edit model game":"עריכת משחק לדוגמה",
   "No model games yet — add them in Games → Model games":"עדיין אין משחקים לדוגמה — אפשר להוסיף במשחקים ← משחקים לדוגמה", "No games yet — add them in the Games tab":"עדיין אין משחקים — אפשר להוסיף בלשונית משחקים",
   "Pick the game. If it isn't listed, add it in Games → Model games first.":"יש לבחור משחק. אם הוא לא ברשימה, צריך להוסיף אותו קודם במשחקים ← משחקים לדוגמה.", "Pick the game. If it isn't listed, add it in the Games tab first.":"יש לבחור משחק. אם הוא לא ברשימה, צריך להוסיף אותו קודם בלשונית משחקים.",
   // repertoire
@@ -7471,7 +7512,7 @@ const HE_RX = [
   [/^(\d+) by you$/, "$1 שלך"], [/^(\d+) by the student$/, "$1 של התלמיד"],
   [/^(\d+) needs? review$/, "$1 דורשים חזרה"], [/^(\d+) lines? needs? review$/, (m,n)=>+n===1 ? "וריאנט אחד דורש חזרה" : n+" וריאנטים דורשים חזרה"],
   [/^(\d+) of (\d+)$/, "$1 מתוך $2"],
-  [/^(\S+)’s games$/, (m,n)=>"המשחקים של "+n],
+  [/^(\S+)’s games$/, (m,n)=>"המשחקים של "+n], [/^Remove (.+)\?$/, "להסיר את $1?"],
   [/^Viewing as (\S+)$/, "צפייה כמו $1"], [/^What (\S+) sees in the app · nothing here is saved or sent$/, "מה ש־$1 רואה באפליקציה · שום דבר כאן לא נשמר ולא נשלח"],
   [/^See the app as (\S+) sees it$/, "לראות את האפליקציה כמו ש־$1 רואה אותה"],
   [/^Visible in (\S+)’s app$/, "מוצג באפליקציה של $1"], [/^Hide from (\S+)’s app$/, "הסתרה מהאפליקציה של $1"], [/^Show payments in (\S+)’s app$/, "הצגת התשלומים באפליקציה של $1"],
