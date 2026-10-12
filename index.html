@@ -361,7 +361,7 @@ dialog.wide{width:min(960px,calc(100vw - 24px))}
 .dmy-pick{position:absolute;inset-inline-end:4px;top:50%;transform:translateY(-50%);width:36px;height:34px;display:grid;place-items:center;cursor:pointer;overflow:hidden;border-radius:6px}
 .dmy-pick:hover{background:color-mix(in srgb,var(--ink) 8%,transparent)}
 .dmy-pick>input[type=date]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;padding:0;margin:0;border:0;min-width:0}
-.dmy>input[aria-invalid=true]{border-color:var(--flag,#c0392b)}
+.dmy>input[aria-invalid=true]{border-color:#c0392b;box-shadow:inset 0 -2px 0 #c0392b;background:color-mix(in srgb,#c0392b 12%,var(--card,#fff));color:#a5281b}
 .push-box{padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-sm)}
 .push-fail{margin-top:8px;padding:8px 10px;border-radius:var(--r-sm);border:1px solid var(--warn);color:var(--ink)}
 .notice-list{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto;margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:var(--r-sm)}
@@ -3620,7 +3620,7 @@ function openForm({title, fields, submit="Save", onSubmit, danger, parentOk}){
     }).join("")+
     '</div><p class="form-err" role="alert" hidden></p><footer>'+(danger?'<button type="button" class="btn danger" data-act="danger" style="margin-inline-end:auto">'+esc(danger.label)+'</button>':"")+'<button type="button" class="btn" data-act="cancel">Cancel</button><button type="submit" class="btn primary">'+esc(submit)+'</button></footer></form>';
   const form = m.querySelector("form");
-  dateFields(form); form.addEventListener("change", ()=>syncDates(form)); // a field can set a date in another one
+  dateFields(form); form.addEventListener("change", e=>{ if (!e.target.closest(".dmy")) syncDates(form); }); // a field can set a date in another one
   // A list of dates (one per row), kept in a hidden field as "2026-10-05,2026-10-12".
   fields.filter(f=>f.type==="dates").forEach(f=>{
     const hid = form.elements[f.name], box = form.querySelector('[data-dates="'+f.name+'"]');
