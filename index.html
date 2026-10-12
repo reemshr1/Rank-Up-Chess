@@ -3090,6 +3090,12 @@ function makePortal(db){
       if (!$("#modal").open && !(document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))) render();
     }, ()=>{});
   }
+  function dropAccount(uid){
+    db.doc("portal/"+uid).set({linked:false, unlinked:true}).catch(()=>{});
+    const view = db.collection("portal/"+uid+"/view");
+    view.get().then(snap=>snap.docs.forEach(d=>view.doc(d.id).delete().catch(()=>{}))).catch(()=>{});
+    delete cache[uid]; if (subs[uid]){ try { subs[uid](); } catch(e){} delete subs[uid]; }
+  }
   function watchLinks(){
     db.collection("portal").onSnapshot(snap=>{
       snap.docChanges().filter(ch=>ch.type!=="removed").map(ch=>ch.doc).forEach(d=>{
@@ -3102,6 +3108,8 @@ function makePortal(db){
         // one account, one place: a student or a family, never both
         state.students.forEach(o=>{ if (o!==s && o.portal && o.portal.uid===uid){ delete o.portal; saveStudent(o); } });
         families().forEach(o=>{ if (o!==f && o.portal && o.portal.uid===uid) delete o.portal; });
+        // the account this student or family used before is told its access ended, instead of waiting for a board forever
+        const prev = (s||f).portal && (s||f).portal.uid; if (prev && prev!==uid) dropAccount(prev);
         if (s){ s.portal = {uid, linkedAt:today()}; delete s.invite; saveStudent(s); }
         else { f.portal = {uid, linkedAt:today()}; delete f.invite; saveSettings(); }
         ref.set({code, lang:v.lang||"", linked:true, error:"", role:f?"parent":"student"}).catch(()=>{});
@@ -3123,20 +3131,12 @@ function makePortal(db){
     schedule, scheduleFamily, scheduleAll(){ state.students.forEach(s=>schedule(s.id)); families().forEach(f=>scheduleFamily(f.id)); },
     unlinkFamily(f){
       const uid = f.portal && f.portal.uid; if (!uid) return;
-      clearTimeout(timers["f:"+f.id]);
-      db.doc("portal/"+uid).set({linked:false, unlinked:true}).catch(()=>{});
-      const view = db.collection("portal/"+uid+"/view");
-      view.get().then(snap=>snap.docs.forEach(d=>view.doc(d.id).delete().catch(()=>{}))).catch(()=>{});
-      delete cache[uid]; if (subs[uid]){ try { subs[uid](); } catch(e){} delete subs[uid]; }
+      clearTimeout(timers["f:"+f.id]); dropAccount(uid);
       delete f.portal; saveSettings();
     },
     unlink(s){
       const uid = s.portal && s.portal.uid; if (!uid) return;
-      clearTimeout(timers[s.id]);
-      db.doc("portal/"+uid).set({linked:false, unlinked:true}).catch(()=>{});
-      const view = db.collection("portal/"+uid+"/view");
-      view.get().then(snap=>snap.docs.forEach(d=>view.doc(d.id).delete().catch(()=>{}))).catch(()=>{});
-      delete cache[uid]; if (subs[uid]){ try { subs[uid](); } catch(e){} delete subs[uid]; }
+      clearTimeout(timers[s.id]); dropAccount(uid);
       delete s.portal; saveStudent(s);
     }
   };
