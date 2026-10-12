@@ -360,7 +360,7 @@ dialog.wide{width:min(960px,calc(100vw - 24px))}
 .dmy>input[type=text]{flex:1;min-width:0;width:100%;padding-inline-end:44px}
 .dmy-pick{position:absolute;inset-inline-end:4px;top:50%;transform:translateY(-50%);width:36px;height:34px;display:grid;place-items:center;cursor:pointer;overflow:hidden;border-radius:6px}
 .dmy-pick:hover{background:color-mix(in srgb,var(--ink) 8%,transparent)}
-.dmy-pick>input[type=date]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;padding:0;margin:0;border:0;min-width:0}
+.dmy-pick>input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;padding:0;margin:0;border:0;min-width:0}
 .dmy>input[aria-invalid=true]{border-color:#c0392b;box-shadow:inset 0 -2px 0 #c0392b;background:color-mix(in srgb,#c0392b 12%,var(--card,#fff));color:#a5281b}
 .push-box{padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-sm)}
 .push-fail{margin-top:8px;padding:8px 10px;border-radius:var(--r-sm);border:1px solid var(--warn);color:var(--ink)}
@@ -3581,28 +3581,33 @@ function dmyToIso(t, typing){ t = String(t||"").trim(); if (!t) return "";
   let m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(t); if (m) return ymd(+m[1], +m[2], +m[3]);
   m = (typing ? /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/ : /^(\d{1,2})[\/.\-\s](\d{1,2})[\/.\-\s](\d{2}|\d{4})$/).exec(t); if (!m) return null;
   return ymd(m[3].length===2 ? 2000 + +m[3] : +m[3], +m[2], +m[1]); }
+// times in 24 hours: "17:00", "17.30", "1730", "9:05", "9"; while typing only a full hh:mm counts
+function hmTo24(t, typing){ t = String(t||"").trim(); if (!t) return "";
+  const m = (typing ? /^(\d{1,2})[:.](\d{2})$/ : /^(\d{1,2})(?:[:. ]?(\d{2}))?$/).exec(t); if (!m) return null;
+  const h = +m[1], mi = +(m[2]||0); return h<24 && mi<60 ? String(h).padStart(2,"0")+":"+String(mi).padStart(2,"0") : null; }
 function dateFields(root){
   if (!root) return;
-  root.querySelectorAll('input[type="date"]:not([data-dmy])').forEach(nat=>{
+  root.querySelectorAll('input[type="date"]:not([data-dmy]), input[type="time"]:not([data-dmy])').forEach(nat=>{
     nat.setAttribute("data-dmy", "1");
+    const T = nat.type==="time", toText = T ? (v=>/^\d{2}:\d{2}/.test(v||"") ? v.slice(0,5) : "") : isoToDmy, parse = T ? hmTo24 : dmyToIso;
     const wrap = document.createElement("span"), txt = document.createElement("input"), pick = document.createElement("span");
-    wrap.className = "dmy"; pick.className = "dmy-pick"; pick.textContent = "📅"; pick.title = "Choose a date";
-    Object.assign(txt, {type:"text", inputMode:"numeric", placeholder:"dd/mm/yyyy", autocomplete:"off", required:nat.required}); txt.dir = "ltr";
+    wrap.className = "dmy"; pick.className = "dmy-pick"; if (T) pick.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'; else pick.textContent = "📅"; pick.title = T ? "Choose a time" : "Choose a date";
+    Object.assign(txt, {type:"text", inputMode:"numeric", placeholder:T ? "hh:mm" : "dd/mm/yyyy", autocomplete:"off", required:nat.required}); txt.dir = "ltr";
     if (nat.id){ txt.id = nat.id; nat.id = nat.id+"_pick"; }
     if (nat.getAttribute("aria-label")) txt.setAttribute("aria-label", nat.getAttribute("aria-label"));
     nat.parentNode.insertBefore(wrap, nat); wrap.append(txt, pick); pick.appendChild(nat); nat.tabIndex = -1; nat.setAttribute("aria-hidden", "true");
     let own = false;
-    const show = ()=>{ if (own) return; txt.value = isoToDmy(nat.value); txt.removeAttribute("aria-invalid"); };
+    const show = ()=>{ if (own) return; txt.value = toText(nat.value); txt.removeAttribute("aria-invalid"); };
     const put = v=>{ if (v===nat.value) return; nat.value = v; own = true; nat.dispatchEvent(new Event("input", {bubbles:true})); nat.dispatchEvent(new Event("change", {bubbles:true})); own = false; };
     show();
-    txt.addEventListener("input", ()=>{ const v = dmyToIso(txt.value, true); if (v!==null) put(v); });
-    txt.addEventListener("blur", ()=>{ const v = dmyToIso(txt.value); if (v===null){ txt.setAttribute("aria-invalid", "true"); put(""); } else { put(v); show(); } });
+    txt.addEventListener("input", ()=>{ const v = parse(txt.value, true); if (v!==null) put(v); });
+    txt.addEventListener("blur", ()=>{ const v = parse(txt.value); if (v===null){ txt.setAttribute("aria-invalid", "true"); put(""); } else { put(v); show(); } });
     nat.addEventListener("change", show);
     nat.addEventListener("click", ()=>{ try { nat.showPicker(); } catch(e){} });
     nat._dmyShow = show;
   });
 }
-const syncDates = root=>root && root.querySelectorAll('input[type="date"][data-dmy]').forEach(n=>n._dmyShow && n._dmyShow());
+const syncDates = root=>root && root.querySelectorAll('input[data-dmy]').forEach(n=>n._dmyShow && n._dmyShow());
 function openForm({title, fields, submit="Save", onSubmit, danger, parentOk}){
   // Parents view their child's records; only lesson requests and changes are open to them.
   if (PARENT() && !parentOk){ toast("View only — "+(state.students[0]?state.students[0].name.split(" ")[0]:"your child")+" or the coach can change this"); return; }
@@ -7381,7 +7386,7 @@ const HE = {
   "Theme / what to learn":"נושא / מה ללמוד", "Found in":"נמצא ב־", "Lessons learned":"מה למדנו", "What the student took from this game":"מה התלמיד לקח מהמשחק",
   "Enter the names of both players.":"יש להזין את שמות שני השחקנים.", "e.g. Capablanca, José Raúl":"למשל קפבלנקה, חוסה ראול", "e.g. Tartakower, Savielly":"למשל טרטקובר, סבלי",
   "e.g. New York 1924":"למשל ניו יורק 1924", "e.g. Dutch Defence":"למשל ההגנה ההולנדית", "e.g. Rook endgame technique":"למשל טכניקה בסיומי צריחים",
-  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Useful links":"קישורים שימושיים", "Choose a date":"בחירת תאריך", "Change order":"שינוי סדר", "Put the sites you use most at the top.":"שימו למעלה את האתרים שאתם משתמשים בהם הכי הרבה.", "Username:":"שם משתמש:", "Username":"שם משתמש", "Change":"שינוי", "Add your username":"הוספת שם המשתמש שלך", "Add username":"הוספת שם משתמש", "Username saved":"שם המשתמש נשמר", "Username removed":"שם המשתמש הוסר", "Leave empty to remove it":"להסרה — להשאיר ריק", "Shown to students and parents on their Practice page.":"מוצגים לתלמידים ולהורים בדף התרגול.", "Add link":"הוספת קישור", "Edit link":"עריכת קישור",
+  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Useful links":"קישורים שימושיים", "Choose a date":"בחירת תאריך","Choose a time":"בחירת שעה", "Change order":"שינוי סדר", "Put the sites you use most at the top.":"שימו למעלה את האתרים שאתם משתמשים בהם הכי הרבה.", "Username:":"שם משתמש:", "Username":"שם משתמש", "Change":"שינוי", "Add your username":"הוספת שם המשתמש שלך", "Add username":"הוספת שם משתמש", "Username saved":"שם המשתמש נשמר", "Username removed":"שם המשתמש הוסר", "Leave empty to remove it":"להסרה — להשאיר ריק", "Shown to students and parents on their Practice page.":"מוצגים לתלמידים ולהורים בדף התרגול.", "Add link":"הוספת קישור", "Edit link":"עריכת קישור",
   "Restore the suggested list":"שחזור הרשימה המומלצת", "No links yet.":"עדיין אין קישורים.", "Address":"כתובת", "What it's for (optional)":"למה זה טוב (לא חובה)", "Link saved":"הקישור נשמר", "Link added":"הקישור נוסף", "Link removed":"הקישור הוסר",
   "Students and parents won't see this link any more.":"תלמידים והורים לא יראו יותר את הקישור הזה.", "Restore the suggested list?":"לשחזר את הרשימה המומלצת?", "Your own links and changes will be replaced by the suggested list.":"הקישורים והשינויים שלך יוחלפו ברשימה המומלצת.",
   "Restore":"שחזור", "Suggested list restored":"הרשימה המומלצת שוחזרה", "Enter the site's address, e.g. lichess.org.":"יש להזין את כתובת האתר, למשל lichess.org.",

@@ -19,6 +19,11 @@ Settings; students and parents use the עברית / English button at the top.
 In Hebrew, students and parents see the coach's name instead of "your coach".
 On a phone the app can be installed from the browser ("Add to Home Screen").
 
+Dates are always day first (dd/mm/yyyy) and times are always 24-hour (17:00),
+whatever language the phone or computer is set to. Date and time fields are typed
+(e.g. 5/10/2026, 1730) or chosen with the 📅 / clock button; an impossible date or
+time is shown in red and the form is not saved until it is fixed.
+
 ---
 
 ## 1. Coach view
