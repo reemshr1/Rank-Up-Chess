@@ -222,6 +222,10 @@ All the money in one place.
 - **Phone alerts:** turn alerts on for this device and **Send a test alert**
   (see Phone alerts below).
 - **Account:** which email is signed in, Sign out.
+- **Useful links:** the sites shown to students and parents on their Practice
+  page (suggested: Chess.com, Lichess, Lichess puzzles, ChessTempo, Chessable,
+  Chess-Results, Israel Chess Federation). Add, edit, remove, or restore the
+  suggested list.
 - **Backup:** download all records as a file, or restore from one.
 
 ### My chess
@@ -268,6 +272,10 @@ marks it done.
   goal, the group challenge and sleep before tournaments.
 - **Reading:** books, logged by page range ("pages 40–55"), with the bar of
   read sections.
+- **Useful links** (under Daily practice): the coach's list of sites, each with
+  the student's username there. The student adds or changes their username;
+  on Chess.com and Lichess it links to their profile. The coach sees and edits
+  the same cards on the student's Practice tab; parents see them read-only.
 - **Medals** (Pawn → Knight → Bishop → Rook → Queen → King):
   - practice: days in a row (3 / 7 / 14 / 30 / 60 / 100); missing 2 days in
     a row drops 2 levels, never below Pawn;
