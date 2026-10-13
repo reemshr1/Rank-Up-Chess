@@ -531,9 +531,7 @@ dialog{border:2px solid var(--side);border-radius:14px}
 .wk-dh.today{background:var(--wk-today)}.wk-dh.today span{color:var(--accent)}.wk-dh.today b{background:transparent;color:var(--ink);padding:0}
 .wk-free{background:repeating-linear-gradient(135deg,var(--free-a) 0 8px,var(--free-b) 8px 16px);border:0}
 .wk-free span+span{top:16px;font-weight:500}
-/* free time at the club: blue stripes instead of green */
-.wk-free.at-club{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--accent,#1E4E9C) 16%,transparent) 0 8px,color-mix(in srgb,var(--accent,#1E4E9C) 6%,transparent) 8px 16px)}
-.wk-free.at-club span{color:var(--accent,#1E4E9C)}
+
 .ev{background:var(--ev-bg);color:#fff;border:0;border-radius:8px;padding:5px 8px;box-shadow:0 1px 3px rgba(22,36,63,.2)}
 .ev span{color:var(--ev-sub)}
 .ev.st-done{background:var(--ev-done)}.ev.st-done span{color:var(--ev-done-sub)}
@@ -4036,10 +4034,11 @@ function pHome(v, s){
 function timeOpts(free, date, dur){
   const out = new Map();
   free.filter(f=>f.date===date).forEach(f=>{ const a = toMin(f.from), b = toMin(f.to), pl = f.place||"";
-    for (let m=Math.ceil(a/30)*30; m+dur<=b; m+=30){ const t = fmtMin(m); out.set(t+"|"+pl, t+(pl ? " · At "+pl : "")); } });
+    for (let m=Math.ceil(a/30)*30; m+dur<=b; m+=30){ const t = fmtMin(m); out.set(t+"|"+pl, t+(pl ? " · "+pl : "")); } });
   return [...out].sort((x,y)=>x[0]<y[0]?-1:1);
 }
-const where = x=>x.place ? "At "+x.place : x.format; // a lesson at the club shows where, others their format
+const where = x=>x.place || x.format; // a lesson with a place shows it ("At the club", "Home"), others their format
+const placeFormat = (pl, f)=>pl==="Online" ? "Online" : pl ? "In person" : f;
 // The start time a click on the calendar points to: that time if a lesson fits, else the nearest earlier one at the same place.
 function pickTime(free, p, dur){
   if (!p.time || !p.date) return "";
@@ -4152,7 +4151,7 @@ function lessonActions(s, x, retry){
       if (d.what==="cancel") Object.assign(item, {date:x.date, time:x.time||""});
       else if (d.what==="switch") Object.assign(item, {date:x.date, time:x.time||"", format:other});
       else {
-        const {time, place} = splitTime(d.time), f2 = place ? "In person" : (d.format||fmt);
+        const {time, place} = splitTime(d.time), f2 = placeFormat(place, d.format||fmt);
         if (!d.date || d.date<today()) return "Choose a new date.";
         if (!time) return "Choose a new start time.";
         if (d.date===x.date && time===x.time && f2===fmt && place===(x.place||"")) return "That's the same time as now.";
@@ -4186,7 +4185,7 @@ function requestLesson(s, pre){
       if (!d.date || d.date<today()) return "Choose a date from today on.";
       if (!time) return "Choose a start time.";
       if (s.freeSet && !fitsFree(atPlace(s.free||[], place), d.date, time, +d.duration)) return "Your coach isn't free then. Choose another start time or a shorter lesson.";
-      const op = {type:"request", item:Object.assign({id:uid(), date:d.date, time, duration:+d.duration, format:place ? "In person" : d.format, note:d.note}, place ? {place} : {})};
+      const op = {type:"request", item:Object.assign({id:uid(), date:d.date, time, duration:+d.duration, format:placeFormat(place, d.format), note:d.note}, place ? {place} : {})};
       store.send(op); applyOp(s, op, false); render(); toast("Request sent to your coach");
     }});
 }
@@ -4402,9 +4401,9 @@ function requestsPanel(){
     reqs.map(({s,r})=>{ const day = d=>fmtDate(d,{weekday:"short",day:"numeric",month:"short"});
       const what = r.kind==="cancel" ? '<span class="tag flag">Cancel lesson</span> '+esc(day(r.was.date))+(r.was.time?' · '+esc(r.was.time):'')
         : r.kind==="move" ? (r.date===r.was.date && r.time===r.was.time ? '<span class="tag warn">Switch to '+esc(r.format==="Online"?"online":"in person")+'</span> '+esc(day(r.date))+' · '+esc(r.time)
-            : '<span class="tag warn">Move lesson</span> '+esc(day(r.was.date))+(r.was.time?' '+esc(r.was.time):'')+' → '+esc(day(r.date))+' · '+esc(r.time)+' · '+r.duration+' min'+(r.place?' · '+esc("At "+r.place):''))+
+            : '<span class="tag warn">Move lesson</span> '+esc(day(r.was.date))+(r.was.time?' '+esc(r.was.time):'')+' → '+esc(day(r.date))+' · '+esc(r.time)+' · '+r.duration+' min'+(r.place?' · '+esc(r.place):''))+
           (r.was.format && r.format && r.format!==r.was.format ? ' · <span>'+esc(r.was.format)+' → '+esc(r.format)+'</span>' : '')
-        : '<span class="tag board">New lesson</span> '+esc(day(r.date))+' · '+esc(r.time)+' · '+r.duration+' min · '+esc(r.place ? "At "+r.place : r.format);
+        : '<span class="tag board">New lesson</span> '+esc(day(r.date))+' · '+esc(r.time)+' · '+r.duration+' min · '+esc(r.place || r.format);
       return '<li><div class="main"><div class="title"><a href="#/student/'+s.id+'/sessions">'+esc(s.name)+'</a>'+(r.by==="parent"?' <span class="tag">from the parent</span>':'')+'</div><div class="small muted">'+what+(r.note?' · '+esc(r.note):'')+'</div>'+
       (r.date<today()?'<div class="small" style="color:var(--flag)">This date has passed</div>':'')+'</div><div class="row-actions"><button class="btn small ghost" data-a="decline" data-id="'+s.id+'|'+r.id+'">Decline</button><button class="btn small primary" data-a="approve" data-id="'+s.id+'|'+r.id+'">Approve</button></div></li>'; }).join("")+answers.map(ansLine).join("")+'</ul></section>';
 }
@@ -4422,7 +4421,7 @@ function approveRequest(s, r){
         {name:"date",label:"Date",type:"date",value:r.date},{name:"time",label:"Start time",type:"time",value:r.time},
         {name:"duration",label:"Duration (minutes)",type:"number",value:r.duration||les.duration||60,min:15},
         {name:"format",label:"Format",type:"select",options:["In person","Online","Group"],value:r.format||les.format||"In person"},
-        {name:"place",label:"Place (optional)",value:r.place||"",placeholder:"e.g. the club",show:v=>v.format!=="Online"}],
+        {name:"place",label:"Place (optional)",value:r.place||"",placeholder:"e.g. At the club",show:v=>v.format!=="Online"}],
       onSubmit:d=>{
         const c = {id:les.id, date:d.date||r.date, time:d.time, duration:d.duration===""?60:+d.duration, format:d.format||les.format};
         const err = clashCheck(s.id, c, ack); if (err) return err;
@@ -4438,7 +4437,7 @@ function approveRequest(s, r){
       {name:"time",label:"Start time",type:"time",value:r.time},
       {name:"duration",label:"Duration (minutes)",type:"number",value:r.duration||60,min:15},
       {name:"format",label:"Format",type:"select",options:["In person","Online","Group"],value:r.format||"In person"},
-      {name:"place",label:"Place (optional)",value:r.place||"",placeholder:"e.g. the club",show:v=>v.format!=="Online"},
+      {name:"place",label:"Place (optional)",value:r.place||"",placeholder:"e.g. At the club",show:v=>v.format!=="Online"},
       {name:"fee",label:"Fee ("+state.settings.currency+")",type:"number",value:s.rate,min:0,step:"any"},
       {name:"topics",label:"Topics",value:r.note||"",full:true}],
     onSubmit:d=>{
@@ -5028,7 +5027,7 @@ function editSession(s, x){
     {name:"time",label:"Start time",type:"time",value:x?.time||""},
     {name:"duration",label:"Duration (minutes)",type:"number",value:x?.duration??90,min:0},
     {name:"format",label:"Format",type:"select",options:["In person","Online","Group"],value:x?.format||"In person"},
-    {name:"place",label:"Place (optional)",value:x?.place||"",placeholder:"e.g. the club",show:v=>v.format!=="Online"},
+    {name:"place",label:"Place (optional)",value:x?.place||"",placeholder:"e.g. At the club",show:v=>v.format!=="Online"},
     {name:"status",label:"Status",type:"select",options:SESSION_STATUS,value:x?.status||"planned"},
     {name:"fee",label:"Fee ("+state.settings.currency+")",type:"number",value:x?.fee??s.rate,min:0,step:"any",hint:"Charged once the session is marked done"},
     {name:"topics",label:"Topics",value:x?.topics||"",full:true,placeholder:"e.g. Rook endgames, Najdorf 6.Bg5"},
@@ -6589,10 +6588,10 @@ function clubMonth(ym, whole){
 // Where a free window is: "" is the coach's usual place (home or online); otherwise the club's address or name,
 // for times the coach is at the club anyway and can meet students who live far.
 function freePlaces(cur){
-  const L = [...new Set(clubRules().map(r=>(r.place||r.name||"").trim()).filter(Boolean))];
-  if (!L.length) L.push("the club");
+  const clubs = [...new Set(clubRules().map(r=>(r.place||r.name||"").trim()).filter(Boolean))].map(p=>"At "+p);
+  const L = ["At home", "Online"].concat(clubs.length ? clubs : ["At the club"]);
   if (cur && !L.includes(cur)) L.push(cur);
-  return [["","Your usual place (home or online)"]].concat(L.map(p=>[p, "At "+p]));
+  return [["","Not set (students choose in person or online)"]].concat(L.map(p=>[p, p]), [["other","Another place…"]]);
 }
 // [from, to, place] in minutes; windows at the same place are merged, different places stay apart.
 function freeOn(d){
@@ -6633,7 +6632,7 @@ function openSlots(from, to, sid){
 function freeLabel(r){
   const wd = n=>new Date(2024,0,7+(+n)).toLocaleDateString(LOCALE(),{weekday:"long"});
   if (r.kind==="off") return fmtDate(r.date,{weekday:"short",day:"numeric",month:"short"})+" · Day off";
-  return (r.kind==="weekly" ? "Every "+wd(r.weekday) : fmtDate(r.date,{weekday:"short",day:"numeric",month:"short"}))+" · "+r.from+"–"+r.to+(r.place ? " · At "+r.place : "");
+  return (r.kind==="weekly" ? "Every "+wd(r.weekday) : fmtDate(r.date,{weekday:"short",day:"numeric",month:"short"}))+" · "+r.from+"–"+r.to+(r.place ? " · "+r.place : "");
 }
 function editFree(r){
   const isNew = !r, x = r || {id:uid(), kind:"weekly", date:today(), from:"16:00", to:"20:00", end:""};
@@ -6643,12 +6642,14 @@ function editFree(r){
       {name:"from",label:"From",type:"time",value:x.from||"16:00",show:v=>v.kind!=="off"},
       {name:"to",label:"Until",type:"time",value:x.to||"20:00",show:v=>v.kind!=="off"},
       {name:"end",label:"Last date (optional)",type:"date",value:x.end||"",show:v=>v.kind==="weekly"},
-      {name:"place",label:"Where",type:"select",options:freePlaces(x.place),value:x.place||"",show:v=>v.kind!=="off",full:true,hint:"At the club: times you're there anyway, for students who live far. Students see where the lesson would be."}],
+      {name:"place",label:"Where",type:"select",options:freePlaces(x.place),value:x.place||"",show:v=>v.kind!=="off",full:true,hint:"Students see it under the time. At the club: times you're there anyway, for students who live far."},
+      {name:"placeOther",label:"Place",value:"",placeholder:"e.g. At the community centre",show:v=>v.kind!=="off" && v.place==="other",full:true}],
     danger: isNew ? null : {label:"Delete", onClick:()=>{ state.settings.free = freeRules().filter(y=>y.id!==x.id); saveSettings(); render(); toast("Free time removed"); }},
     onSubmit:d=>{
       if (!d.date) return "Choose a date.";
       if (d.kind!=="off" && (toMin(d.to)===null || toMin(d.from)===null || toMin(d.to)<=toMin(d.from))) return "The end time must be after the start time.";
       if (d.kind==="weekly" && d.end && d.end<d.date) return "The last date is before the first.";
+      if (d.place==="other"){ d.place = (d.placeOther||"").trim().slice(0,60); if (!d.place) return "Write the place, or choose one from the list."; }
       const y = d.kind==="weekly" ? {id:x.id, kind:"weekly", weekday:dow(d.date), from:d.from, to:d.to, start:d.date, end:d.end, place:d.place||""}
         : d.kind==="once" ? {id:x.id, kind:"once", date:d.date, from:d.from, to:d.to, place:d.place||""} : {id:x.id, kind:"off", date:d.date};
       const L = freeRules().filter(z=>z.id!==x.id); L.push(y); state.settings.free = L;
@@ -7016,7 +7017,7 @@ function weekGrid(ws, items, n=7){
     evs.forEach(e=>{ if (e.a>=clEnd && cluster.length) flush(); cluster.push(e); clEnd = Math.max(clEnd, e.b); }); if (cluster.length) flush();
     const now = d===t ? (()=>{ const n = new Date(); const mm = n.getHours()*60+n.getMinutes(); return mm>=h0*60 && mm<=h1*60 ? '<div class="wk-now" style="top:'+((mm-h0*60)/60*HOUR_PX)+'px"></div>' : ""; })() : "";
     return '<div class="wk-day'+(d===t?" today":"")+'" data-date="'+d+'" data-h0="'+h0+'" style="height:'+(H*HOUR_PX)+'px" title="'+(STUDENT()?"Click an empty spot to request a lesson":"Click an empty spot to plan a session")+'">'+now+
-      freeBands(d).map(([a,b,pl])=>'<div class="wk-free'+(pl?' at-club':'')+'" style="top:'+((a-h0*60)/60*HOUR_PX)+'px;height:'+((b-a)/60*HOUR_PX)+'px"><span>Free '+fmtMin(a)+'–'+fmtMin(b)+'</span>'+(pl?'<span>'+esc("At "+pl)+'</span>':'')+'</div>').join("")+
+      freeBands(d).map(([a,b,pl])=>'<div class="wk-free" style="top:'+((a-h0*60)/60*HOUR_PX)+'px;height:'+((b-a)/60*HOUR_PX)+'px"><span>Free '+fmtMin(a)+'–'+fmtMin(b)+'</span>'+(pl?'<span>'+esc(pl)+'</span>':'')+'</div>').join("")+
       takenBands(d).map(([a,b])=>'<div class="wk-taken" style="top:'+((a-h0*60)/60*HOUR_PX)+'px;height:'+((b-a)/60*HOUR_PX)+'px"><span>Taken '+fmtMin(a)+'–'+fmtMin(b)+'</span></div>').join("")+placed.map(e=>{
       const x = e.i.x, top = (e.a-h0*60)/60*HOUR_PX, ht = Math.max(22, (e.b-e.a)/60*HOUR_PX-2), cl = e.i.clash||[];
       return '<button type="button" class="ev '+evCls(e.i)+(cl.length?" clash":"")+'" '+evAct(e.i)+' style="top:'+top+'px;height:'+ht+'px;inset-inline-start:calc('+(e.lane/e.n*100)+'% + 2px);width:calc('+(100/e.n)+'% - 4px)">'+
@@ -7024,7 +7025,7 @@ function weekGrid(ws, items, n=7){
     }).join("")+'</div>';
   }).join("");
   return '<div class="wk-wrap"><div class="wk'+(n<7?" wk-few":"")+'" style="--days:'+n+'"><div class="wk-row">'+head+'</div><div class="wk-row">'+allday+'</div><div class="wk-row wk-body">'+labels+cols+'</div></div></div>'+
-    '<p class="small muted" style="margin:8px 0 0">'+(STUDENT()?(((state.students[0]||{}).free||[]).some(f=>f.place) ? "Green is when your coach is free, blue is at the club · click inside them to request a lesson, or click your training to edit it." : "Green is when your coach is free · click inside green to request a lesson, or click your training to edit it."):(freeRules().some(r=>r.place) ? "↻ weekly slot · green is your free time · blue is free time at the club · yellow is a club class · click a session for actions, or click an empty spot to plan one." : "↻ weekly slot · green is your free time · yellow is a club class · click a session for actions, or click an empty spot to plan one."))+'</p>';
+    '<p class="small muted" style="margin:8px 0 0">'+(STUDENT()?"Green is when your coach is free · click inside green to request a lesson, or click your training to edit it.":"↻ weekly slot · green is your free time · yellow is a club class · click a session for actions, or click an empty spot to plan one.")+'</p>';
 }
 function listView(items, t){
   const groups = {}; items.forEach(i=>{ if (i.kind==="session" && i.x.status==="cancelled") return; (groups[i.date]=groups[i.date]||[]).push(i); });
@@ -7039,7 +7040,7 @@ function listView(items, t){
       if (i.kind==="due") return '<li><div class="main"><div class="title"><a href="#/assignment/'+x.id+'">'+esc(x.title)+'</a></div><div class="small muted">'+(st?"":esc(i.s.name)+' · ')+esc(x.type)+'</div></div><span class="tag warn">Assignment due</span></li>';
       if (i.kind==="req") return '<li><div class="main"><div class="title">'+(x.kind==="move"?"Move request":"Lesson request")+'</div><div class="small muted">'+[x.time, x.duration+" min", where(x)].filter(Boolean).map(esc).join(" · ")+(x.note?' · '+esc(x.note):'')+'</div></div><div class="row-actions">'+(x.status==="pending"?'<span class="tag warn">Waiting for your coach</span><button class="btn small ghost" data-a="unreq" data-id="'+x.id+'">Cancel</button>':'<span class="tag flag">Declined</span>')+'</div></li>';
       if (i.kind==="taken") return '<li><div class="main"><div class="title muted">Taken '+esc(x.from)+'–'+esc(x.to)+'</div><div class="small muted">Another lesson</div></div><span class="tag">Booked</span></li>';
-      if (i.kind==="free") return '<li><div class="main"><div class="title">Coach free '+esc(x.from)+'–'+esc(x.to)+'</div><div class="small muted">'+(x.place ? 'At '+esc(x.place)+' · ' : '')+'Open for lessons</div></div><button class="btn small" data-a="reqat" data-id="'+x.date+'|'+x.from+'|'+esc(x.place||"")+'">Request</button></li>';
+      if (i.kind==="free") return '<li><div class="main"><div class="title">Coach free '+esc(x.from)+'–'+esc(x.to)+'</div><div class="small muted">'+(x.place ? esc(x.place)+' · ' : '')+'Open for lessons</div></div><button class="btn small" data-a="reqat" data-id="'+x.date+'|'+x.from+'|'+esc(x.place||"")+'">Request</button></li>';
       if (i.kind==="train") return '<li><div class="main"><div class="title">Training · '+esc(x.what||"")+'</div><div class="small muted">'+[x.time, x.duration?x.duration+" min":"", x.note].filter(Boolean).map(esc).join(" · ")+'</div></div><button class="btn small ghost" data-a="train" data-id="'+x.id+'">Edit</button></li>';
       if (st){ const pc = pendingChange(i.s, x), na = needsAnswer(i.s, x);
         return '<li><div class="main"><div class="title">Lesson'+(x.topics?' — '+esc(x.topics):'')+(x.slotId?' <span class="muted small">↻ weekly</span>':'')+'</div><div class="small muted">'+[x.time||"No time set", x.duration?x.duration+" min":"", where(x)].filter(Boolean).map(esc).join(" · ")+'</div></div><div class="row-actions">'+
@@ -7512,7 +7513,7 @@ const HE = {
   "Theme / what to learn":"נושא / מה ללמוד", "Found in":"נמצא ב־", "Lessons learned":"מה למדנו", "What the student took from this game":"מה התלמיד לקח מהמשחק",
   "Enter the names of both players.":"יש להזין את שמות שני השחקנים.", "e.g. Capablanca, José Raúl":"למשל קפבלנקה, חוסה ראול", "e.g. Tartakower, Savielly":"למשל טרטקובר, סבלי",
   "e.g. New York 1924":"למשל ניו יורק 1924", "e.g. Dutch Defence":"למשל ההגנה ההולנדית", "e.g. Rook endgame technique":"למשל טכניקה בסיומי צריחים",
-  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Useful links":"קישורים שימושיים", "Choose a date":"בחירת תאריך", "At the club":"במועדון", "Green is when your coach is free, blue is at the club · click inside them to request a lesson, or click your training to edit it.":"ירוק = המאמן פנוי, כחול = במועדון · לחיצה בתוכם לבקשת שיעור, או על אימון לעריכה.", "↻ weekly slot · green is your free time · blue is free time at the club · yellow is a club class · click a session for actions, or click an empty spot to plan one.":"↻ שיעור קבוע · ירוק = הזמן הפנוי שלך · כחול = זמן פנוי במועדון · צהוב = חוג במועדון · לחיצה על שיעור לפעולות, או על מקום פנוי לתכנון שיעור.", "Where":"איפה", "Your usual place (home or online)":"המקום הרגיל שלך (בבית או אונליין)", "Place (optional)":"מקום (לא חובה)", "e.g. the club":"למשל: המועדון", "At the club: times you're there anyway, for students who live far. Students see where the lesson would be.":"במועדון: זמנים שבהם את/ה שם בכל מקרה, לתלמידים שגרים רחוק. התלמידים רואים איפה יהיה השיעור.", "Every night":"כל לילה", "A copy of all your records is saved every night and kept for 30 days.":"בכל לילה נשמר עותק של כל הנתונים שלך, למשך 30 יום.", "Nightly backups aren’t turned on yet.":"הגיבוי הלילי עדיין לא הופעל.", "No nightly backup yet — the first one is made tonight.":"עדיין אין גיבוי לילי — הראשון ייעשה הלילה.", "Download":"הורדה", "Folder on this computer":"תיקייה במחשב הזה", "To save a backup into a folder automatically, open the app in Chrome or Edge on a computer.":"כדי לשמור גיבוי בתיקייה באופן אוטומטי, יש לפתוח את האפליקציה ב־Chrome או ב־Edge במחשב.", "Choose a folder and the app saves a backup into it once a day, when you open the app on this computer.":"בוחרים תיקייה, והאפליקציה שומרת בה גיבוי פעם ביום, כשפותחים אותה במחשב הזה.", "Choose a folder":"בחירת תיקייה", "Folder:":"תיקייה:", "Not saved yet.":"עוד לא נשמר.", "Save now":"שמירה עכשיו", "Change folder":"החלפת תיקייה", "Stop":"הפסקה", "Save today’s backup to your folder on this computer.":"שמירת הגיבוי של היום בתיקייה שלך במחשב הזה.", "Save backup":"שמירת גיבוי", "Couldn’t load that backup.":"לא ניתן היה לטעון את הגיבוי הזה.", "The backup couldn’t be saved in that folder.":"לא ניתן היה לשמור את הגיבוי בתיקייה הזו.", "That folder can’t be used.":"אי אפשר להשתמש בתיקייה הזו.", "Backup saved to your folder":"הגיבוי נשמר בתיקייה שלך", "Backups to the folder stopped":"הגיבויים לתיקייה הופסקו", "Loading…":"טוען…", "Choose a time":"בחירת שעה", "Change order":"שינוי סדר", "Put the sites you use most at the top.":"שימו למעלה את האתרים שאתם משתמשים בהם הכי הרבה.", "Username:":"שם משתמש:", "Username":"שם משתמש", "Change":"שינוי", "Add your username":"הוספת שם המשתמש שלך", "Add username":"הוספת שם משתמש", "Username saved":"שם המשתמש נשמר", "Username removed":"שם המשתמש הוסר", "Leave empty to remove it":"להסרה — להשאיר ריק", "Shown to students and parents on their Practice page.":"מוצגים לתלמידים ולהורים בדף התרגול.", "Add link":"הוספת קישור", "Edit link":"עריכת קישור",
+  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Useful links":"קישורים שימושיים", "Choose a date":"בחירת תאריך", "At the club":"במועדון",  "Where":"איפה", "Not set (students choose in person or online)":"לא נקבע (התלמידים בוחרים פרונטלי או אונליין)", "At home":"בבית", "Another place…":"מקום אחר…", "Write the place, or choose one from the list.":"יש לכתוב את המקום, או לבחור אחד מהרשימה.", "e.g. At the community centre":"למשל: במתנ״ס", "Place (optional)":"מקום (לא חובה)", "e.g. At the club":"למשל: במועדון", "Students see it under the time. At the club: times you're there anyway, for students who live far.":"התלמידים רואים את זה מתחת לשעה. במועדון: זמנים שבהם את/ה שם בכל מקרה, לתלמידים שגרים רחוק.", "Every night":"כל לילה", "A copy of all your records is saved every night and kept for 30 days.":"בכל לילה נשמר עותק של כל הנתונים שלך, למשך 30 יום.", "Nightly backups aren’t turned on yet.":"הגיבוי הלילי עדיין לא הופעל.", "No nightly backup yet — the first one is made tonight.":"עדיין אין גיבוי לילי — הראשון ייעשה הלילה.", "Download":"הורדה", "Folder on this computer":"תיקייה במחשב הזה", "To save a backup into a folder automatically, open the app in Chrome or Edge on a computer.":"כדי לשמור גיבוי בתיקייה באופן אוטומטי, יש לפתוח את האפליקציה ב־Chrome או ב־Edge במחשב.", "Choose a folder and the app saves a backup into it once a day, when you open the app on this computer.":"בוחרים תיקייה, והאפליקציה שומרת בה גיבוי פעם ביום, כשפותחים אותה במחשב הזה.", "Choose a folder":"בחירת תיקייה", "Folder:":"תיקייה:", "Not saved yet.":"עוד לא נשמר.", "Save now":"שמירה עכשיו", "Change folder":"החלפת תיקייה", "Stop":"הפסקה", "Save today’s backup to your folder on this computer.":"שמירת הגיבוי של היום בתיקייה שלך במחשב הזה.", "Save backup":"שמירת גיבוי", "Couldn’t load that backup.":"לא ניתן היה לטעון את הגיבוי הזה.", "The backup couldn’t be saved in that folder.":"לא ניתן היה לשמור את הגיבוי בתיקייה הזו.", "That folder can’t be used.":"אי אפשר להשתמש בתיקייה הזו.", "Backup saved to your folder":"הגיבוי נשמר בתיקייה שלך", "Backups to the folder stopped":"הגיבויים לתיקייה הופסקו", "Loading…":"טוען…", "Choose a time":"בחירת שעה", "Change order":"שינוי סדר", "Put the sites you use most at the top.":"שימו למעלה את האתרים שאתם משתמשים בהם הכי הרבה.", "Username:":"שם משתמש:", "Username":"שם משתמש", "Change":"שינוי", "Add your username":"הוספת שם המשתמש שלך", "Add username":"הוספת שם משתמש", "Username saved":"שם המשתמש נשמר", "Username removed":"שם המשתמש הוסר", "Leave empty to remove it":"להסרה — להשאיר ריק", "Shown to students and parents on their Practice page.":"מוצגים לתלמידים ולהורים בדף התרגול.", "Add link":"הוספת קישור", "Edit link":"עריכת קישור",
   "Restore the suggested list":"שחזור הרשימה המומלצת", "No links yet.":"עדיין אין קישורים.", "Address":"כתובת", "What it's for (optional)":"למה זה טוב (לא חובה)", "Link saved":"הקישור נשמר", "Link added":"הקישור נוסף", "Link removed":"הקישור הוסר",
   "Students and parents won't see this link any more.":"תלמידים והורים לא יראו יותר את הקישור הזה.", "Restore the suggested list?":"לשחזר את הרשימה המומלצת?", "Your own links and changes will be replaced by the suggested list.":"הקישורים והשינויים שלך יוחלפו ברשימה המומלצת.",
   "Restore":"שחזור", "Suggested list restored":"הרשימה המומלצת שוחזרה", "Enter the site's address, e.g. lichess.org.":"יש להזין את כתובת האתר, למשל lichess.org.",

@@ -188,12 +188,14 @@ time.
 - **Past sessions still marked as planned**, to mark done.
 - **Free time for lessons:** the hours when students may ask for a lesson.
   Students see these hours, minus what's already booked.
-  Each slot has a **Where**: the usual place (home or online) or **At the club**
-  (the places come from the club classes), for times the coach is at the club
-  anyway and can meet students who live far. Club slots show in blue on the
-  calendar, club class hours are left out of them, and lessons booked there
-  carry the place ("At …") everywhere they're listed. Approving a request or
-  editing a lesson has an optional **Place**.
+  Each slot can have a **Where**: not set (students choose in person or online),
+  **At home**, **Online**, **At \<club\>** (from the club classes' places; "At the
+  club" when there are none) or another place typed in. The place is written
+  under the time on the calendar (same green), and on the student's start times.
+  Club class hours are left out of free time. An Online slot books an online
+  lesson, any other place an in-person one, and the lesson keeps the place
+  everywhere it's listed. Approving a request or editing a lesson has an
+  optional **Place**.
 - **Club classes:** classes taught at the club (weekly or one-off, with place
   and pay per class). They show on the schedule, block lesson requests at
   those times, and count the club hours and pay for the month.
@@ -325,8 +327,8 @@ payment" to report a payment for the coach to confirm.
 ### Request a lesson
 Pick a day and a start time inside the coach's free time (times already
 booked by others are hidden), the length, in person or online, and a note.
-Times at the club say so ("18:00 · At the club"); for those there's no in
-person / online choice. Clicking inside the calendar's green or blue free time
+Times with a place say so ("18:00 · At the club", "20:00 · Online"); for those
+there's no in person / online choice. Clicking inside the calendar's free time
 opens the request at that time.
 For an existing lesson: cancel it, move it to another time, or switch it
 between in person and online. Every request waits for the coach's approval.
