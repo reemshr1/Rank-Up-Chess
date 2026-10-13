@@ -259,8 +259,8 @@ without payments, for the coach's own rating, games and openings.
 
 ### Hiding bubbles
 Every bubble in the coach's view has a **Hide** button on its title line. A hidden
-bubble folds to its title line and moves to the bottom of that page, under "Hidden
-on this page", with a **Show** button that opens it again in its usual place.
+bubble folds to its title line and stays where it is, with a **Show** button that
+opens it again.
 What's hidden is saved in the settings, so it's the same on all the coach's
 devices. Bubbles that need action (lesson requests, problems updating a student's
 board, answers to declined moves) can't be hidden. Students and parents don't
