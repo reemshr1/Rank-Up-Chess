@@ -270,8 +270,8 @@ board, answers to declined moves) can't be hidden. Students and parents don't
 have this.
 
 ### Accounts and codes
-Students and parents see which account they're signed in with: "Signed in as …" on
-the code screen (with "Not you? Sign out") and in the menu. A code works once; if a
+Only the coach sees which email a student or parent connected with. A code works
+once; if a
 second account tries a code that was already used, it says "This code was already
 used" and explains to sign in with the email used on the other device, or ask for a
 new code (a wrong code still says it wasn't recognised). The coach's Student app /
