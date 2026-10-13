@@ -2866,7 +2866,7 @@ function openLessons(s, keepId){
 // Every document a parent's app reads: the family, and for each child the same records a student sees plus money.
 function familyDocs(f){
   const out = {}, kids = (f.studentIds||[]).map(byId).filter(Boolean);
-  out.family = stampView({name:f.name, children:kids.map(k=>({id:k.id, name:k.name})), coachName:state.settings.coachName||"", coachNameHe:state.settings.coachNameHe||"", weekStart:state.settings.weekStart||0});
+  out.family = stampView({name:f.name, children:kids.map(k=>({id:k.id, name:k.name, nameHe:k.nameHe||""})), coachName:state.settings.coachName||"", coachNameHe:state.settings.coachNameHe||"", weekStart:state.settings.weekStart||0});
   kids.forEach(k=>{
     const parts = splitStudent(studentView(k));
     out["ch-"+k.id] = Object.assign(parts.main, {notices:(k.notices||[]).filter(n=>(n.to||[]).includes("parent") && liveNotice(n)), pay:payView(k), payReports:recentReports(k)});
@@ -3810,7 +3810,7 @@ function renderNav(){
     const s = state.students[0], cur = r.page==="student" ? tabGroup(r.tab) : r.page==="assignment" ? "assignments" : r.page==="schedule" ? "schedule" : r.page==="payments" && (PARENT() || (s && s.pay)) ? "payments" : r.page==="progress" ? "progress" : "home";
     // a family with more than one child picks whose board to show
     const fam = PARENT() && state.family, pick = $("#childPick");
-    if (pick){ pick.hidden = !(fam && fam.children.length>1); if (fam) pick.innerHTML = fam.children.map(k=>'<option value="'+esc(k.id)+'"'+(k.id===fam.current?" selected":"")+'>'+esc(k.name)+'</option>').join(""); }
+    if (pick){ pick.hidden = !(fam && fam.children.length>1); if (fam) pick.innerHTML = fam.children.map(k=>'<option value="'+esc(k.id)+'"'+(k.id===fam.current?" selected":"")+'>'+esc((lang()==="he" && k.nameHe) || k.name)+'</option>').join(""); }
     const fresh = s ? unseenUpdates(s) : [], cnt = k=>fresh.filter(u=>updateArea(u)===k).length;
     const html = s ? studentNav(s).map(([k,href,l,ic])=>'<a href="'+href+'"'+(cur===k?' aria-current="page"':"")+'>'+ic+'<span>'+l+'</span>'+(cnt(k) && cur!==k ? '<i class="nav-badge" aria-label="'+cnt(k)+' new">'+cnt(k)+'</i>' : '')+'</a>').join("") : "";
     $("#nav").innerHTML = html; $("#bnav").innerHTML = html; return;
@@ -4038,7 +4038,7 @@ function pFamilyPay(v, s){
       '<p class="small muted" style="margin:8px 0 0">The last two years. Lessons are charged once they have taken place; cancelled lessons aren\'t charged.</p>' : '<p class="empty">No charges or payments yet.</p>');
 }
 function pHome(v, s){
-  const t = today(), first = s.name.split(" ")[0];
+  const t = today(), first = (lang()==="he" && (s.nameHe||"").trim()) || s.name.split(" ")[0]; // the Hebrew name in Hebrew
   const lessons = sortBy(s.sessions.filter(x=>x.status==="planned" && x.date>=t),"date").slice(0,4);
   const hw = asSort(state.assignments.filter(a=>a.status!=="Reviewed"));
   const todo = hw.filter(a=>a.status==="Assigned");
