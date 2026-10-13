@@ -169,6 +169,22 @@ main{padding:32px clamp(16px,4vw,48px) 96px;max-width:1180px;width:100%;min-widt
 .row-actions{display:flex;gap:4px;flex-wrap:wrap}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:18px 20px;box-shadow:var(--shadow);min-width:0}
 .panel-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+.panel-hide{display:inline-flex;align-items:center;gap:4px;margin-inline-start:auto;background:none;border:0;padding:4px 6px;border-radius:6px;color:inherit;opacity:.55;cursor:pointer;font-size:.78rem;flex:none}
+.panel-head>.panel-hide{margin-inline-start:0}.panel-head>h2+.panel-hide{margin-inline-start:auto}
+.panel-hide:hover,.panel-hide:focus-visible{opacity:1;background:color-mix(in srgb,currentColor 12%,transparent)}
+summary .panel-hide{margin-inline-start:auto}
+.panel.panel-folded:has(> .panel-head){padding-bottom:0!important}
+.panel.panel-folded{align-self:start}
+.panel.panel-folded>:not(.panel-head):not(summary){display:none!important}
+.panel.panel-folded>.panel-head{margin-bottom:0}
+.panel.panel-folded>.panel-head>:not(h2):not(h3):not(.panel-hide),.panel.panel-folded>summary>:not(h2):not(.panel-hide){display:none!important}
+.stat{position:relative}
+.tile-hide{position:absolute;top:6px;inset-inline-end:6px;padding:3px 4px}
+.stat:not(.stat-folded) .tile-hide{opacity:0}.stat:hover .tile-hide,.tile-hide:focus-visible{opacity:.6}
+@media (hover:none){.stat:not(.stat-folded) .tile-hide{opacity:.35}}
+.stat.stat-folded>:not(.l):not(.tile-hide){display:none!important}
+.stat.stat-folded .tile-hide{position:static;margin-top:6px;opacity:.7}
+.panel.panel-folded>summary h2::before{content:""}
 .grid{display:grid;gap:16px}
 .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
 .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -477,6 +493,7 @@ dialog.wide{width:min(960px,calc(100vw - 24px))}
 .panel > .panel-head .btn.primary{background:var(--yellow);border-color:var(--yellow);color:#16243F}
 .panel > .panel-head .tag{background:var(--yellow);border-color:transparent;color:#16243F}
 .panel > .panel-head a{color:#fff}
+.panel > .panel-head .panel-hide{color:#fff;opacity:.7}
 .panel[style*="--flag"] > .panel-head{background:var(--flag)}
 /* boxes whose rows run edge to edge (no inner spacing) keep the title bar inside */
 .panel[style*="padding:0"] > .panel-head{margin:0}
@@ -554,7 +571,7 @@ dialog{border:2px solid var(--side);border-radius:14px}
 @media (max-width:520px){.stats-5{grid-template-columns:1fr 1fr}.stats-5 .stat{border-inline-start:1px solid var(--line)}.stats-5 .stat:nth-child(odd){border-inline-start:0}.stats-5 .stat:nth-child(n+3){border-top:1px solid var(--line)}}
 .off-line{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
 .off-items{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.88rem}
-.fold summary{cursor:pointer;list-style:none}
+.fold summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:12px}
 .fold summary::-webkit-details-marker{display:none}
 .fold summary h2::before{content:"▸ ";color:var(--muted)}
 .fold[open] summary h2::before{content:"▾ "}
@@ -3817,6 +3834,36 @@ function render(){
   if (!state.students.length && ["dashboard","students","schedule","payments","assignments"].includes(r.page)){ v.innerHTML = welcome(); bindWelcome(); return; }
   const pages = {dashboard:pDashboard, students:pStudents, student:pStudent, schedule:pSchedule, payments:pPayments, settings:pSettings, assignments:pAssignments, assignment:pAssignment, search:pSearch};
   (pages[r.page]||pDashboard)(v, r);
+  hidePanels(v, r);
+}
+/* ---------- hiding bubbles: the coach can put away a bubble they don't need for now, per page ----------
+   Each bubble gets a "Hide" button. A hidden bubble folds to its title line where it is, with a "Show" button
+   that opens it again. Bubbles that ask for action (lesson requests, problems, answers) can't be hidden. */
+const EYE_OFF = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c5 0 9 4.5 10 7a13 13 0 0 1-3 4.2M6.1 6.1A13 13 0 0 0 2 12c1 2.5 5 7 10 7a10 10 0 0 0 4.3-1M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+const EYE_ON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+function hidePanels(v, r){
+  if (STUDENT() || PREVIEW) return;
+  const hidden = state.settings.hiddenPanels||[], page = r.page+(r.page==="student" ? "/"+(r.tab||"overview") : "");
+  const setHidden = (key, on)=>{ const L = (state.settings.hiddenPanels||[]).filter(k=>k!==key); if (on) L.push(key); state.settings.hiddenPanels = L; saveSettings(); render(); };
+  v.querySelectorAll("section.panel, details.panel").forEach(el=>{
+    const head = el.querySelector(":scope > .panel-head, :scope > summary"), h2 = head && head.querySelector("h2, h3");
+    if (!h2 || /var\(--(sq-dark|flag)\)/.test(el.getAttribute("style")||"")) return;
+    const title = h2.textContent.replace(/\s*\(\d+\)\s*$/, "").trim(), key = page+":"+title, off = hidden.includes(key);
+    const b = document.createElement("button"); b.type = "button"; b.className = "panel-hide"; b.dataset[off ? "unhide" : "hide"] = key;
+    b.title = off ? "Show this bubble" : "Hide this bubble"; b.innerHTML = (off ? EYE_ON : EYE_OFF)+'<span>'+(off ? "Show" : "Hide")+'</span>';
+    b.onclick = e=>{ e.preventDefault(); e.stopPropagation(); setHidden(key, !off); };
+    head.appendChild(b);
+    if (off){ el.classList.add("panel-folded"); if (el.tagName==="DETAILS"){ el.open = false; head.addEventListener("click", e=>e.preventDefault()); } }
+  });
+  // the number tiles (Today, Payments, a student's overview): their labels change, so each is known by its place
+  v.querySelectorAll(".stats").forEach((row, ri)=>row.querySelectorAll(":scope > .stat").forEach((el, i)=>{
+    const lab = el.querySelector(":scope > .l"); if (!lab) return;
+    const key = page+":tile"+ri+"-"+i, off = hidden.includes(key);
+    const b = document.createElement("button"); b.type = "button"; b.className = "panel-hide tile-hide"; b.dataset[off ? "unhide" : "hide"] = key;
+    b.title = off ? "Show this bubble" : "Hide this bubble"; b.innerHTML = (off ? EYE_ON+'<span>Show</span>' : EYE_OFF);
+    b.onclick = e=>{ e.preventDefault(); e.stopPropagation(); setHidden(key, !off); };
+    el.appendChild(b); if (off) el.classList.add("stat-folded");
+  }));
 }
 
 /* ---------- the student's pages ---------- */
@@ -7513,7 +7560,7 @@ const HE = {
   "Theme / what to learn":"נושא / מה ללמוד", "Found in":"נמצא ב־", "Lessons learned":"מה למדנו", "What the student took from this game":"מה התלמיד לקח מהמשחק",
   "Enter the names of both players.":"יש להזין את שמות שני השחקנים.", "e.g. Capablanca, José Raúl":"למשל קפבלנקה, חוסה ראול", "e.g. Tartakower, Savielly":"למשל טרטקובר, סבלי",
   "e.g. New York 1924":"למשל ניו יורק 1924", "e.g. Dutch Defence":"למשל ההגנה ההולנדית", "e.g. Rook endgame technique":"למשל טכניקה בסיומי צריחים",
-  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Useful links":"קישורים שימושיים", "Choose a date":"בחירת תאריך", "At the club":"במועדון",  "Where":"איפה", "Not set (students choose in person or online)":"לא נקבע (התלמידים בוחרים פרונטלי או אונליין)", "At home":"בבית", "Another place…":"מקום אחר…", "Write the place, or choose one from the list.":"יש לכתוב את המקום, או לבחור אחד מהרשימה.", "e.g. At the community centre":"למשל: במתנ״ס", "Place (optional)":"מקום (לא חובה)", "e.g. At the club":"למשל: במועדון", "Students see it under the time. At the club: times you're there anyway, for students who live far.":"התלמידים רואים את זה מתחת לשעה. במועדון: זמנים שבהם את/ה שם בכל מקרה, לתלמידים שגרים רחוק.", "Every night":"כל לילה", "A copy of all your records is saved every night and kept for 30 days.":"בכל לילה נשמר עותק של כל הנתונים שלך, למשך 30 יום.", "Nightly backups aren’t turned on yet.":"הגיבוי הלילי עדיין לא הופעל.", "No nightly backup yet — the first one is made tonight.":"עדיין אין גיבוי לילי — הראשון ייעשה הלילה.", "Download":"הורדה", "Folder on this computer":"תיקייה במחשב הזה", "To save a backup into a folder automatically, open the app in Chrome or Edge on a computer.":"כדי לשמור גיבוי בתיקייה באופן אוטומטי, יש לפתוח את האפליקציה ב־Chrome או ב־Edge במחשב.", "Choose a folder and the app saves a backup into it once a day, when you open the app on this computer.":"בוחרים תיקייה, והאפליקציה שומרת בה גיבוי פעם ביום, כשפותחים אותה במחשב הזה.", "Choose a folder":"בחירת תיקייה", "Folder:":"תיקייה:", "Not saved yet.":"עוד לא נשמר.", "Save now":"שמירה עכשיו", "Change folder":"החלפת תיקייה", "Stop":"הפסקה", "Save today’s backup to your folder on this computer.":"שמירת הגיבוי של היום בתיקייה שלך במחשב הזה.", "Save backup":"שמירת גיבוי", "Couldn’t load that backup.":"לא ניתן היה לטעון את הגיבוי הזה.", "The backup couldn’t be saved in that folder.":"לא ניתן היה לשמור את הגיבוי בתיקייה הזו.", "That folder can’t be used.":"אי אפשר להשתמש בתיקייה הזו.", "Backup saved to your folder":"הגיבוי נשמר בתיקייה שלך", "Backups to the folder stopped":"הגיבויים לתיקייה הופסקו", "Loading…":"טוען…", "Choose a time":"בחירת שעה", "Change order":"שינוי סדר", "Put the sites you use most at the top.":"שימו למעלה את האתרים שאתם משתמשים בהם הכי הרבה.", "Username:":"שם משתמש:", "Username":"שם משתמש", "Change":"שינוי", "Add your username":"הוספת שם המשתמש שלך", "Add username":"הוספת שם משתמש", "Username saved":"שם המשתמש נשמר", "Username removed":"שם המשתמש הוסר", "Leave empty to remove it":"להסרה — להשאיר ריק", "Shown to students and parents on their Practice page.":"מוצגים לתלמידים ולהורים בדף התרגול.", "Add link":"הוספת קישור", "Edit link":"עריכת קישור",
+  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Useful links":"קישורים שימושיים", "Choose a date":"בחירת תאריך", "At the club":"במועדון", "Hide":"הסתרה", "Hide this bubble":"הסתרת הבועה", "Show":"הצגה", "Show this bubble":"הצגת הבועה",  "Where":"איפה", "Not set (students choose in person or online)":"לא נקבע (התלמידים בוחרים פרונטלי או אונליין)", "At home":"בבית", "Another place…":"מקום אחר…", "Write the place, or choose one from the list.":"יש לכתוב את המקום, או לבחור אחד מהרשימה.", "e.g. At the community centre":"למשל: במתנ״ס", "Place (optional)":"מקום (לא חובה)", "e.g. At the club":"למשל: במועדון", "Students see it under the time. At the club: times you're there anyway, for students who live far.":"התלמידים רואים את זה מתחת לשעה. במועדון: זמנים שבהם את/ה שם בכל מקרה, לתלמידים שגרים רחוק.", "Every night":"כל לילה", "A copy of all your records is saved every night and kept for 30 days.":"בכל לילה נשמר עותק של כל הנתונים שלך, למשך 30 יום.", "Nightly backups aren’t turned on yet.":"הגיבוי הלילי עדיין לא הופעל.", "No nightly backup yet — the first one is made tonight.":"עדיין אין גיבוי לילי — הראשון ייעשה הלילה.", "Download":"הורדה", "Folder on this computer":"תיקייה במחשב הזה", "To save a backup into a folder automatically, open the app in Chrome or Edge on a computer.":"כדי לשמור גיבוי בתיקייה באופן אוטומטי, יש לפתוח את האפליקציה ב־Chrome או ב־Edge במחשב.", "Choose a folder and the app saves a backup into it once a day, when you open the app on this computer.":"בוחרים תיקייה, והאפליקציה שומרת בה גיבוי פעם ביום, כשפותחים אותה במחשב הזה.", "Choose a folder":"בחירת תיקייה", "Folder:":"תיקייה:", "Not saved yet.":"עוד לא נשמר.", "Save now":"שמירה עכשיו", "Change folder":"החלפת תיקייה", "Stop":"הפסקה", "Save today’s backup to your folder on this computer.":"שמירת הגיבוי של היום בתיקייה שלך במחשב הזה.", "Save backup":"שמירת גיבוי", "Couldn’t load that backup.":"לא ניתן היה לטעון את הגיבוי הזה.", "The backup couldn’t be saved in that folder.":"לא ניתן היה לשמור את הגיבוי בתיקייה הזו.", "That folder can’t be used.":"אי אפשר להשתמש בתיקייה הזו.", "Backup saved to your folder":"הגיבוי נשמר בתיקייה שלך", "Backups to the folder stopped":"הגיבויים לתיקייה הופסקו", "Loading…":"טוען…", "Choose a time":"בחירת שעה", "Change order":"שינוי סדר", "Put the sites you use most at the top.":"שימו למעלה את האתרים שאתם משתמשים בהם הכי הרבה.", "Username:":"שם משתמש:", "Username":"שם משתמש", "Change":"שינוי", "Add your username":"הוספת שם המשתמש שלך", "Add username":"הוספת שם משתמש", "Username saved":"שם המשתמש נשמר", "Username removed":"שם המשתמש הוסר", "Leave empty to remove it":"להסרה — להשאיר ריק", "Shown to students and parents on their Practice page.":"מוצגים לתלמידים ולהורים בדף התרגול.", "Add link":"הוספת קישור", "Edit link":"עריכת קישור",
   "Restore the suggested list":"שחזור הרשימה המומלצת", "No links yet.":"עדיין אין קישורים.", "Address":"כתובת", "What it's for (optional)":"למה זה טוב (לא חובה)", "Link saved":"הקישור נשמר", "Link added":"הקישור נוסף", "Link removed":"הקישור הוסר",
   "Students and parents won't see this link any more.":"תלמידים והורים לא יראו יותר את הקישור הזה.", "Restore the suggested list?":"לשחזר את הרשימה המומלצת?", "Your own links and changes will be replaced by the suggested list.":"הקישורים והשינויים שלך יוחלפו ברשימה המומלצת.",
   "Restore":"שחזור", "Suggested list restored":"הרשימה המומלצת שוחזרה", "Enter the site's address, e.g. lichess.org.":"יש להזין את כתובת האתר, למשל lichess.org.",
