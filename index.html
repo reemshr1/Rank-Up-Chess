@@ -599,6 +599,9 @@ dialog{border:2px solid var(--side);border-radius:14px}
 [data-signout]{display:none}
 .web .side [data-signout]{display:inline-flex}
 .web #view [data-signout]{display:inline-flex}
+.signed-as{margin:8px 0 0}.signed-as .linkish{font-size:inherit}
+#sideWho .signed-as{margin:0 8px 6px;color:var(--side-ink);overflow-wrap:anywhere}
+.link-help{max-width:440px;margin:0 auto 12px;padding:10px 12px;border:1px solid var(--flag);border-radius:var(--r-sm);text-align:start}
 .web #modal [data-signout]{display:inline-flex}
 .gate [data-signout]{display:inline-block}
 .web.student-mode .topbar [data-signout]{display:inline-flex}
@@ -634,6 +637,7 @@ body.gated .app,body.gated .topbar,body.gated .bottom-nav{display:none}
     <nav class="nav" id="nav"></nav>
     <select id="childPick" class="search" aria-label="Whose board" hidden style="margin:0 8px 8px;width:calc(100% - 16px);min-width:0;box-sizing:border-box"></select>
     <button type="button" class="btn small lang-btn" data-lang style="margin:0 8px 10px;align-self:flex-start">עברית</button>
+    <div id="sideWho" class="small"></div>
     <button type="button" class="btn small ghost" data-signout style="margin:0 8px 10px;align-self:flex-start">Sign out</button>
     <div class="side-foot" id="syncState"><span class="dot local"></span>Loading…</div>
   </aside>
@@ -3122,18 +3126,24 @@ function makePortal(db){
       snap.docChanges().filter(ch=>ch.type!=="removed").map(ch=>ch.doc).forEach(d=>{
         const v = d.data()||{}, uid = d.id, code = String(v.code||"").trim().toUpperCase();
         if (v.lang) accLang[uid] = v.lang;
+        if (v.linked && v.email){ const o = state.students.find(x=>x.portal && x.portal.uid===uid) || families().find(x=>x.portal && x.portal.uid===uid);
+          if (o && o.portal.email!==String(v.email).slice(0,120)){ o.portal.email = String(v.email).slice(0,120); if (o.studentIds) saveSettings(); else saveStudent(o); } }
         if (!code || v.linked) return;
         const ref = db.doc("portal/"+uid);
         const s = state.students.find(x=>x.invite && x.invite.code===code), f = !s && families().find(x=>x.invite && x.invite.code===code);
-        if (!s && !f){ if (v.error!==code) ref.set(Object.assign({}, v, {error:code})).catch(()=>{}); return; }
+        if (!s && !f){ const used = (state.settings.usedCodes||[]).some(u=>u.code===code), kind = used ? "used" : "wrong";
+          if (v.error!==code || v.errorKind!==kind) ref.set(Object.assign({}, v, {error:code, errorKind:kind})).catch(()=>{}); return; }
         // one account, one place: a student or a family, never both
         state.students.forEach(o=>{ if (o!==s && o.portal && o.portal.uid===uid){ delete o.portal; saveStudent(o); } });
         families().forEach(o=>{ if (o!==f && o.portal && o.portal.uid===uid) delete o.portal; });
         // the account this student or family used before is told its access ended, instead of waiting for a board forever
         const prev = (s||f).portal && (s||f).portal.uid; if (prev && prev!==uid) dropAccount(prev);
-        if (s){ s.portal = {uid, linkedAt:today()}; delete s.invite; saveStudent(s); }
-        else { f.portal = {uid, linkedAt:today()}; delete f.invite; saveSettings(); }
-        ref.set({code, lang:v.lang||"", linked:true, error:"", role:f?"parent":"student"}).catch(()=>{});
+        // a code works once; remembering it lets a second try be told "already used" rather than "not recognised"
+        state.settings.usedCodes = (state.settings.usedCodes||[]).filter(u=>u.code!==code).concat([{code, at:today()}]).slice(-200);
+        const em = String(v.email||"").slice(0,120), link = Object.assign({uid, linkedAt:today()}, em ? {email:em} : {});
+        if (s){ s.portal = link; delete s.invite; saveStudent(s); saveSettings(); }
+        else { f.portal = link; delete f.invite; saveSettings(); }
+        ref.set(Object.assign({code, lang:v.lang||"", linked:true, error:"", role:f?"parent":"student"}, em ? {email:em} : {})).catch(()=>{});
         watchInbox(uid); if (s) schedule(s.id); else scheduleFamily(f.id);
         toast((s ? s.name : f.name)+" is now connected to the app"); render();
       });
@@ -3210,6 +3220,7 @@ function makeStudentStore(db, account){
     async loadAll(){
       const [r, v, i] = await Promise.all([root.get(), root.collection("view").get(), root.collection("inbox").get()]);
       me = r.exists ? clone(r.data()) : {};
+      if (me.linked && !me.email && webUser && webUser.email){ me = Object.assign({}, me, {email:webUser.email}); root.set(me).catch(()=>{}); }
       v.docs.forEach(d=>{ view[d.id] = clone(d.data()); }); i.docs.forEach(d=>{ inbox[d.id] = clone(d.data()); });
       if (me.lang) state.settings.lang = me.lang;
       rebuild();
@@ -3219,7 +3230,7 @@ function makeStudentStore(db, account){
       root.collection("view").onSnapshot(snap=>{ track(view, snap); refresh(); }, ()=>{});
       root.collection("inbox").onSnapshot(snap=>{ if (snap.metadata && snap.metadata.hasPendingWrites) return; track(inbox, snap); refresh(); }, ()=>{});
     },
-    link(code){ me = Object.assign({}, me, {code:String(code).trim().toUpperCase(), lang:state.settings.lang||"en", linked:false, error:"", unlinked:false}); return root.set(me); },
+    link(code){ me = Object.assign({}, me, {code:String(code).trim().toUpperCase(), lang:state.settings.lang||"en", linked:false, error:"", unlinked:false}, webUser && webUser.email ? {email:webUser.email} : {}); return root.set(me); },
     saveLang(){ me = Object.assign({}, me, {lang:state.settings.lang}); root.set(me).catch(()=>{}); },
     markSeen(keys){ me = Object.assign({}, me, {seen:[...new Set([...(me.seen||[]), ...keys])].slice(-400)}); root.set(me).catch(()=>{}); },
     send,
@@ -3826,6 +3837,7 @@ document.addEventListener("click", e=>{ const b = e.target.closest("[data-lang]"
 
 function render(){
   applyLang();
+  { const w = $("#sideWho"); if (w){ const h = STUDENT() ? signedAs(false) : ""; if (w.innerHTML!==h) w.innerHTML = h; } }
   renderNav();
   const v = $("#view");
   if (!loaded){ v.innerHTML = '<p class="muted">Loading your students…</p>'; return; }
@@ -3890,14 +3902,20 @@ function renderStudent(v, r){
 }
 function linkPage(me){
   let sq = ""; for (let r=0;r<2;r++) for (let c=0;c<8;c++) sq += '<i class="'+((r+c)%2?"d":"l")+'"></i>';
-  const code = me.code||"", bad = code && me.error===code, waiting = code && !me.linked && !bad;
-  return '<div class="welcome"><div class="board" aria-hidden="true">'+sq+'</div><h1>Welcome to Rank Up</h1>'+
+  const code = me.code||"", bad = code && me.error===code, waiting = code && !me.linked && !bad, used = bad && me.errorKind==="used";
+  return '<div class="welcome"><div class="board" aria-hidden="true">'+sq+'</div><h1>Welcome to Rank Up</h1>'+signedAs(true)+
     (me.linked ? '<p class="sub" style="margin:10px 0 0">Connected! Your board is being prepared — it appears here in a moment.</p>' :
       '<p class="sub" style="margin:10px 0 18px">Enter the code your coach gave you to connect your account.</p>'+
       (me.unlinked?'<p class="small" style="color:var(--flag)">Your coach has closed access to this board. Ask your coach for a new code.</p>':'')+
-      (bad?'<p class="small" style="color:var(--flag)">That code wasn\'t recognised. Check it with your coach and try again.</p>':'')+
+      (used?'<div class="link-help"><p class="small" style="color:var(--flag);margin:0 0 6px"><b>This code was already used.</b></p><p class="small" style="margin:0">Already using Rank Up on another device? Sign out here and sign in with the same email you used there. Otherwise, ask your coach for a new code.</p></div>'
+        : bad?'<p class="small" style="color:var(--flag)">That code wasn\'t recognised. Check it with your coach and try again.</p>':'')+
       (waiting?'<p class="small">Code sent. You\'ll be connected as soon as your coach opens Rank Up.</p>':'')+
       '<form id="linkF" class="row-actions"><input id="linkCode" class="search" dir="ltr" placeholder="ABC123" autocomplete="off" value="'+esc(code)+'" style="text-transform:uppercase;min-width:170px;letter-spacing:.1em" aria-label="Code from your coach"><button class="btn primary" type="submit">Connect</button></form>')+'</div>';
+}
+// "Signed in as name@email" — so a student with two accounts can see which one this is.
+function signedAs(withOut){
+  const em = WEB && webUser && webUser.email; if (!em) return "";
+  return '<p class="small muted signed-as">Signed in as <bdi dir="ltr">'+esc(em)+'</bdi>'+(withOut?' · <button type="button" class="linkish" data-signout>Not you? Sign out</button>':'')+'</p>';
 }
 function bindLink(){
   const f = $("#linkF"); if (!f) return;
@@ -5052,7 +5070,7 @@ function parentPanel(s){
   else {
     const kids = (f.studentIds||[]).map(byId).filter(Boolean);
     body = '<p style="margin:0">'+esc(f.name)+' · '+kids.map(k=>esc(k.name)).join(", ")+'</p>'+
-      (f.portal ? '<p class="small muted">Connected since '+esc(fmtDate(f.portal.linkedAt))+'. They see the balance and payments too, but never other families or notes you keep private.</p><div class="row-actions"><button class="btn small ghost danger" data-a="famUnlink">Disconnect</button>'
+      (f.portal ? '<p class="small muted">Connected since '+esc(fmtDate(f.portal.linkedAt))+'. They see the balance and payments too, but never other families or notes you keep private.</p>'+(f.portal.email ? '<p class="small" style="margin:4px 0 8px"><span class="muted">Account:</span> <bdi dir="ltr">'+esc(f.portal.email)+'</bdi></p>' : '')+'<div class="row-actions"><button class="btn small ghost danger" data-a="famUnlink">Disconnect</button>'
        : f.invite ? '<ol class="steps">'+(WEB?'<li>Send them the link to the app: <bdi class="link-box" dir="ltr">'+esc(APP_LINK())+'</bdi></li><li>They create an account with their email and a password.</li>':'<li>Share Rank Up with the parent by email and give them Editor access. Don\'t turn on a public link.</li>')+'<li>Give them this code: <span class="code-box">'+esc(f.invite.code)+'</span></li><li>They open the app and enter the code. They\'re connected the next time you open Rank Up.</li></ol><div class="row-actions"><button class="btn small primary" data-a="famSend">Send invite message</button><button class="btn small ghost" data-a="famUninvite">Cancel invite</button>'
        : '<div class="row-actions" style="margin-top:8px"><button class="btn small primary" data-a="famInvite">Invite a parent</button>')+
       '<button class="btn small ghost" data-a="famRename">Rename family</button>'+(kids.length>1?'<button class="btn small ghost" data-a="famLeave">Remove '+esc(s.name.split(" ")[0])+' from the family</button>':'')+'</div>';
@@ -5063,7 +5081,7 @@ function appPanel(s){
   const first = esc(s.name.split(" ")[0]);
   let body;
   if (store.kind!=="db") body = '<p class="small muted" style="margin:0">The student app works in the published Rank Up on claude.ai, where your records are stored in your account.</p>';
-  else if (s.portal) body = '<p style="margin:0">'+first+' is connected to the app since '+esc(fmtDate(s.portal.linkedAt))+'.</p><p class="small muted">They see their lessons, assignments, goals, games, practice, reading and repertoire. They don\'t see payments, fees, contact details, other students or notes you keep private.</p><button class="btn small ghost danger" data-a="unlink">Disconnect</button>';
+  else if (s.portal) body = '<p style="margin:0">'+first+' is connected to the app since '+esc(fmtDate(s.portal.linkedAt))+'.</p>'+(s.portal.email ? '<p class="small" style="margin:4px 0 0"><span class="muted">Account:</span> <bdi dir="ltr">'+esc(s.portal.email)+'</bdi></p>' : '')+'<p class="small muted">They see their lessons, assignments, goals, games, practice, reading and repertoire. They don\'t see payments, fees, contact details, other students or notes you keep private.</p><button class="btn small ghost danger" data-a="unlink">Disconnect</button>';
   else if (s.invite) body = '<ol class="steps">'+(WEB?'<li>Send '+first+' the link to the app: <bdi class="link-box" dir="ltr">'+esc(APP_LINK())+'</bdi></li><li>They create an account with their email and a password.</li>':'<li>Share Rank Up with '+first+' (or a parent) by email and give them Editor access. Don\'t turn on a public link.</li>')+'<li>Give them this code: <span class="code-box">'+esc(s.invite.code)+'</span></li><li>They open the app and enter the code. They\'re connected the next time you open Rank Up.</li></ol><div class="row-actions"><button class="btn small primary" data-a="sendInv">Send invite message</button><button class="btn small ghost" data-a="uninvite">Cancel invite</button></div>';
   else body = '<p class="small muted" style="margin:0 0 10px">'+first+' can see their assignments, lessons and goals, log practice and games, and ask you for lessons — in their own account.</p><button class="btn small primary" data-a="invite">Invite to the app</button>';
   return '<section class="panel" style="margin-top:16px"><div class="panel-head"><h2>Student app</h2>'+(s.portal?'<span class="tag ok">Connected</span>':s.invite?'<span class="tag warn">Waiting for '+first+'</span>':'')+'</div>'+body+'</section>';
@@ -7562,7 +7580,7 @@ const HE = {
   "Theme / what to learn":"נושא / מה ללמוד", "Found in":"נמצא ב־", "Lessons learned":"מה למדנו", "What the student took from this game":"מה התלמיד לקח מהמשחק",
   "Enter the names of both players.":"יש להזין את שמות שני השחקנים.", "e.g. Capablanca, José Raúl":"למשל קפבלנקה, חוסה ראול", "e.g. Tartakower, Savielly":"למשל טרטקובר, סבלי",
   "e.g. New York 1924":"למשל ניו יורק 1924", "e.g. Dutch Defence":"למשל ההגנה ההולנדית", "e.g. Rook endgame technique":"למשל טכניקה בסיומי צריחים",
-  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Useful links":"קישורים שימושיים", "Choose a date":"בחירת תאריך", "At the club":"במועדון", "Show less":"הצג פחות", "Hide":"הסתרה", "Hide this bubble":"הסתרת הבועה", "Show":"הצגה", "Show this bubble":"הצגת הבועה",  "Where":"איפה", "Not set (students choose in person or online)":"לא נקבע (התלמידים בוחרים פרונטלי או אונליין)", "At home":"בבית", "Another place…":"מקום אחר…", "Write the place, or choose one from the list.":"יש לכתוב את המקום, או לבחור אחד מהרשימה.", "e.g. At the community centre":"למשל: במתנ״ס", "Place (optional)":"מקום (לא חובה)", "e.g. At the club":"למשל: במועדון", "Students see it under the time. At the club: times you're there anyway, for students who live far.":"התלמידים רואים את זה מתחת לשעה. במועדון: זמנים שבהם את/ה שם בכל מקרה, לתלמידים שגרים רחוק.", "Every night":"כל לילה", "A copy of all your records is saved every night and kept for 30 days.":"בכל לילה נשמר עותק של כל הנתונים שלך, למשך 30 יום.", "Nightly backups aren’t turned on yet.":"הגיבוי הלילי עדיין לא הופעל.", "No nightly backup yet — the first one is made tonight.":"עדיין אין גיבוי לילי — הראשון ייעשה הלילה.", "Download":"הורדה", "Folder on this computer":"תיקייה במחשב הזה", "To save a backup into a folder automatically, open the app in Chrome or Edge on a computer.":"כדי לשמור גיבוי בתיקייה באופן אוטומטי, יש לפתוח את האפליקציה ב־Chrome או ב־Edge במחשב.", "Choose a folder and the app saves a backup into it once a day, when you open the app on this computer.":"בוחרים תיקייה, והאפליקציה שומרת בה גיבוי פעם ביום, כשפותחים אותה במחשב הזה.", "Choose a folder":"בחירת תיקייה", "Folder:":"תיקייה:", "Not saved yet.":"עוד לא נשמר.", "Save now":"שמירה עכשיו", "Change folder":"החלפת תיקייה", "Stop":"הפסקה", "Save today’s backup to your folder on this computer.":"שמירת הגיבוי של היום בתיקייה שלך במחשב הזה.", "Save backup":"שמירת גיבוי", "Couldn’t load that backup.":"לא ניתן היה לטעון את הגיבוי הזה.", "The backup couldn’t be saved in that folder.":"לא ניתן היה לשמור את הגיבוי בתיקייה הזו.", "That folder can’t be used.":"אי אפשר להשתמש בתיקייה הזו.", "Backup saved to your folder":"הגיבוי נשמר בתיקייה שלך", "Backups to the folder stopped":"הגיבויים לתיקייה הופסקו", "Loading…":"טוען…", "Choose a time":"בחירת שעה", "Change order":"שינוי סדר", "Put the sites you use most at the top.":"שימו למעלה את האתרים שאתם משתמשים בהם הכי הרבה.", "Username:":"שם משתמש:", "Username":"שם משתמש", "Change":"שינוי", "Add your username":"הוספת שם המשתמש שלך", "Add username":"הוספת שם משתמש", "Username saved":"שם המשתמש נשמר", "Username removed":"שם המשתמש הוסר", "Leave empty to remove it":"להסרה — להשאיר ריק", "Shown to students and parents on their Practice page.":"מוצגים לתלמידים ולהורים בדף התרגול.", "Add link":"הוספת קישור", "Edit link":"עריכת קישור",
+  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Useful links":"קישורים שימושיים", "Choose a date":"בחירת תאריך", "At the club":"במועדון", "Account:":"חשבון:", "Not you? Sign out":"לא את/ה? התנתקות", "This code was already used.":"הקוד הזה כבר נוצל.", "Already using Rank Up on another device? Sign out here and sign in with the same email you used there. Otherwise, ask your coach for a new code.":"כבר משתמש/ת ב„עולים בדרגה” במכשיר אחר? יש להתנתק כאן ולהתחבר עם אותו אימייל שבו התחברת שם. אחרת, אפשר לבקש מהמאמן קוד חדש.", "Show less":"הצג פחות", "Hide":"הסתרה", "Hide this bubble":"הסתרת הבועה", "Show":"הצגה", "Show this bubble":"הצגת הבועה",  "Where":"איפה", "Not set (students choose in person or online)":"לא נקבע (התלמידים בוחרים פרונטלי או אונליין)", "At home":"בבית", "Another place…":"מקום אחר…", "Write the place, or choose one from the list.":"יש לכתוב את המקום, או לבחור אחד מהרשימה.", "e.g. At the community centre":"למשל: במתנ״ס", "Place (optional)":"מקום (לא חובה)", "e.g. At the club":"למשל: במועדון", "Students see it under the time. At the club: times you're there anyway, for students who live far.":"התלמידים רואים את זה מתחת לשעה. במועדון: זמנים שבהם את/ה שם בכל מקרה, לתלמידים שגרים רחוק.", "Every night":"כל לילה", "A copy of all your records is saved every night and kept for 30 days.":"בכל לילה נשמר עותק של כל הנתונים שלך, למשך 30 יום.", "Nightly backups aren’t turned on yet.":"הגיבוי הלילי עדיין לא הופעל.", "No nightly backup yet — the first one is made tonight.":"עדיין אין גיבוי לילי — הראשון ייעשה הלילה.", "Download":"הורדה", "Folder on this computer":"תיקייה במחשב הזה", "To save a backup into a folder automatically, open the app in Chrome or Edge on a computer.":"כדי לשמור גיבוי בתיקייה באופן אוטומטי, יש לפתוח את האפליקציה ב־Chrome או ב־Edge במחשב.", "Choose a folder and the app saves a backup into it once a day, when you open the app on this computer.":"בוחרים תיקייה, והאפליקציה שומרת בה גיבוי פעם ביום, כשפותחים אותה במחשב הזה.", "Choose a folder":"בחירת תיקייה", "Folder:":"תיקייה:", "Not saved yet.":"עוד לא נשמר.", "Save now":"שמירה עכשיו", "Change folder":"החלפת תיקייה", "Stop":"הפסקה", "Save today’s backup to your folder on this computer.":"שמירת הגיבוי של היום בתיקייה שלך במחשב הזה.", "Save backup":"שמירת גיבוי", "Couldn’t load that backup.":"לא ניתן היה לטעון את הגיבוי הזה.", "The backup couldn’t be saved in that folder.":"לא ניתן היה לשמור את הגיבוי בתיקייה הזו.", "That folder can’t be used.":"אי אפשר להשתמש בתיקייה הזו.", "Backup saved to your folder":"הגיבוי נשמר בתיקייה שלך", "Backups to the folder stopped":"הגיבויים לתיקייה הופסקו", "Loading…":"טוען…", "Choose a time":"בחירת שעה", "Change order":"שינוי סדר", "Put the sites you use most at the top.":"שימו למעלה את האתרים שאתם משתמשים בהם הכי הרבה.", "Username:":"שם משתמש:", "Username":"שם משתמש", "Change":"שינוי", "Add your username":"הוספת שם המשתמש שלך", "Add username":"הוספת שם משתמש", "Username saved":"שם המשתמש נשמר", "Username removed":"שם המשתמש הוסר", "Leave empty to remove it":"להסרה — להשאיר ריק", "Shown to students and parents on their Practice page.":"מוצגים לתלמידים ולהורים בדף התרגול.", "Add link":"הוספת קישור", "Edit link":"עריכת קישור",
   "Restore the suggested list":"שחזור הרשימה המומלצת", "No links yet.":"עדיין אין קישורים.", "Address":"כתובת", "What it's for (optional)":"למה זה טוב (לא חובה)", "Link saved":"הקישור נשמר", "Link added":"הקישור נוסף", "Link removed":"הקישור הוסר",
   "Students and parents won't see this link any more.":"תלמידים והורים לא יראו יותר את הקישור הזה.", "Restore the suggested list?":"לשחזר את הרשימה המומלצת?", "Your own links and changes will be replaced by the suggested list.":"הקישורים והשינויים שלך יוחלפו ברשימה המומלצת.",
   "Restore":"שחזור", "Suggested list restored":"הרשימה המומלצת שוחזרה", "Enter the site's address, e.g. lichess.org.":"יש להזין את כתובת האתר, למשל lichess.org.",
