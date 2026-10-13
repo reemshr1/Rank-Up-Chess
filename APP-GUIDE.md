@@ -260,7 +260,10 @@ without payments, for the coach's own rating, games and openings.
 ### Hiding bubbles
 Every bubble in the coach's view has a **Hide** button on its title line. A hidden
 bubble folds to its title line and stays where it is, with a **Show** button that
-opens it again.
+opens it again. The number tiles (Today, Payments, a student's overview and
+payments) can be hidden too: the eye appears when the mouse is over a tile, and a
+hidden tile keeps its title with **Show**. The main lists that make up a page
+(Students, Assignments, Games, Model games, Books) can't be hidden.
 What's hidden is saved in the settings, so it's the same on all the coach's
 devices. Bubbles that need action (lesson requests, problems updating a student's
 board, answers to declined moves) can't be hidden. Students and parents don't

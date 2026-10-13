@@ -174,9 +174,16 @@ main{padding:32px clamp(16px,4vw,48px) 96px;max-width:1180px;width:100%;min-widt
 .panel-hide:hover,.panel-hide:focus-visible{opacity:1;background:color-mix(in srgb,currentColor 12%,transparent)}
 summary .panel-hide{margin-inline-start:auto}
 .panel.panel-folded:has(> .panel-head){padding-bottom:0!important}
+.panel.panel-folded{align-self:start}
 .panel.panel-folded>:not(.panel-head):not(summary){display:none!important}
 .panel.panel-folded>.panel-head{margin-bottom:0}
-.panel.panel-folded>.panel-head>:not(h2):not(.panel-hide),.panel.panel-folded>summary>:not(h2):not(.panel-hide){display:none!important}
+.panel.panel-folded>.panel-head>:not(h2):not(h3):not(.panel-hide),.panel.panel-folded>summary>:not(h2):not(.panel-hide){display:none!important}
+.stat{position:relative}
+.tile-hide{position:absolute;top:6px;inset-inline-end:6px;padding:3px 4px}
+.stat:not(.stat-folded) .tile-hide{opacity:0}.stat:hover .tile-hide,.tile-hide:focus-visible{opacity:.6}
+@media (hover:none){.stat:not(.stat-folded) .tile-hide{opacity:.35}}
+.stat.stat-folded>:not(.l):not(.tile-hide){display:none!important}
+.stat.stat-folded .tile-hide{position:static;margin-top:6px;opacity:.7}
 .panel.panel-folded>summary h2::before{content:""}
 .grid{display:grid;gap:16px}
 .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -3839,7 +3846,7 @@ function hidePanels(v, r){
   const hidden = state.settings.hiddenPanels||[], page = r.page+(r.page==="student" ? "/"+(r.tab||"overview") : "");
   const setHidden = (key, on)=>{ const L = (state.settings.hiddenPanels||[]).filter(k=>k!==key); if (on) L.push(key); state.settings.hiddenPanels = L; saveSettings(); render(); };
   v.querySelectorAll("section.panel, details.panel").forEach(el=>{
-    const head = el.querySelector(":scope > .panel-head, :scope > summary"), h2 = head && head.querySelector("h2");
+    const head = el.querySelector(":scope > .panel-head, :scope > summary"), h2 = head && head.querySelector("h2, h3");
     if (!h2 || /var\(--(sq-dark|flag)\)/.test(el.getAttribute("style")||"")) return;
     const title = h2.textContent.replace(/\s*\(\d+\)\s*$/, "").trim(), key = page+":"+title, off = hidden.includes(key);
     const b = document.createElement("button"); b.type = "button"; b.className = "panel-hide"; b.dataset[off ? "unhide" : "hide"] = key;
@@ -3848,6 +3855,15 @@ function hidePanels(v, r){
     head.appendChild(b);
     if (off){ el.classList.add("panel-folded"); if (el.tagName==="DETAILS"){ el.open = false; head.addEventListener("click", e=>e.preventDefault()); } }
   });
+  // the number tiles (Today, Payments, a student's overview): their labels change, so each is known by its place
+  v.querySelectorAll(".stats").forEach((row, ri)=>row.querySelectorAll(":scope > .stat").forEach((el, i)=>{
+    const lab = el.querySelector(":scope > .l"); if (!lab) return;
+    const key = page+":tile"+ri+"-"+i, off = hidden.includes(key);
+    const b = document.createElement("button"); b.type = "button"; b.className = "panel-hide tile-hide"; b.dataset[off ? "unhide" : "hide"] = key;
+    b.title = off ? "Show this bubble" : "Hide this bubble"; b.innerHTML = (off ? EYE_ON+'<span>Show</span>' : EYE_OFF);
+    b.onclick = e=>{ e.preventDefault(); e.stopPropagation(); setHidden(key, !off); };
+    el.appendChild(b); if (off) el.classList.add("stat-folded");
+  }));
 }
 
 /* ---------- the student's pages ---------- */
