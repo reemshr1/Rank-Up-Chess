@@ -115,3 +115,25 @@ revoke execute on function public.nightly_backup() from public, anon, authentica
 create extension if not exists pg_cron with schema pg_catalog;
 select cron.schedule('rank-up-nightly-backup', '0 0 * * *', 'select public.nightly_backup()');
 select public.nightly_backup(); -- the first copy, right away
+
+-- Book PDFs. The coach uploads a book's PDF into the private "books" storage folder, as <student id>/<book id>.pdf.
+-- The coach can add, replace and remove them; a student (or their parent) can only open the files of their own books.
+-- Files are opened through a link that works for an hour. Up to 50 MB each, PDF only.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('books', 'books', false, 52428800, array['application/pdf'])
+on conflict (id) do update set public = false, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "rank-up: the coach manages book files" on storage.objects;
+create policy "rank-up: the coach manages book files" on storage.objects
+  for all to authenticated
+  using (bucket_id = 'books' and public.is_coach())
+  with check (bucket_id = 'books' and public.is_coach());
+
+drop policy if exists "rank-up: students and parents open their book files" on storage.objects;
+create policy "rank-up: students and parents open their book files" on storage.objects
+  for select to authenticated
+  using (bucket_id = 'books' and exists (
+    select 1 from public.docs d
+    where d.col = 'portal/' || auth.uid()::text || '/view'
+      and ((d.id = 'student' and d.data->>'id' = (storage.foldername(name))[1])
+        or d.id = 'ch-' || (storage.foldername(name))[1])));

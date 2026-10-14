@@ -278,6 +278,15 @@ new code (a wrong code still says it wasn't recognised). The coach's Student app
 Parent app box shows the account's email ("Account: …"); for accounts connected
 earlier it fills in the next time they open the app.
 
+### Book PDFs
+On a student's Books tab the coach can **Attach PDF** to a book (up to 50 MB). The
+book then shows the file with **Open PDF**, **Replace** and **Remove**; the student
+(and their parent) see **Open PDF** only. Files live in Supabase Storage (private
+"books" folder, set up by `supabase/schema.sql`) as `<student id>/<book id>.pdf`;
+only the coach and that student or parent can open them, through a link that works
+for an hour. A student's own book changes never touch the PDF. Deleting the book
+deletes its PDF.
+
 ## 2. Student view
 
 Menu: **Home · Tasks · Practice · Games · Progress · Schedule**. At the top:

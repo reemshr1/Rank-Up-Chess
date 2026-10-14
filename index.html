@@ -123,7 +123,7 @@ kbd{font-family:var(--body);font-size:.75rem;border:1px solid var(--line);border
 .student-mode .btn.lang-btn{display:inline-flex}
 .student-mode .side-search,.student-mode .topbar a[href="#/search"]{display:none}
 /* a parent's board is view-only apart from lesson requests and changes */
-.parent-mode #view button[data-a]:not([data-a="req"]):not([data-a="reqat"]):not([data-a="les"]):not([data-a="open"]):not([data-a="ans"]):not([data-a="unreq"]):not([data-a="reqx"]):not([data-a="view"]):not([data-a="wk"]):not([data-a="more"]):not([data-a="all"]):not([data-a="src"]):not([data-a="gf"]):not([data-a="f"]):not([data-a="sf"]):not([data-a="rf"]):not([data-a="period"]):not([data-a="board"]):not([data-a="games"]):not([data-a="clearT"]):not([data-a="clearO"]):not([data-a="opg"]):not([data-a="clearRep"]):not([data-a="dl"]):not([data-a="pp"]):not([data-a="ps"]):not([data-a="seenAll"]):not([data-a="notes"]){display:none}
+.parent-mode #view button[data-a]:not([data-a="req"]):not([data-a="reqat"]):not([data-a="les"]):not([data-a="open"]):not([data-a="ans"]):not([data-a="unreq"]):not([data-a="reqx"]):not([data-a="view"]):not([data-a="wk"]):not([data-a="more"]):not([data-a="all"]):not([data-a="src"]):not([data-a="gf"]):not([data-a="f"]):not([data-a="sf"]):not([data-a="rf"]):not([data-a="period"]):not([data-a="board"]):not([data-a="games"]):not([data-a="clearT"]):not([data-a="clearO"]):not([data-a="opg"]):not([data-a="clearRep"]):not([data-a="dl"]):not([data-a="pp"]):not([data-a="ps"]):not([data-a="seenAll"]):not([data-a="notes"]):not([data-a="pdf"]){display:none}
 .parent-mode #view label:has(input[type=file]),.parent-mode #view .dropzone{display:none}
 .link-box{display:inline-block;direction:ltr;font-weight:600;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-sm);padding:2px 8px;word-break:break-all;user-select:all}
 .code-box{font-family:var(--display);font-size:1.6rem;font-weight:700;letter-spacing:.18em;background:var(--paper);border:1px dashed var(--line);border-radius:var(--r-sm);padding:6px 14px;display:inline-block;direction:ltr}
@@ -169,6 +169,9 @@ main{padding:32px clamp(16px,4vw,48px) 96px;max-width:1180px;width:100%;min-widt
 .row-actions{display:flex;gap:4px;flex-wrap:wrap}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:18px 20px;box-shadow:var(--shadow);min-width:0}
 .panel-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+.book-pdf{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:10px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--paper)}
+.book-pdf>.small{flex:1 1 calc(100% - 30px)}
+.book-pdf>.btn{flex:0 0 auto;width:auto}
 .panel-hide{display:inline-flex;align-items:center;gap:4px;margin-inline-start:auto;background:none;border:0;padding:4px 6px;border-radius:6px;color:inherit;opacity:.55;cursor:pointer;font-size:.78rem;flex:none}
 .panel-head>.panel-hide{margin-inline-start:0}.panel-head>h2+.panel-hide{margin-inline-start:auto}
 .panel-hide:hover,.panel-hide:focus-visible{opacity:1;background:color-mix(in srgb,currentColor 12%,transparent)}
@@ -2866,7 +2869,7 @@ function openLessons(s, keepId){
 // Every document a parent's app reads: the family, and for each child the same records a student sees plus money.
 function familyDocs(f){
   const out = {}, kids = (f.studentIds||[]).map(byId).filter(Boolean);
-  out.family = stampView({name:f.name, children:kids.map(k=>({id:k.id, name:k.name})), coachName:state.settings.coachName||"", coachNameHe:state.settings.coachNameHe||"", weekStart:state.settings.weekStart||0});
+  out.family = stampView({name:f.name, children:kids.map(k=>({id:k.id, name:k.name, nameHe:k.nameHe||""})), coachName:state.settings.coachName||"", coachNameHe:state.settings.coachNameHe||"", weekStart:state.settings.weekStart||0});
   kids.forEach(k=>{
     const parts = splitStudent(studentView(k));
     out["ch-"+k.id] = Object.assign(parts.main, {notices:(k.notices||[]).filter(n=>(n.to||[]).includes("parent") && liveNotice(n)), pay:payView(k), payReports:recentReports(k)});
@@ -2908,7 +2911,8 @@ function applyOp(s, op, coachSide){
     const L = list(m[1]), i = L.findIndex(x=>x.id===(m[2]==="delete" ? op.id : it && it.id));
     if (m[2]==="delete"){ if (i>=0 && mine(L[i])) L.splice(i,1); return true; }
     if (!it || !it.id) return false;
-    const fromS = m[1]==="tournaments" ? (({assist, assistDays, assistFee, assistReason, ...y})=>y)(it) : it; // the assistance price is the coach's
+    const fromS = m[1]==="tournaments" ? (({assist, assistDays, assistFee, assistReason, ...y})=>y)(it) // the assistance price is the coach's
+      : m[1]==="books" ? (({pdf, ...y})=>y)(it) : it; // so is a book's PDF
     const item = Object.assign({}, i>=0 ? L[i] : {}, fromS, i>=0 ? {} : {by:"student"});
     if (m[1]==="repertoire" && i>=0) item.studentEdited = (op.at||"").slice(0,10) || today(); // so the coach can see the student changed it
     if (m[1]==="worklog" && item.bookId && item.page!=="" && item.page!=null && (item.pageFrom==="" || item.pageFrom==null) && pageOrderError(s, (s.books||[]).find(b=>b.id===item.bookId), item.date, +item.page, item.id)) item.page = "";
@@ -3810,7 +3814,7 @@ function renderNav(){
     const s = state.students[0], cur = r.page==="student" ? tabGroup(r.tab) : r.page==="assignment" ? "assignments" : r.page==="schedule" ? "schedule" : r.page==="payments" && (PARENT() || (s && s.pay)) ? "payments" : r.page==="progress" ? "progress" : "home";
     // a family with more than one child picks whose board to show
     const fam = PARENT() && state.family, pick = $("#childPick");
-    if (pick){ pick.hidden = !(fam && fam.children.length>1); if (fam) pick.innerHTML = fam.children.map(k=>'<option value="'+esc(k.id)+'"'+(k.id===fam.current?" selected":"")+'>'+esc(k.name)+'</option>').join(""); }
+    if (pick){ pick.hidden = !(fam && fam.children.length>1); if (fam) pick.innerHTML = fam.children.map(k=>'<option value="'+esc(k.id)+'"'+(k.id===fam.current?" selected":"")+'>'+esc((lang()==="he" && k.nameHe) || k.name)+'</option>').join(""); }
     const fresh = s ? unseenUpdates(s) : [], cnt = k=>fresh.filter(u=>updateArea(u)===k).length;
     const html = s ? studentNav(s).map(([k,href,l,ic])=>'<a href="'+href+'"'+(cur===k?' aria-current="page"':"")+'>'+ic+'<span>'+l+'</span>'+(cnt(k) && cur!==k ? '<i class="nav-badge" aria-label="'+cnt(k)+' new">'+cnt(k)+'</i>' : '')+'</a>').join("") : "";
     $("#nav").innerHTML = html; $("#bnav").innerHTML = html; return;
@@ -4038,7 +4042,7 @@ function pFamilyPay(v, s){
       '<p class="small muted" style="margin:8px 0 0">The last two years. Lessons are charged once they have taken place; cancelled lessons aren\'t charged.</p>' : '<p class="empty">No charges or payments yet.</p>');
 }
 function pHome(v, s){
-  const t = today(), first = s.name.split(" ")[0];
+  const t = today(), first = (lang()==="he" && (s.nameHe||"").trim()) || s.name.split(" ")[0]; // the Hebrew name in Hebrew
   const lessons = sortBy(s.sessions.filter(x=>x.status==="planned" && x.date>=t),"date").slice(0,4);
   const hw = asSort(state.assignments.filter(a=>a.status!=="Reviewed"));
   const todo = hw.filter(a=>a.status==="Assigned");
@@ -5701,6 +5705,7 @@ function editBook(s, b){
       {name:"finished",label:"Finished",type:"date",value:x.finished,show:v=>v.status==="Finished"},
       {name:"notes",label:"Notes",type:"textarea",value:x.notes,placeholder:"e.g. Skip chapter 4 for now; focus on the IQP chapters"}],
     danger: isNew || (STUDENT() && x.by!=="student") ? null : {label:"Delete book", onClick:()=>confirmBox("Delete “"+x.title+"”?","The book is removed from the list. Practice sessions already logged with it stay in the practice log.","Delete",()=>{
+      if (x.pdf && WEB) bookFiles().remove([x.pdf.path]).catch(()=>{});
       s.books = s.books.filter(y=>y.id!==x.id); s.worklog.forEach(w=>{ if (w.bookId===x.id){ w.bookTitle = x.title; w.bookId = ""; } }); saveStudent(s); render(); toast("Book deleted"); })},
     onSubmit:d=>{
       if (!d.title) return "Enter the book's title.";
@@ -5711,6 +5716,45 @@ function editBook(s, b){
       if (isNew) s.books.push(x);
       saveStudent(s); render(); toast(isNew?"Book added":"Changes saved");
     }});
+}
+/* ---------- a book's PDF: the coach uploads it to Supabase Storage ("books", private) under <student id>/<book id>.pdf;
+   only the coach and that student (or their parent) can open it, through a link that works for an hour ---------- */
+const BOOK_PDF_MAX = 50*1024*1024;
+const bookFiles = ()=>sb.storage.from("books");
+const fmtSize = n=>n>=1048576 ? (Math.round(n/104857.6)/10)+" MB" : Math.max(1, Math.round(n/1024))+" KB";
+function bookPdfRow(b){
+  if (!b.pdf || !WEB) return "";
+  return '<div class="book-pdf"><span aria-hidden="true">📄</span> <span class="small" style="min-width:0;overflow-wrap:anywhere">'+esc(b.pdf.name||"Book.pdf")+(b.pdf.size?' <span class="muted">· '+esc(fmtSize(b.pdf.size))+'</span>':'')+'</span>'+
+    '<button class="btn small primary" data-a="pdf" data-id="'+b.id+'">Open PDF</button>'+
+    (!STUDENT() ? '<button class="btn small ghost" data-a="pdfUp" data-id="'+b.id+'">Replace</button><button class="btn small ghost danger" data-a="pdfDel" data-id="'+b.id+'">Remove</button>' : '')+'</div>';
+}
+const storageErr = e=>/bucket not found|not found/i.test(String(e && (e.message||e.error)||"")) ? "PDF storage isn’t set up yet." : "The PDF couldn’t be uploaded. Check your connection and try again.";
+function uploadBookPdf(s, b){
+  if (!b || !WEB) return;
+  const inp = document.createElement("input"); inp.type = "file"; inp.accept = "application/pdf,.pdf";
+  inp.onchange = async ()=>{
+    const f = inp.files[0]; if (!f) return;
+    if (!/\.pdf$/i.test(f.name) && f.type!=="application/pdf") return toast("Choose a PDF file.");
+    if (f.size>BOOK_PDF_MAX) return toast("That file is over 50 MB. Choose a smaller PDF.");
+    const path = s.id+"/"+b.id+".pdf"; toast("Uploading “"+f.name+"”…");
+    let r; try { r = await bookFiles().upload(path, f, {upsert:true, contentType:"application/pdf"}); } catch(e){ r = {error:e}; }
+    if (r.error) return toast(storageErr(r.error));
+    b.pdf = {path, name:f.name.slice(0,120), size:f.size, at:today()}; saveStudent(s); render(); toast("PDF attached — "+s.name.split(" ")[0]+" can open it from Books");
+  };
+  document.body.appendChild(inp); inp.hidden = true; inp.click(); setTimeout(()=>inp.remove(), 60000);
+}
+async function openBookPdf(b){
+  if (!b || !b.pdf) return;
+  const w = window.open("", "_blank"); // opened now, so the browser doesn't block it while the link is made
+  let r; try { r = await bookFiles().createSignedUrl(b.pdf.path, 3600); } catch(e){ r = {error:e}; }
+  if (r.error || !r.data){ if (w) w.close(); return toast("The PDF couldn’t be opened. Try again in a moment."); }
+  if (w) w.location = r.data.signedUrl; else location.href = r.data.signedUrl;
+}
+function removeBookPdf(s, b){
+  if (!b || !b.pdf) return;
+  confirmBox("Remove the PDF?", "“"+(b.pdf.name||"The PDF")+"” is deleted, and "+s.name.split(" ")[0]+" can no longer open it. The book stays.", "Remove", async ()=>{
+    try { await bookFiles().remove([b.pdf.path]); } catch(e){}
+    delete b.pdf; saveStudent(s); render(); toast("PDF removed"); });
 }
 function tBooks(el, s){
   const t = today(), year = t.slice(0,4);
@@ -5738,7 +5782,9 @@ function tBooks(el, s){
       '<div class="small muted" style="margin-top:2px">'+meta.map(esc).join(" · ")+'</div>'+
       (b.notes?'<div class="small" style="margin-top:6px">'+esc(b.notes)+'</div>':"")+
       (d.hist.length?'<details class="bhist"><summary class="small">Reading history ('+d.hist.length+')</summary><ul class="list">'+d.hist.map(({w,read})=>'<li><div class="main small"><b>'+esc(fmtDate(w.date))+'</b>'+(w.page!==""&&w.page!=null?(hasFrom(w)?' · p. '+esc(w.pageFrom)+'–'+esc(w.page):' · to p. '+esc(w.page))+(read?' <span class="muted">(+'+read+')</span>':''):'')+(w.minutes?' · '+esc(w.minutes)+' min':'')+(+w.attempted>0?' · '+(+w.correct||0)+'/'+w.attempted+' correct':'')+(w.note?'<div class="muted">'+esc(w.note)+'</div>':'')+'</div><button class="btn small ghost" data-a="editLog" data-id="'+w.id+'">Edit</button></li>').join("")+'</ul></details>':"")+
-      '<div class="row-actions" style="margin-top:10px">'+(b.status!=="Finished"?'<button class="btn small primary" data-a="read" data-id="'+b.id+'">Log reading</button>':"")+'<button class="btn small" data-a="edit" data-id="'+b.id+'">Edit</button></div>'+
+      bookPdfRow(b)+
+      '<div class="row-actions" style="margin-top:10px">'+(b.status!=="Finished"?'<button class="btn small primary" data-a="read" data-id="'+b.id+'">Log reading</button>':"")+'<button class="btn small" data-a="edit" data-id="'+b.id+'">Edit</button>'+
+      (!STUDENT() && WEB && !b.pdf ? '<button class="btn small ghost" data-a="pdfUp" data-id="'+b.id+'">Attach PDF</button>' : '')+'</div>'+
       '</div></article>';
   };
   const section = (title, list, empty)=> list.length || empty ? '<h2 class="shelf-h">'+title+' <span class="muted small">'+list.length+'</span></h2>'+(list.length?'<div class="shelf">'+list.map(card).join("")+'</div>':'<p class="empty">'+empty+'</p>') : "";
@@ -5748,6 +5794,7 @@ function tBooks(el, s){
   bindActions(el,{
     add:()=>editBook(s,null),
     edit:id=>editBook(s, s.books.find(b=>b.id===id)),
+    pdf:id=>openBookPdf(s.books.find(b=>b.id===id)), pdfUp:id=>uploadBookPdf(s, s.books.find(b=>b.id===id)), pdfDel:id=>removeBookPdf(s, s.books.find(b=>b.id===id)),
     read:id=>{ const b = s.books.find(x=>x.id===id); const what = TOPIC_TO_WHAT[b.topic]||"Reading";
       openPractice(s, null, {what, src:"Book", site:"Book / workbook", exercise:"Exercises", bookId:b.id, minutes:30, page:""}); },
     editLog:id=>openPractice(s, s.worklog.find(w=>w.id===id))
@@ -7571,7 +7618,7 @@ const HE = {
   "Theme / what to learn":"נושא / מה ללמוד", "Found in":"נמצא ב־", "Lessons learned":"מה למדנו", "What the student took from this game":"מה התלמיד לקח מהמשחק",
   "Enter the names of both players.":"יש להזין את שמות שני השחקנים.", "e.g. Capablanca, José Raúl":"למשל קפבלנקה, חוסה ראול", "e.g. Tartakower, Savielly":"למשל טרטקובר, סבלי",
   "e.g. New York 1924":"למשל ניו יורק 1924", "e.g. Dutch Defence":"למשל ההגנה ההולנדית", "e.g. Rook endgame technique":"למשל טכניקה בסיומי צריחים",
-  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Useful links":"קישורים שימושיים", "Choose a date":"בחירת תאריך", "At the club":"במועדון", "Account:":"חשבון:", "This code was already used.":"הקוד הזה כבר נוצל.", "Already using Rank Up on another device? Sign out here and sign in with the same email you used there. Otherwise, ask your coach for a new code.":"כבר משתמש/ת ב„עולים בדרגה” במכשיר אחר? יש להתנתק כאן ולהתחבר עם אותו אימייל שבו התחברת שם. אחרת, אפשר לבקש מהמאמן קוד חדש.", "Show less":"הצג פחות", "Hide":"הסתרה", "Hide this bubble":"הסתרת הבועה", "Show":"הצגה", "Show this bubble":"הצגת הבועה",  "Where":"איפה", "Not set (students choose in person or online)":"לא נקבע (התלמידים בוחרים פרונטלי או אונליין)", "At home":"בבית", "Another place…":"מקום אחר…", "Write the place, or choose one from the list.":"יש לכתוב את המקום, או לבחור אחד מהרשימה.", "e.g. At the community centre":"למשל: במתנ״ס", "Place (optional)":"מקום (לא חובה)", "e.g. At the club":"למשל: במועדון", "Students see it under the time. At the club: times you're there anyway, for students who live far.":"התלמידים רואים את זה מתחת לשעה. במועדון: זמנים שבהם את/ה שם בכל מקרה, לתלמידים שגרים רחוק.", "Every night":"כל לילה", "A copy of all your records is saved every night and kept for 30 days.":"בכל לילה נשמר עותק של כל הנתונים שלך, למשך 30 יום.", "Nightly backups aren’t turned on yet.":"הגיבוי הלילי עדיין לא הופעל.", "No nightly backup yet — the first one is made tonight.":"עדיין אין גיבוי לילי — הראשון ייעשה הלילה.", "Download":"הורדה", "Folder on this computer":"תיקייה במחשב הזה", "To save a backup into a folder automatically, open the app in Chrome or Edge on a computer.":"כדי לשמור גיבוי בתיקייה באופן אוטומטי, יש לפתוח את האפליקציה ב־Chrome או ב־Edge במחשב.", "Choose a folder and the app saves a backup into it once a day, when you open the app on this computer.":"בוחרים תיקייה, והאפליקציה שומרת בה גיבוי פעם ביום, כשפותחים אותה במחשב הזה.", "Choose a folder":"בחירת תיקייה", "Folder:":"תיקייה:", "Not saved yet.":"עוד לא נשמר.", "Save now":"שמירה עכשיו", "Change folder":"החלפת תיקייה", "Stop":"הפסקה", "Save today’s backup to your folder on this computer.":"שמירת הגיבוי של היום בתיקייה שלך במחשב הזה.", "Save backup":"שמירת גיבוי", "Couldn’t load that backup.":"לא ניתן היה לטעון את הגיבוי הזה.", "The backup couldn’t be saved in that folder.":"לא ניתן היה לשמור את הגיבוי בתיקייה הזו.", "That folder can’t be used.":"אי אפשר להשתמש בתיקייה הזו.", "Backup saved to your folder":"הגיבוי נשמר בתיקייה שלך", "Backups to the folder stopped":"הגיבויים לתיקייה הופסקו", "Loading…":"טוען…", "Choose a time":"בחירת שעה", "Change order":"שינוי סדר", "Put the sites you use most at the top.":"שימו למעלה את האתרים שאתם משתמשים בהם הכי הרבה.", "Username:":"שם משתמש:", "Username":"שם משתמש", "Change":"שינוי", "Add your username":"הוספת שם המשתמש שלך", "Add username":"הוספת שם משתמש", "Username saved":"שם המשתמש נשמר", "Username removed":"שם המשתמש הוסר", "Leave empty to remove it":"להסרה — להשאיר ריק", "Shown to students and parents on their Practice page.":"מוצגים לתלמידים ולהורים בדף התרגול.", "Add link":"הוספת קישור", "Edit link":"עריכת קישור",
+  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Useful links":"קישורים שימושיים", "Choose a date":"בחירת תאריך", "At the club":"במועדון", "Attach PDF":"צירוף PDF", "Open PDF":"פתיחת ה־PDF", "Remove the PDF?":"להסיר את ה־PDF?", "PDF removed":"ה־PDF הוסר", "Choose a PDF file.":"יש לבחור קובץ PDF.", "That file is over 50 MB. Choose a smaller PDF.":"הקובץ גדול מ־50 MB. יש לבחור PDF קטן יותר.", "PDF storage isn’t set up yet.":"אחסון ה־PDF עוד לא הוגדר.", "The PDF couldn’t be uploaded. Check your connection and try again.":"לא ניתן היה להעלות את ה־PDF. כדאי לבדוק את החיבור ולנסות שוב.", "The PDF couldn’t be opened. Try again in a moment.":"לא ניתן היה לפתוח את ה־PDF. כדאי לנסות שוב עוד רגע.", "Account:":"חשבון:", "This code was already used.":"הקוד הזה כבר נוצל.", "Already using Rank Up on another device? Sign out here and sign in with the same email you used there. Otherwise, ask your coach for a new code.":"כבר משתמש/ת ב„עולים בדרגה” במכשיר אחר? יש להתנתק כאן ולהתחבר עם אותו אימייל שבו התחברת שם. אחרת, אפשר לבקש מהמאמן קוד חדש.", "Show less":"הצג פחות", "Hide":"הסתרה", "Hide this bubble":"הסתרת הבועה", "Show":"הצגה", "Show this bubble":"הצגת הבועה",  "Where":"איפה", "Not set (students choose in person or online)":"לא נקבע (התלמידים בוחרים פרונטלי או אונליין)", "At home":"בבית", "Another place…":"מקום אחר…", "Write the place, or choose one from the list.":"יש לכתוב את המקום, או לבחור אחד מהרשימה.", "e.g. At the community centre":"למשל: במתנ״ס", "Place (optional)":"מקום (לא חובה)", "e.g. At the club":"למשל: במועדון", "Students see it under the time. At the club: times you're there anyway, for students who live far.":"התלמידים רואים את זה מתחת לשעה. במועדון: זמנים שבהם את/ה שם בכל מקרה, לתלמידים שגרים רחוק.", "Every night":"כל לילה", "A copy of all your records is saved every night and kept for 30 days.":"בכל לילה נשמר עותק של כל הנתונים שלך, למשך 30 יום.", "Nightly backups aren’t turned on yet.":"הגיבוי הלילי עדיין לא הופעל.", "No nightly backup yet — the first one is made tonight.":"עדיין אין גיבוי לילי — הראשון ייעשה הלילה.", "Download":"הורדה", "Folder on this computer":"תיקייה במחשב הזה", "To save a backup into a folder automatically, open the app in Chrome or Edge on a computer.":"כדי לשמור גיבוי בתיקייה באופן אוטומטי, יש לפתוח את האפליקציה ב־Chrome או ב־Edge במחשב.", "Choose a folder and the app saves a backup into it once a day, when you open the app on this computer.":"בוחרים תיקייה, והאפליקציה שומרת בה גיבוי פעם ביום, כשפותחים אותה במחשב הזה.", "Choose a folder":"בחירת תיקייה", "Folder:":"תיקייה:", "Not saved yet.":"עוד לא נשמר.", "Save now":"שמירה עכשיו", "Change folder":"החלפת תיקייה", "Stop":"הפסקה", "Save today’s backup to your folder on this computer.":"שמירת הגיבוי של היום בתיקייה שלך במחשב הזה.", "Save backup":"שמירת גיבוי", "Couldn’t load that backup.":"לא ניתן היה לטעון את הגיבוי הזה.", "The backup couldn’t be saved in that folder.":"לא ניתן היה לשמור את הגיבוי בתיקייה הזו.", "That folder can’t be used.":"אי אפשר להשתמש בתיקייה הזו.", "Backup saved to your folder":"הגיבוי נשמר בתיקייה שלך", "Backups to the folder stopped":"הגיבויים לתיקייה הופסקו", "Loading…":"טוען…", "Choose a time":"בחירת שעה", "Change order":"שינוי סדר", "Put the sites you use most at the top.":"שימו למעלה את האתרים שאתם משתמשים בהם הכי הרבה.", "Username:":"שם משתמש:", "Username":"שם משתמש", "Change":"שינוי", "Add your username":"הוספת שם המשתמש שלך", "Add username":"הוספת שם משתמש", "Username saved":"שם המשתמש נשמר", "Username removed":"שם המשתמש הוסר", "Leave empty to remove it":"להסרה — להשאיר ריק", "Shown to students and parents on their Practice page.":"מוצגים לתלמידים ולהורים בדף התרגול.", "Add link":"הוספת קישור", "Edit link":"עריכת קישור",
   "Restore the suggested list":"שחזור הרשימה המומלצת", "No links yet.":"עדיין אין קישורים.", "Address":"כתובת", "What it's for (optional)":"למה זה טוב (לא חובה)", "Link saved":"הקישור נשמר", "Link added":"הקישור נוסף", "Link removed":"הקישור הוסר",
   "Students and parents won't see this link any more.":"תלמידים והורים לא יראו יותר את הקישור הזה.", "Restore the suggested list?":"לשחזר את הרשימה המומלצת?", "Your own links and changes will be replaced by the suggested list.":"הקישורים והשינויים שלך יוחלפו ברשימה המומלצת.",
   "Restore":"שחזור", "Suggested list restored":"הרשימה המומלצת שוחזרה", "Enter the site's address, e.g. lichess.org.":"יש להזין את כתובת האתר, למשל lichess.org.",
@@ -7835,7 +7882,7 @@ const HE_RX = [
   [/^Add the moves \(PGN\) to the games in the Games tab to see which openings (.+) meets and how they score\.$/, "הוספת המסעים (PGN) למשחקים בלשונית משחקים תראה אילו פתיחות $1 פוגש ומה הניקוד בהן."],
   [/^(\d+) openings? without a line$/, (m,n)=>+n===1 ? "פתיחה אחת בלי וריאנט" : n+" פתיחות בלי וריאנט"],
   [/^(\d+) rated games?$/, "$1 משחקים מדורגים"], [/^[Aa]verage opponent (\d+)$/, "יריב ממוצע $1"],
-  [/^(\d+) overdue$/, "$1 באיחור"], [/^Last backup: (\d+) days ago — download a fresh copy\.$/, "הגיבוי האחרון לפני $1 ימים — כדאי להוריד עותק חדש."], [/^Last backup: (.+)$/, "גיבוי אחרון: $1"], [/^Last saved: (.+)$/, "נשמר לאחרונה: $1"], [/^At (.+)$/, "ב־$1"], [/^Show (\d+) more$/, "עוד $1"], [/^(\d+)d$/, "$1 ימים"],
+  [/^(\d+) overdue$/, "$1 באיחור"], [/^Last backup: (\d+) days ago — download a fresh copy\.$/, "הגיבוי האחרון לפני $1 ימים — כדאי להוריד עותק חדש."], [/^Last backup: (.+)$/, "גיבוי אחרון: $1"], [/^Last saved: (.+)$/, "נשמר לאחרונה: $1"], [/^At (.+)$/, "ב־$1"], [/^Uploading “(.+)”…$/, "מעלה את „$1”…"], [/^PDF attached — (.+) can open it from Books$/, "ה־PDF צורף — $1 יכול/ה לפתוח אותו מתוך הספרים"], [/^“(.+)” is deleted, and (.+) can no longer open it\. The book stays\.$/, "„$1” יימחק, ו־$2 לא יוכל/תוכל לפתוח אותו יותר. הספר נשאר."], [/^Show (\d+) more$/, "עוד $1"], [/^(\d+)d$/, "$1 ימים"],
   [/^From (.+) until (.+)$/, "מ־$1 עד $2"], [/^From (.+)$/, "מ־$1"],
   [/^(Good morning|Good afternoon|Good evening), (.+)$/, (m,g,n)=>HE[g]+", "+n],
   [/^In (\d+) days$/, "בעוד $1 ימים"],
