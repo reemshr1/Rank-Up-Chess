@@ -4846,6 +4846,7 @@ function pStudents(v){
   $("#sq").oninput = e=>{ studentFilter.q = e.target.value; draw(); };
   $("#sf").onchange = e=>{ studentFilter.show = e.target.value; draw(); };
   $("#sAdd").onclick = ()=>editStudent(null);
+  if (WEB){ const box = document.createElement("div"); box.innerHTML = bookLibraryPanel(); v.appendChild(box); bindBookLibrary(box); }
 }
 
 const RATING_SOURCES = ["FIDE","FIDE Rapid","FIDE Blitz","ICF","Online"];
@@ -5694,11 +5695,13 @@ function bookData(s, b){
 }
 function editBook(s, b){
   const isNew = !b; const x = b || {id:uid(), title:"", author:"", topic:"Tactics", pages:"", page:0, startPage:0, status:"Reading", started:today(), finished:"", lastRead:"", notes:""};
+  const lib = isNew && !STUDENT() && WEB ? sortBy(bookLib(),"title") : [], fromLib = v=>!!v.lib;
   openForm({title:isNew?"Add book":"Edit book", submit:isNew?"Add book":"Save changes", fields:[
-      {name:"title",label:"Title",value:x.title,full:true,required:true,placeholder:"e.g. Chess Structures"},
-      {name:"author",label:"Author",value:x.author},
-      {name:"topic",label:"Topic",type:"select",options:BOOK_TOPICS,value:x.topic},
-      {name:"pages",label:"Total pages",type:"number",value:x.pages,min:1},
+      ...(lib.length ? [{name:"lib",label:"From your library",type:"select",options:[["","— Another book —"], ...lib.map(y=>[y.id, y.title+(y.pdf?" (with PDF)":"")])],value:"",full:true}] : []),
+      {name:"title",label:"Title",value:x.title,full:true,placeholder:"e.g. Chess Structures",show:v=>!fromLib(v)},
+      {name:"author",label:"Author",value:x.author,show:v=>!fromLib(v)},
+      {name:"topic",label:"Topic",type:"select",options:BOOK_TOPICS,value:x.topic,show:v=>!fromLib(v)},
+      {name:"pages",label:"Total pages",type:"number",value:x.pages,min:1,show:v=>!fromLib(v)},
       {name:"page",label:"Current page",type:"number",value:x.page,min:0,hint:"Updated automatically when you log reading"},
       {name:"status",label:"Status",type:"select",options:BOOK_STATUS,value:x.status},
       {name:"started",label:"Started",type:"date",value:x.started},
@@ -5708,6 +5711,9 @@ function editBook(s, b){
       if (x.pdf && WEB) bookFiles().remove([x.pdf.path]).catch(()=>{});
       s.books = s.books.filter(y=>y.id!==x.id); s.worklog.forEach(w=>{ if (w.bookId===x.id){ w.bookTitle = x.title; w.bookId = ""; } }); saveStudent(s); render(); toast("Book deleted"); })},
     onSubmit:d=>{
+      const lb = d.lib && bookLib().find(y=>y.id===d.lib); delete d.lib;
+      if (lb){ if (s.books.some(y=>y.libId===lb.id)) return s.name.split(" ")[0]+" already has this book.";
+        Object.assign(d, {title:lb.title, author:lb.author||"", topic:lb.topic||"Other", pages:lb.pages||""}); if (!d.notes) d.notes = lb.notes||""; x.libId = lb.id; }
       if (!d.title) return "Enter the book's title.";
       if (d.pages!=="" && d.page!=="" && +d.page > +d.pages) return "The current page is past the end of the book.";
       if (d.status==="Finished" && !d.finished) d.finished = today();
@@ -5715,6 +5721,8 @@ function editBook(s, b){
       Object.assign(x, d, {page:d.page===""?0:+d.page, pages:d.pages===""?"":+d.pages}); if (isNew && STUDENT()) x.by = "student";
       if (isNew) s.books.push(x);
       saveStudent(s); render(); toast(isNew?"Book added":"Changes saved");
+      const lb2 = isNew && x.libId && bookLib().find(y=>y.id===x.libId);
+      if (lb2 && lb2.pdf) copyLibPdf(lb2, s, x).then(ok=>toast(ok ? "Book added with its PDF" : "The book was added, but its PDF couldn’t be copied. Try “Attach PDF” on the book."));
     }});
 }
 /* ---------- a book's PDF: the coach uploads it to Supabase Storage ("books", private) under <student id>/<book id>.pdf;
@@ -5755,6 +5763,90 @@ function removeBookPdf(s, b){
   confirmBox("Remove the PDF?", "“"+(b.pdf.name||"The PDF")+"” is deleted, and "+s.name.split(" ")[0]+" can no longer open it. The book stays.", "Remove", async ()=>{
     try { await bookFiles().remove([b.pdf.path]); } catch(e){}
     delete b.pdf; saveStudent(s); render(); toast("PDF removed"); });
+}
+/* ---------- book library: the coach's own books (details and PDF), kept in settings, with PDFs under library/<id>.pdf.
+   Giving one to a student adds the book to their Books and copies the PDF into the student's folder,
+   so each student opens their own copy and the library file stays the coach's. ---------- */
+const bookLib = ()=>state.settings.bookLib||(state.settings.bookLib=[]);
+let bookLibOpen = false;
+function bookLibraryPanel(){
+  const lib = sortBy(bookLib(),"title");
+  return '<details class="panel fold" id="bookLibFold" style="margin-top:16px"'+(bookLibOpen||!lib.length?'':'')+(bookLibOpen?' open':'')+'><summary><h2>Book library ('+lib.length+')</h2></summary>'+
+    '<p class="small muted" style="margin:8px 0">Your books with their PDFs. “Give to…” adds a book to a student’s Books with the PDF already attached.</p>'+
+    (lib.length ? '<ul class="list">'+lib.map(x=>'<li><div class="main"><div class="title">'+esc(x.title)+'</div><div class="small muted">'+[x.author, x.topic, x.pages?x.pages+" pages":""].filter(Boolean).map(esc).join(" · ")+'</div>'+
+        '<div class="small" style="margin-top:2px">'+(x.pdf ? '📄 '+esc(x.pdf.name)+' <span class="muted">· '+esc(fmtSize(x.pdf.size||0))+'</span>' : '<span class="muted">No PDF yet</span>')+'</div></div>'+
+        '<div class="row-actions"><button class="btn small primary" data-a="blGive" data-id="'+x.id+'">Give to…</button>'+(x.pdf?'<button class="btn small ghost" data-a="blOpen" data-id="'+x.id+'">Open PDF</button>':'')+
+        '<button class="btn small ghost" data-a="blPdf" data-id="'+x.id+'">'+(x.pdf?"Replace PDF":"Attach PDF")+'</button><button class="btn small ghost" data-a="blEdit" data-id="'+x.id+'">Edit</button></div></li>').join("")+'</ul>'
+      : '<p class="empty" style="padding:4px 0 8px">No books in your library yet.</p>')+
+    '<button class="btn small primary" data-a="blAdd" style="margin-top:8px">Add book to library</button></details>';
+}
+function bindBookLibrary(box){
+  const fold = box.querySelector("#bookLibFold"); if (fold) fold.ontoggle = ()=>{ bookLibOpen = fold.open; };
+  const get = id=>bookLib().find(x=>x.id===id);
+  bindActions(box, { blAdd:()=>editLibBook(null), blEdit:id=>editLibBook(get(id)), blPdf:id=>uploadLibPdf(get(id)), blOpen:id=>openBookPdf(get(id)), blGive:id=>giveLibBook(get(id)) });
+}
+function editLibBook(b){
+  const isNew = !b, x = b || {id:"lb-"+uid(), title:"", author:"", topic:"Strategy", pages:"", notes:""};
+  openForm({title:isNew?"Add book to library":"Edit library book", submit:isNew?"Add":"Save changes", fields:[
+      {name:"title",label:"Title",value:x.title,full:true,placeholder:"e.g. My System"},
+      {name:"author",label:"Author",value:x.author},
+      {name:"topic",label:"Topic",type:"select",options:BOOK_TOPICS,value:x.topic},
+      {name:"pages",label:"Total pages",type:"number",value:x.pages,min:1},
+      {name:"notes",label:"Notes",type:"textarea",value:x.notes,placeholder:"e.g. Read chapters 1–3 first",hint:"Given to students with the book"}],
+    danger: isNew ? null : {label:"Delete from library", onClick:()=>confirmBox("Delete “"+x.title+"” from your library?", "Students who already have this book keep it, with their own copy of the PDF.", "Delete", ()=>{
+      if (x.pdf) bookFiles().remove([x.pdf.path]).catch(()=>{});
+      state.settings.bookLib = bookLib().filter(y=>y.id!==x.id); saveSettings(); render(); toast("Removed from the library"); })},
+    onSubmit:d=>{
+      if (!d.title.trim()) return "Enter the book's title.";
+      Object.assign(x, {title:d.title.trim(), author:d.author.trim(), topic:d.topic, pages:d.pages===""?"":+d.pages, notes:d.notes});
+      if (isNew) bookLib().push(x); bookLibOpen = true; saveSettings(); render();
+      if (isNew){ toast("Added to the library — attach its PDF next"); setTimeout(()=>uploadLibPdf(x), 0); } else toast("Changes saved");
+    }});
+}
+function pickPdf(then){
+  const inp = document.createElement("input"); inp.type = "file"; inp.accept = "application/pdf,.pdf"; inp.hidden = true;
+  inp.onchange = ()=>{ const f = inp.files[0]; if (!f) return;
+    if (!/\.pdf$/i.test(f.name) && f.type!=="application/pdf") return toast("Choose a PDF file.");
+    if (f.size>BOOK_PDF_MAX) return toast("That file is over 50 MB. Choose a smaller PDF."); then(f); };
+  document.body.appendChild(inp); inp.click(); setTimeout(()=>inp.remove(), 60000);
+}
+function uploadLibPdf(x){
+  if (!x || !WEB) return;
+  pickPdf(async f=>{
+    const path = "library/"+x.id+".pdf"; toast("Uploading “"+f.name+"”…");
+    let r; try { r = await bookFiles().upload(path, f, {upsert:true, contentType:"application/pdf"}); } catch(e){ r = {error:e}; }
+    if (r.error) return toast(storageErr(r.error));
+    x.pdf = {path, name:f.name.slice(0,120), size:f.size, at:today()}; bookLibOpen = true; saveSettings(); render(); toast("PDF saved in the library");
+  });
+}
+// The student's copy of a library PDF (replacing any earlier one).
+async function copyLibPdf(lb, s, b){
+  if (!lb.pdf || !WEB) return true;
+  const to = s.id+"/"+b.id+".pdf";
+  let r; try { await bookFiles().remove([to]).catch(()=>{}); r = await bookFiles().copy(lb.pdf.path, to); } catch(e){ r = {error:e}; }
+  if (r.error) return false;
+  b.pdf = {path:to, name:lb.pdf.name, size:lb.pdf.size, at:today()}; saveStudent(s); render(); return true;
+}
+async function addLibBook(lb, s){
+  const b = {id:uid(), title:lb.title, author:lb.author||"", topic:lb.topic||"Other", pages:lb.pages||"", page:0, startPage:0, status:"Reading", started:today(), finished:"", lastRead:"", notes:lb.notes||"", libId:lb.id};
+  s.books.push(b); saveStudent(s);
+  return copyLibPdf(lb, s, b);
+}
+function giveLibBook(lb){
+  if (!lb) return;
+  const act = state.students.filter(s=>s.active && !s.self);
+  if (!act.length) return toast("Add a student first.");
+  const has = s=>s.books.some(b=>b.libId===lb.id);
+  openForm({title:"Give “"+lb.title+"”", submit:"Give book", fields:[
+      {name:"to",label:"Student",type:"select",options:[...sortBy(act,"name").map(s=>[s.id, s.name+(has(s)?" (already has it)":"")]),
+        ...clubRules().map(r=>({r, n:act.filter(s=>(s.clubIds||[]).includes(r.id)).length})).filter(g=>g.n).map(g=>["club:"+g.r.id, "Whole group: "+g.r.name+" ("+g.n+")"])],value:"",full:true,
+       hint:lb.pdf ? "The PDF comes with it." : "This book has no PDF yet — attach one in the library first if you want it to come with the book."}],
+    onSubmit:d=>{
+      const ss = /^club:/.test(d.to) ? act.filter(s=>(s.clubIds||[]).includes(d.to.slice(5))) : act.filter(s=>s.id===d.to);
+      const todo = ss.filter(s=>!has(s)); if (!todo.length) return ss.length===1 ? "They already have this book." : "Everyone in that group already has this book.";
+      setTimeout(async ()=>{ let ok = 0; for (const s of todo) if (await addLibBook(lb, s)) ok++; render();
+        toast(ok===todo.length ? "“"+lb.title+"” given to "+(todo.length===1 ? todo[0].name.split(" ")[0] : todo.length+" students") : "The book was added, but its PDF couldn’t be copied for "+(todo.length-ok)+" student(s). Try “Attach PDF” on their book."); }, 0);
+    }});
 }
 function tBooks(el, s){
   const t = today(), year = t.slice(0,4);
@@ -7618,7 +7710,7 @@ const HE = {
   "Theme / what to learn":"נושא / מה ללמוד", "Found in":"נמצא ב־", "Lessons learned":"מה למדנו", "What the student took from this game":"מה התלמיד לקח מהמשחק",
   "Enter the names of both players.":"יש להזין את שמות שני השחקנים.", "e.g. Capablanca, José Raúl":"למשל קפבלנקה, חוסה ראול", "e.g. Tartakower, Savielly":"למשל טרטקובר, סבלי",
   "e.g. New York 1924":"למשל ניו יורק 1924", "e.g. Dutch Defence":"למשל ההגנה ההולנדית", "e.g. Rook endgame technique":"למשל טכניקה בסיומי צריחים",
-  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Useful links":"קישורים שימושיים", "Choose a date":"בחירת תאריך", "At the club":"במועדון", "Attach PDF":"צירוף PDF", "Open PDF":"פתיחת ה־PDF", "Remove the PDF?":"להסיר את ה־PDF?", "PDF removed":"ה־PDF הוסר", "Choose a PDF file.":"יש לבחור קובץ PDF.", "That file is over 50 MB. Choose a smaller PDF.":"הקובץ גדול מ־50 MB. יש לבחור PDF קטן יותר.", "PDF storage isn’t set up yet.":"אחסון ה־PDF עוד לא הוגדר.", "The PDF couldn’t be uploaded. Check your connection and try again.":"לא ניתן היה להעלות את ה־PDF. כדאי לבדוק את החיבור ולנסות שוב.", "The PDF couldn’t be opened. Try again in a moment.":"לא ניתן היה לפתוח את ה־PDF. כדאי לנסות שוב עוד רגע.", "Account:":"חשבון:", "This code was already used.":"הקוד הזה כבר נוצל.", "Already using Rank Up on another device? Sign out here and sign in with the same email you used there. Otherwise, ask your coach for a new code.":"כבר משתמש/ת ב„עולים בדרגה” במכשיר אחר? יש להתנתק כאן ולהתחבר עם אותו אימייל שבו התחברת שם. אחרת, אפשר לבקש מהמאמן קוד חדש.", "Show less":"הצג פחות", "Hide":"הסתרה", "Hide this bubble":"הסתרת הבועה", "Show":"הצגה", "Show this bubble":"הצגת הבועה",  "Where":"איפה", "Not set (students choose in person or online)":"לא נקבע (התלמידים בוחרים פרונטלי או אונליין)", "At home":"בבית", "Another place…":"מקום אחר…", "Write the place, or choose one from the list.":"יש לכתוב את המקום, או לבחור אחד מהרשימה.", "e.g. At the community centre":"למשל: במתנ״ס", "Place (optional)":"מקום (לא חובה)", "e.g. At the club":"למשל: במועדון", "Students see it under the time. At the club: times you're there anyway, for students who live far.":"התלמידים רואים את זה מתחת לשעה. במועדון: זמנים שבהם את/ה שם בכל מקרה, לתלמידים שגרים רחוק.", "Every night":"כל לילה", "A copy of all your records is saved every night and kept for 30 days.":"בכל לילה נשמר עותק של כל הנתונים שלך, למשך 30 יום.", "Nightly backups aren’t turned on yet.":"הגיבוי הלילי עדיין לא הופעל.", "No nightly backup yet — the first one is made tonight.":"עדיין אין גיבוי לילי — הראשון ייעשה הלילה.", "Download":"הורדה", "Folder on this computer":"תיקייה במחשב הזה", "To save a backup into a folder automatically, open the app in Chrome or Edge on a computer.":"כדי לשמור גיבוי בתיקייה באופן אוטומטי, יש לפתוח את האפליקציה ב־Chrome או ב־Edge במחשב.", "Choose a folder and the app saves a backup into it once a day, when you open the app on this computer.":"בוחרים תיקייה, והאפליקציה שומרת בה גיבוי פעם ביום, כשפותחים אותה במחשב הזה.", "Choose a folder":"בחירת תיקייה", "Folder:":"תיקייה:", "Not saved yet.":"עוד לא נשמר.", "Save now":"שמירה עכשיו", "Change folder":"החלפת תיקייה", "Stop":"הפסקה", "Save today’s backup to your folder on this computer.":"שמירת הגיבוי של היום בתיקייה שלך במחשב הזה.", "Save backup":"שמירת גיבוי", "Couldn’t load that backup.":"לא ניתן היה לטעון את הגיבוי הזה.", "The backup couldn’t be saved in that folder.":"לא ניתן היה לשמור את הגיבוי בתיקייה הזו.", "That folder can’t be used.":"אי אפשר להשתמש בתיקייה הזו.", "Backup saved to your folder":"הגיבוי נשמר בתיקייה שלך", "Backups to the folder stopped":"הגיבויים לתיקייה הופסקו", "Loading…":"טוען…", "Choose a time":"בחירת שעה", "Change order":"שינוי סדר", "Put the sites you use most at the top.":"שימו למעלה את האתרים שאתם משתמשים בהם הכי הרבה.", "Username:":"שם משתמש:", "Username":"שם משתמש", "Change":"שינוי", "Add your username":"הוספת שם המשתמש שלך", "Add username":"הוספת שם משתמש", "Username saved":"שם המשתמש נשמר", "Username removed":"שם המשתמש הוסר", "Leave empty to remove it":"להסרה — להשאיר ריק", "Shown to students and parents on their Practice page.":"מוצגים לתלמידים ולהורים בדף התרגול.", "Add link":"הוספת קישור", "Edit link":"עריכת קישור",
+  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Useful links":"קישורים שימושיים", "Choose a date":"בחירת תאריך", "At the club":"במועדון", "Your books with their PDFs. “Give to…” adds a book to a student’s Books with the PDF already attached.":"הספרים שלך עם קובצי ה־PDF. „מתן ל…” מוסיף ספר לספרים של תלמיד/ה, עם ה־PDF כבר מצורף.", "No books in your library yet.":"עדיין אין ספרים בספרייה.", "Add book to library":"הוספת ספר לספרייה", "Edit library book":"עריכת ספר בספרייה", "No PDF yet":"עדיין אין PDF", "Replace PDF":"החלפת ה־PDF", "Give to…":"מתן ל…", "Delete from library":"מחיקה מהספרייה", "Removed from the library":"הוסר מהספרייה", "Added to the library — attach its PDF next":"נוסף לספרייה — עכשיו אפשר לצרף את ה־PDF", "PDF saved in the library":"ה־PDF נשמר בספרייה", "From your library":"מהספרייה שלך", "— Another book —":"— ספר אחר —", "Give book":"מתן הספר", "The PDF comes with it.":"ה־PDF מגיע איתו.", "This book has no PDF yet — attach one in the library first if you want it to come with the book.":"לספר הזה עדיין אין PDF — אפשר לצרף אותו בספרייה קודם, כדי שיגיע עם הספר.", "Given to students with the book":"ניתן לתלמידים יחד עם הספר", "e.g. Read chapters 1–3 first":"למשל: לקרוא קודם את פרקים 1–3", "Book added with its PDF":"הספר נוסף עם ה־PDF", "Students who already have this book keep it, with their own copy of the PDF.":"תלמידים שכבר קיבלו את הספר שומרים אותו, עם עותק משלהם של ה־PDF.", "They already have this book.":"כבר יש להם את הספר הזה.", "Everyone in that group already has this book.":"לכל מי שבקבוצה כבר יש את הספר הזה.", "The book was added, but its PDF couldn’t be copied. Try “Attach PDF” on the book.":"הספר נוסף, אבל לא ניתן היה להעתיק את ה־PDF. אפשר לנסות „צירוף PDF” על הספר.", "Attach PDF":"צירוף PDF", "Open PDF":"פתיחת ה־PDF", "Remove the PDF?":"להסיר את ה־PDF?", "PDF removed":"ה־PDF הוסר", "Choose a PDF file.":"יש לבחור קובץ PDF.", "That file is over 50 MB. Choose a smaller PDF.":"הקובץ גדול מ־50 MB. יש לבחור PDF קטן יותר.", "PDF storage isn’t set up yet.":"אחסון ה־PDF עוד לא הוגדר.", "The PDF couldn’t be uploaded. Check your connection and try again.":"לא ניתן היה להעלות את ה־PDF. כדאי לבדוק את החיבור ולנסות שוב.", "The PDF couldn’t be opened. Try again in a moment.":"לא ניתן היה לפתוח את ה־PDF. כדאי לנסות שוב עוד רגע.", "Account:":"חשבון:", "This code was already used.":"הקוד הזה כבר נוצל.", "Already using Rank Up on another device? Sign out here and sign in with the same email you used there. Otherwise, ask your coach for a new code.":"כבר משתמש/ת ב„עולים בדרגה” במכשיר אחר? יש להתנתק כאן ולהתחבר עם אותו אימייל שבו התחברת שם. אחרת, אפשר לבקש מהמאמן קוד חדש.", "Show less":"הצג פחות", "Hide":"הסתרה", "Hide this bubble":"הסתרת הבועה", "Show":"הצגה", "Show this bubble":"הצגת הבועה",  "Where":"איפה", "Not set (students choose in person or online)":"לא נקבע (התלמידים בוחרים פרונטלי או אונליין)", "At home":"בבית", "Another place…":"מקום אחר…", "Write the place, or choose one from the list.":"יש לכתוב את המקום, או לבחור אחד מהרשימה.", "e.g. At the community centre":"למשל: במתנ״ס", "Place (optional)":"מקום (לא חובה)", "e.g. At the club":"למשל: במועדון", "Students see it under the time. At the club: times you're there anyway, for students who live far.":"התלמידים רואים את זה מתחת לשעה. במועדון: זמנים שבהם את/ה שם בכל מקרה, לתלמידים שגרים רחוק.", "Every night":"כל לילה", "A copy of all your records is saved every night and kept for 30 days.":"בכל לילה נשמר עותק של כל הנתונים שלך, למשך 30 יום.", "Nightly backups aren’t turned on yet.":"הגיבוי הלילי עדיין לא הופעל.", "No nightly backup yet — the first one is made tonight.":"עדיין אין גיבוי לילי — הראשון ייעשה הלילה.", "Download":"הורדה", "Folder on this computer":"תיקייה במחשב הזה", "To save a backup into a folder automatically, open the app in Chrome or Edge on a computer.":"כדי לשמור גיבוי בתיקייה באופן אוטומטי, יש לפתוח את האפליקציה ב־Chrome או ב־Edge במחשב.", "Choose a folder and the app saves a backup into it once a day, when you open the app on this computer.":"בוחרים תיקייה, והאפליקציה שומרת בה גיבוי פעם ביום, כשפותחים אותה במחשב הזה.", "Choose a folder":"בחירת תיקייה", "Folder:":"תיקייה:", "Not saved yet.":"עוד לא נשמר.", "Save now":"שמירה עכשיו", "Change folder":"החלפת תיקייה", "Stop":"הפסקה", "Save today’s backup to your folder on this computer.":"שמירת הגיבוי של היום בתיקייה שלך במחשב הזה.", "Save backup":"שמירת גיבוי", "Couldn’t load that backup.":"לא ניתן היה לטעון את הגיבוי הזה.", "The backup couldn’t be saved in that folder.":"לא ניתן היה לשמור את הגיבוי בתיקייה הזו.", "That folder can’t be used.":"אי אפשר להשתמש בתיקייה הזו.", "Backup saved to your folder":"הגיבוי נשמר בתיקייה שלך", "Backups to the folder stopped":"הגיבויים לתיקייה הופסקו", "Loading…":"טוען…", "Choose a time":"בחירת שעה", "Change order":"שינוי סדר", "Put the sites you use most at the top.":"שימו למעלה את האתרים שאתם משתמשים בהם הכי הרבה.", "Username:":"שם משתמש:", "Username":"שם משתמש", "Change":"שינוי", "Add your username":"הוספת שם המשתמש שלך", "Add username":"הוספת שם משתמש", "Username saved":"שם המשתמש נשמר", "Username removed":"שם המשתמש הוסר", "Leave empty to remove it":"להסרה — להשאיר ריק", "Shown to students and parents on their Practice page.":"מוצגים לתלמידים ולהורים בדף התרגול.", "Add link":"הוספת קישור", "Edit link":"עריכת קישור",
   "Restore the suggested list":"שחזור הרשימה המומלצת", "No links yet.":"עדיין אין קישורים.", "Address":"כתובת", "What it's for (optional)":"למה זה טוב (לא חובה)", "Link saved":"הקישור נשמר", "Link added":"הקישור נוסף", "Link removed":"הקישור הוסר",
   "Students and parents won't see this link any more.":"תלמידים והורים לא יראו יותר את הקישור הזה.", "Restore the suggested list?":"לשחזר את הרשימה המומלצת?", "Your own links and changes will be replaced by the suggested list.":"הקישורים והשינויים שלך יוחלפו ברשימה המומלצת.",
   "Restore":"שחזור", "Suggested list restored":"הרשימה המומלצת שוחזרה", "Enter the site's address, e.g. lichess.org.":"יש להזין את כתובת האתר, למשל lichess.org.",
@@ -7882,7 +7974,7 @@ const HE_RX = [
   [/^Add the moves \(PGN\) to the games in the Games tab to see which openings (.+) meets and how they score\.$/, "הוספת המסעים (PGN) למשחקים בלשונית משחקים תראה אילו פתיחות $1 פוגש ומה הניקוד בהן."],
   [/^(\d+) openings? without a line$/, (m,n)=>+n===1 ? "פתיחה אחת בלי וריאנט" : n+" פתיחות בלי וריאנט"],
   [/^(\d+) rated games?$/, "$1 משחקים מדורגים"], [/^[Aa]verage opponent (\d+)$/, "יריב ממוצע $1"],
-  [/^(\d+) overdue$/, "$1 באיחור"], [/^Last backup: (\d+) days ago — download a fresh copy\.$/, "הגיבוי האחרון לפני $1 ימים — כדאי להוריד עותק חדש."], [/^Last backup: (.+)$/, "גיבוי אחרון: $1"], [/^Last saved: (.+)$/, "נשמר לאחרונה: $1"], [/^At (.+)$/, "ב־$1"], [/^Uploading “(.+)”…$/, "מעלה את „$1”…"], [/^PDF attached — (.+) can open it from Books$/, "ה־PDF צורף — $1 יכול/ה לפתוח אותו מתוך הספרים"], [/^“(.+)” is deleted, and (.+) can no longer open it\. The book stays\.$/, "„$1” יימחק, ו־$2 לא יוכל/תוכל לפתוח אותו יותר. הספר נשאר."], [/^Show (\d+) more$/, "עוד $1"], [/^(\d+)d$/, "$1 ימים"],
+  [/^(\d+) overdue$/, "$1 באיחור"], [/^Last backup: (\d+) days ago — download a fresh copy\.$/, "הגיבוי האחרון לפני $1 ימים — כדאי להוריד עותק חדש."], [/^Last backup: (.+)$/, "גיבוי אחרון: $1"], [/^Last saved: (.+)$/, "נשמר לאחרונה: $1"], [/^At (.+)$/, "ב־$1"], [/^Book library \((\d+)\)$/, "ספריית ספרים ($1)"], [/^Give “(.+)”$/, "מתן „$1”"], [/^“(.+)” given to (.+)$/, "„$1” ניתן ל־$2"], [/^Delete “(.+)” from your library\?$/, "למחוק את „$1” מהספרייה?"], [/^(.+) already has this book\.$/, "ל־$1 כבר יש את הספר הזה."], [/^(\d+) students$/, "$1 תלמידים"], [/^Uploading “(.+)”…$/, "מעלה את „$1”…"], [/^PDF attached — (.+) can open it from Books$/, "ה־PDF צורף — $1 יכול/ה לפתוח אותו מתוך הספרים"], [/^“(.+)” is deleted, and (.+) can no longer open it\. The book stays\.$/, "„$1” יימחק, ו־$2 לא יוכל/תוכל לפתוח אותו יותר. הספר נשאר."], [/^Show (\d+) more$/, "עוד $1"], [/^(\d+)d$/, "$1 ימים"],
   [/^From (.+) until (.+)$/, "מ־$1 עד $2"], [/^From (.+)$/, "מ־$1"],
   [/^(Good morning|Good afternoon|Good evening), (.+)$/, (m,g,n)=>HE[g]+", "+n],
   [/^In (\d+) days$/, "בעוד $1 ימים"],
