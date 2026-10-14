@@ -151,6 +151,8 @@ main{padding:32px clamp(16px,4vw,48px) 96px;max-width:1180px;width:100%;min-widt
   .bottom-nav a{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.7rem;color:var(--muted);text-decoration:none;padding:4px 8px;border-radius:var(--r-sm);min-width:56px}
   .bottom-nav a[aria-current="page"]{color:var(--ink);background:var(--sq-light)}
   .bottom-nav svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .bottom-nav a{min-width:0;flex:1 1 0;padding:4px 1px;font-size:.6rem}
+  .bottom-nav a span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .student-mode .bottom-nav a{min-width:0;flex:1 1 0;padding:4px 1px;font-size:.6rem;overflow:hidden}
   .student-mode .bottom-nav a span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 }
@@ -482,6 +484,8 @@ dialog.wide{width:min(960px,calc(100vw - 24px))}
 .ev.club{background:var(--tint-yellow,#FFF4CC);color:var(--ink);border:1px solid var(--yellow,#FFD54F);border-inline-start:4px solid #B8860B;box-shadow:none}
 .ev.club span{color:var(--muted)}
 .att-chips{display:flex;flex-wrap:wrap;gap:6px}
+.att-groups,.att-days{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 12px}
+.att-days{margin:12px 0 0}
 .att-chip{font:inherit;font-size:14px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--card,#fff);color:var(--ink);cursor:pointer;min-height:34px}
 .att-chip.on{background:var(--tint-green,#E3F4E8);border-color:var(--ok,#2E7D32);color:var(--ok,#2E7D32);font-weight:600}
 .att-table{border-collapse:collapse;font-size:14px}
@@ -2480,11 +2484,12 @@ const ICONS = {
   games:'<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1"/><path d="M4 12h16M12 4v16"/><path d="M4 8h4v4H4zM12 12h4v4h-4zM8 4h4v4H8zM16 8h4v4h-4zM8 16h4v4H8zM16 16h4v4h-4z" fill="currentColor" stroke="none" opacity=".35"/></svg>',
   book:'<svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5"/></svg>',
   tree:'<svg viewBox="0 0 24 24"><circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="12" r="2"/><path d="M6 7v10M6 12c0-4 4-5 10-0"/></svg>',
+  attend:'<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="17" rx="2"/><path d="M9 2.5v3M15 2.5v3M8 13l2.5 2.5L16 10"/></svg>',
   progress:'<svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
   pay:'<svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20M6 15h4"/></svg>',
   settings:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>'
 };
-const NAV = [["dashboard","Today",ICONS.dash],["students","Students",ICONS.students],["schedule","Schedule",ICONS.schedule],["assignments","Assignments",ICONS.assign],["payments","Payments",ICONS.pay],["settings","Settings",ICONS.settings]];
+const NAV = [["dashboard","Today",ICONS.dash],["students","Students",ICONS.students],["schedule","Schedule",ICONS.schedule],["attendance","Attendance",ICONS.attend],["assignments","Assignments",ICONS.assign],["payments","Payments",ICONS.pay],["settings","Settings",ICONS.settings]];
 
 /* ---------- state ---------- */
 let state = { settings:{ coachName:"", currency:"₪", overdueDays:30, defaultRate:250, weekStart:0 }, students:[], assignments:[], games:[] };
@@ -3837,7 +3842,7 @@ function renderNav(){
   // the coach's own profile gets its own "My chess" item (and doesn't light up Students)
   const me = myself(), meOn = !!me && r.page==="student" && r.id===me.id;
   const item = ([k,l,ic])=>'<a href="#/'+k+'"'+(cur===k && !meOn?' aria-current="page"':"")+'>'+ic+'<span>'+l+'</span>'+badge(k)+'</a>';
-  const html = NAV.map(item).join("");
+  const html = NAV.filter(([k])=>k!=="attendance" || clubRules().length).map(item).join("");
   const mine = me ? '<a href="#/student/'+me.id+'/overview"'+(meOn?' aria-current="page"':'')+'>'+ICONS.progress+'<span>My chess</span></a>' : "";
   $("#nav").innerHTML = html+mine; $("#bnav").innerHTML = html;
 }
@@ -3855,7 +3860,7 @@ function render(){
   const r = route();
   if (STUDENT()) return renderStudent(v, r);
   if (!state.students.length && ["dashboard","students","schedule","payments","assignments"].includes(r.page)){ v.innerHTML = welcome(); bindWelcome(); return; }
-  const pages = {dashboard:pDashboard, students:pStudents, student:pStudent, schedule:pSchedule, payments:pPayments, settings:pSettings, assignments:pAssignments, assignment:pAssignment, search:pSearch};
+  const pages = {dashboard:pDashboard, students:pStudents, student:pStudent, schedule:pSchedule, payments:pPayments, attendance:pAttendance, settings:pSettings, assignments:pAssignments, assignment:pAssignment, search:pSearch};
   (pages[r.page]||pDashboard)(v, r);
   hidePanels(v, r);
 }
@@ -4371,7 +4376,6 @@ function pDashboard(v){
   issuesPanel()+
   requestsPanel()+
   payReportsPanel()+
-  attTodayPanel(t)+
   attentionPanel(active, t)+
   '<div class="grid g2">'+
   panel("Coming up this week", sessions.length ? '<ul class="list">'+sessions.map(({s,x})=>'<li><div class="main"><div class="title"><a href="#/student/'+s.id+'/sessions">'+esc(s.name)+'</a></div><div class="small muted">'+esc(x.topics||"No topic yet")+'</div></div><div style="text-align:end"><div class="small">'+esc(x.date===t?"Today":fmtDate(x.date,{weekday:"short",day:"numeric",month:"short"}))+'</div><div class="small muted">'+esc(x.time||"")+(x.duration?" · "+x.duration+" min":"")+'</div></div></li>').join("")+'</ul>' : '<p class="empty">No sessions planned for the next 7 days.</p>')+
@@ -4387,7 +4391,7 @@ function pDashboard(v){
   bindActions(v,{ prOk:id=>decidePayReport(id, true), prNo:id=>decidePayReport(id, false), done:id=>{ const [s,x] = find(id); if (x) markDone(s,x); }, plan:id=>planSession({sid:id}), backup:()=>downloadBackup(), folderSave:async()=>{ if (await saveToFolder(true)) toast("Backup saved to your folder"); render(); },
     approve:id=>{ const [s,r] = req(id); if (r) approveRequest(s,r); },
     remind:id=>{ const x = byId(id); if (x) sendReminder(x); },
-    nudge:id=>{ const x = byId(id); if (x) nudgeStudent(x); }, att:k=>tapAtt(k), attAll:k=>allAtt(k), attMonth:id=>attMonth(id), attnMore:k=>{ attnAll[k] = !attnAll[k]; render(); },
+    nudge:id=>{ const x = byId(id); if (x) nudgeStudent(x); }, attnMore:k=>{ attnAll[k] = !attnAll[k]; render(); },
     issueRetry:id=>portal && portal.retry(id), issueDrop:id=>confirmBox("Discard this change?", "What they sent will be deleted. They can send it again from their app.", "Discard", ()=>portal.discard(id)),
     decline:id=>{ const [s,r] = req(id); if (!r) return;
       if (r.kind==="move") return openForm({title:"Can't meet then — "+s.name, submit:"Decline the move", fields:[
@@ -7061,7 +7065,7 @@ function clubPanel(){
   const label = r=>(r.kind==="weekly" ? "Every "+WEEKDAYS[+r.weekday] : fmtDate(r.date,{weekday:"short",day:"numeric",month:"short"}))+" "+r.from+"–"+r.to;
   return '<details class="panel fold" id="clubFold" style="margin-bottom:16px"'+(clubOpen?' open':'')+'><summary><h2>Club classes ('+rules.length+')</h2></summary>'+
     '<p class="small muted" style="margin:8px 0">Classes you teach at the club. They show in your schedule, students can\'t book lessons at those times, and the club hours are counted on the Payments page. Students don\'t see them.</p>'+
-    (rules.length ? '<ul class="list">'+rules.map(r=>'<li><div class="main"><div class="title">'+esc(r.name)+'</div><div class="small muted">'+esc(label(r))+(r.place?' · '+esc(r.place):'')+(+r.rate?' · '+esc(money(+r.rate))+' an hour':'')+((r.skip||[]).filter(d=>d>=t).length?' · '+(r.skip||[]).filter(d=>d>=t).length+' date(s) cancelled':'')+'</div></div><div class="row-actions" style="flex-wrap:nowrap">'+(clubKids(r, t).length?'<button class="btn small ghost" data-a="attMonth" data-id="'+r.id+'">Attendance</button>':'')+'<button class="btn small ghost" data-a="editClub" data-id="'+r.id+'">Edit</button></div></li>').join("")+'</ul>'
+    (rules.length ? '<ul class="list">'+rules.map(r=>'<li><div class="main"><div class="title">'+esc(r.name)+'</div><div class="small muted">'+esc(label(r))+(r.place?' · '+esc(r.place):'')+(+r.rate?' · '+esc(money(+r.rate))+' an hour':'')+((r.skip||[]).filter(d=>d>=t).length?' · '+(r.skip||[]).filter(d=>d>=t).length+' date(s) cancelled':'')+'</div></div><button class="btn small ghost" data-a="editClub" data-id="'+r.id+'">Edit</button></li>').join("")+'</ul>'
       +(mAll.classes?'<p class="small" style="margin:8px 0 0">This month: <b class="num">'+m.hours+' h</b> so far'+(m.pay?' · <b class="num">'+esc(money(m.pay))+'</b>':'')+' (whole month: '+mAll.hours+' h'+(mAll.pay?' · '+esc(money(mAll.pay)):'')+')</p>':'') : '')+
     '<button class="btn small primary" data-a="addClub" style="margin-top:8px">Add club class</button></details>';
 }
@@ -7121,62 +7125,52 @@ function allAtt(key){
   const [rid, d] = key.split("|"), r = clubRules().find(x=>x.id===rid); if (!r) return;
   r.att = r.att || {}; r.att[d] = clubKids(r, d).map(s=>s.id); saveSettings(); attRedraw();
 }
-// Redraw what's open (the month view or the class popup), else the page.
-let attView = null;
-const attRedraw = ()=>{ const v = attView; if (v && $("#modal").open) return v.month ? attMonth(v.rid, v.ym) : clubDate(v.key); render(); };
-function attOpen(m, v){ attView = v; if (m.open) return; m.addEventListener("close", ()=>{ attView = null; render(); }, {once:true}); m.showModal(); }
-// Today: the class happening today, or the last one in the past 3 days whose attendance wasn't taken.
-function attTodayPanel(t){
-  const list = []; for (let d=addDays(t,-3); d<=t; d=addDays(d,1)) clubOn(d).forEach(o=>{ if (clubKids(o.r, d).length && (d===t || !(o.r.att||{})[d])) list.push({r:o.r, d}); });
-  if (!list.length) return "";
-  return '<section class="panel" style="margin-bottom:16px"><div class="panel-head"><h2>Club attendance</h2><button class="btn small ghost" data-a="attMonth" data-id="'+list[0].r.id+'">Month view</button></div>'+
-    list.map(({r,d})=>'<div style="margin:0 0 12px"><div class="title" style="margin-bottom:6px"><b>'+esc(r.name)+'</b> <span class="small muted">'+esc(d===t ? "Today" : fmtDate(d,{weekday:"short",day:"numeric",month:"short"}))+' · <span dir="ltr">'+esc(r.from)+'–'+esc(r.to)+'</span></span></div>'+attChips(r, d)+'</div>').join("")+'</section>';
+/* ---------- attendance page ---------- */
+let attGroup = "", attYm = "", attDay = "";
+const attRedraw = ()=>render();
+const ymShift = (ym, n)=>{ let y = +ym.slice(0,4), m = +ym.slice(5,7)+n; while (m>12){ m-=12; y++; } while (m<1){ m+=12; y--; } return y+"-"+String(m).padStart(2,"0"); };
+function pAttendance(v){
+  const t = today(), he = lang()==="he", groups = clubRules().filter(r=>r.kind==="weekly" ? (!r.end || r.end>=addDays(t,-180)) : r.date>=addDays(t,-180));
+  if (!groups.length){ v.innerHTML = '<div class="page-head"><div><h1>Attendance</h1></div></div><section class="panel"><p class="empty">No club classes yet. Add them on the Schedule page, under Club classes.</p></section>'; return; }
+  const r = groups.find(x=>x.id===attGroup) || groups[0]; attGroup = r.id;
+  const classOn = d=>clubOn(d).some(o=>o.r.id===r.id);
+  // the class to take: the one picked, else today's, else the last one before today
+  let d = attDay && classOn(attDay) && attDay<=t ? attDay : ""; if (!d) for (let x=t; x>=addDays(t,-62); x=addDays(x,-1)) if (classOn(x)){ d = x; break; }
+  let next = ""; for (let x=addDays(t,1); x<=addDays(t,62); x=addDays(x,1)) if (classOn(x)){ next = x; break; }
+  const recent = []; for (let x=addDays(t,-28); x<=t; x=addDays(x,1)) if (classOn(x)) recent.push(x);
+  const ym = attYm || t.slice(0,7), first = ym+"-01", last = addDays(ymShift(ym,1)+"-01", -1);
+  const dates = []; for (let x=first; x<=last; x=addDays(x,1)) if (classOn(x)) dates.push(x);
+  const att = r.att||{}, kids = sortBy(state.students.filter(s=>!s.self && ((s.active && (s.clubIds||[]).includes(r.id)) || dates.some(x=>(att[x]||[]).includes(s.id)))), "name");
+  const held = dates.filter(x=>att[x]), nm = kidNames(kids), rowName = s=>he ? nm(s.id) : s.name, dayLbl = x=>x===t ? "Today" : fmtDate(x,{weekday:"short",day:"numeric",month:"short"});
+  const cell = (s,x)=>{ if (x>t) return '<td class="att-c muted">·</td>';
+    const L = att[x], on = !!L && L.includes(s.id);
+    return '<td class="att-c"><button type="button" class="att-cell'+(on?' on':L?' off':'')+'" data-a="att" data-id="'+r.id+'|'+x+'|'+s.id+'" aria-label="'+esc(s.name+" "+x)+'">'+(on?'✓':L?'✗':'–')+'</button></td>'; };
+  v.innerHTML = '<div class="page-head"><div><h1>Attendance</h1><p class="sub" style="margin:4px 0 0">Club classes: who came. Only you see this.</p></div></div>'+
+    (groups.length>1 ? '<div class="att-groups" role="tablist">'+groups.map(x=>'<button type="button" class="btn small'+(x.id===r.id?' primary':' ghost')+'" data-a="attGroup" data-id="'+esc(x.id)+'" aria-pressed="'+(x.id===r.id)+'">'+esc(x.name)+'</button>').join("")+'</div>' : '')+
+    '<section class="panel" style="margin-bottom:16px"><div class="panel-head"><h2>'+esc(r.name)+'</h2><span class="small muted">'+(d?esc(dayLbl(d))+' · ':'')+'<span dir="ltr">'+esc(r.from)+'–'+esc(r.to)+'</span>'+(r.place?' · '+esc(r.place):'')+'</span></div>'+
+      (d ? attChips(r, d) : '<p class="small muted" style="margin:0">No class yet.</p>')+
+      (recent.length>1 ? '<div class="att-days"><span class="small muted">Dates (✓ = taken):</span>'+recent.slice().reverse().map(x=>'<button type="button" class="btn small'+(x===d?' primary':' ghost')+'" data-a="attDay" data-id="'+x+'">'+esc(dayLbl(x))+(att[x]?' ✓':'')+'</button>').join("")+'</div>' : '')+
+      (next ? '<p class="small muted" style="margin:10px 0 0">Next class: '+esc(fmtDate(next,{weekday:"long",day:"numeric",month:"short"}))+'</p>' : '')+'</section>'+
+    '<section class="panel"><div class="panel-head"><h2>Month</h2></div><div class="row-actions" style="align-items:center;flex-wrap:nowrap;margin:0 0 8px"><button type="button" class="btn small ghost" data-a="attYm" data-id="'+ymShift(ym,-1)+'" aria-label="Previous month">'+(he?'›':'‹')+'</button><b>'+esc(fmtDate(first,{month:"long",year:"numeric"}))+'</b><button type="button" class="btn small ghost" data-a="attYm" data-id="'+ymShift(ym,1)+'" aria-label="Next month">'+(he?'‹':'›')+'</button></div>'+
+      (!dates.length ? '<p class="empty">No classes this month.</p>' : !kids.length ? '<p class="empty">Nobody is in this group yet.</p>' :
+        '<div style="overflow-x:auto"><table class="att-table"><thead><tr><th></th>'+dates.map(x=>'<th class="att-c">'+esc(fmtDate(x,{day:"numeric",month:"numeric"}))+'</th>').join("")+'<th class="att-c">Came</th></tr></thead><tbody>'+
+        kids.map(s=>{ const n = held.filter(x=>att[x].includes(s.id)).length;
+          return '<tr><th scope="row"><a href="#/student/'+s.id+'/overview">'+esc(rowName(s))+'</a></th>'+dates.map(x=>cell(s,x)).join("")+'<td class="att-c num"><b>'+n+'</b>/'+held.length+'</td></tr>'; }).join("")+
+        '<tr class="att-tot"><th scope="row">Here</th>'+dates.map(x=>'<td class="att-c num">'+(att[x] ? att[x].filter(y=>kids.some(s=>s.id===y)).length : '')+'</td>').join("")+'<td></td></tr>'+
+        '</tbody></table></div><p class="small muted" style="margin:8px 0 0">Tap a box to change it: ✓ came, ✗ didn’t come, – not taken.</p>')+'</section>';
+  bindActions(v, { att:k=>tapAtt(k), attAll:k=>allAtt(k), attGroup:id=>{ attGroup = id; attDay = ""; render(); }, attDay:x=>{ attDay = x; render(); }, attYm:x=>{ attYm = x; render(); } });
 }
-// One group, one month: a row per student, a column per class, and how many each came to.
-function attMonth(rid, ym){
-  const r = clubRules().find(x=>x.id===rid); if (!r) return;
-  ym = ym || today().slice(0,7);
-  const t = today(), first = ym+"-01", last = addDays((+ym.slice(5,7)===12 ? (+ym.slice(0,4)+1)+"-01" : ym.slice(0,4)+"-"+String(+ym.slice(5,7)+1).padStart(2,"0"))+"-01", -1);
-  const dates = []; for (let d=first; d<=last; d=addDays(d,1)) if (clubOn(d).some(o=>o.r.id===r.id)) dates.push(d);
-  const att = r.att||{}, kids = sortBy(state.students.filter(s=>!s.self && ((s.active && (s.clubIds||[]).includes(r.id)) || dates.some(d=>(att[d]||[]).includes(s.id)))), "name");
-  const held = dates.filter(d=>att[d]), prevM = addDays(first,-1).slice(0,7), nextM = addDays(last,1).slice(0,7);
-  const cell = (s,d)=>{ if (d>t) return '<td class="att-c muted">·</td>';
-    const L = att[d], on = !!L && L.includes(s.id);
-    return '<td class="att-c"><button type="button" class="att-cell'+(on?' on':L?' off':'')+'" data-a="att" data-id="'+r.id+'|'+d+'|'+s.id+'" aria-label="'+esc(s.name+" "+d)+'">'+(on?'✓':L?'✗':'–')+'</button></td>'; };
-  const groups = clubRules().filter(x=>state.students.some(s=>(s.clubIds||[]).includes(x.id)) || x.id===r.id);
-  const he = lang()==="he", nm = kidNames(kids), rowName = s=>he ? nm(s.id) : s.name;
-  const m = $("#modal");
-  m.innerHTML = '<div class="modal-form" style="max-width:min(960px,96vw)"><header><h2>Attendance — '+esc(r.name)+'</h2><p class="sub small">'+esc(fmtDate(first,{month:"long",year:"numeric"}))+' · '+dates.length+' classes'+(held.length<dates.filter(d=>d<=t).length?' · '+(dates.filter(d=>d<=t).length-held.length)+' not taken':'')+'</p></header>'+
-    '<div style="padding:8px 20px">'+
-    '<div class="row-actions" style="margin-bottom:10px;align-items:center"><button type="button" class="btn small ghost" data-m="'+prevM+'" aria-label="Previous month">'+(he?'›':'‹')+'</button><b>'+esc(fmtDate(first,{month:"long",year:"numeric"}))+'</b><button type="button" class="btn small ghost" data-m="'+nextM+'" aria-label="Next month">'+(he?'‹':'›')+'</button>'+
-      (groups.length>1?'<select id="attGroup" style="margin-inline-start:auto;width:auto">'+groups.map(x=>'<option value="'+esc(x.id)+'"'+(x.id===r.id?' selected':'')+'>'+esc(x.name)+'</option>').join("")+'</select>':'')+'</div>'+
-    (!dates.length ? '<p class="empty">No classes this month.</p>' : !kids.length ? '<p class="empty">Nobody is in this group yet.</p>' :
-      '<div style="overflow-x:auto"><table class="att-table"><thead><tr><th></th>'+dates.map(d=>'<th class="att-c">'+esc(fmtDate(d,{day:"numeric",month:"numeric"}))+'</th>').join("")+'<th class="att-c">Came</th></tr></thead><tbody>'+
-      kids.map(s=>{ const n = held.filter(d=>att[d].includes(s.id)).length;
-        return '<tr><th scope="row">'+esc(rowName(s))+'</th>'+dates.map(d=>cell(s,d)).join("")+'<td class="att-c num"><b>'+n+'</b>/'+held.length+'</td></tr>'; }).join("")+
-      '<tr class="att-tot"><th scope="row">Here</th>'+dates.map(d=>'<td class="att-c num">'+(att[d] ? att[d].filter(x=>kids.some(s=>s.id===x)).length : '')+'</td>').join("")+'<td></td></tr>'+
-      '</tbody></table></div><p class="small muted" style="margin:8px 0 0">Tap a box to change it: ✓ came, ✗ didn’t come, – not taken.</p>')+
-    '</div><footer><button type="button" class="btn" id="amClose">Close</button></footer></div>';
-  $("#amClose").onclick = ()=>m.close();
-  m.querySelectorAll("[data-m]").forEach(b=>b.onclick = ()=>attMonth(r.id, b.dataset.m));
-  const g = $("#attGroup"); if (g) g.onchange = ()=>attMonth(g.value, ym);
-  bindActions(m, { att:k=>tapAtt(k) });
-  attOpen(m, {month:true, rid:r.id, ym});
-}
-// One class on one date: take attendance, cancel just that date (a holiday), or edit the class.
+// One class on one date: cancel just that date (a holiday), or edit the class.
 function clubDate(key){
   const [rid, d] = key.split("|"), r = clubRules().find(x=>x.id===rid); if (!r) return;
   const m = $("#modal"), when = fmtDate(d,{weekday:"long",day:"numeric",month:"long"})+", "+r.from+"–"+r.to;
-  const past = d<=today();
   m.innerHTML = '<div class="modal-form"><header><h2>'+esc(r.name)+'</h2><p class="sub small">'+esc(when)+(r.place?' · '+esc(r.place):'')+'</p></header><div style="padding:8px 20px">'+
-    (past ? '<div class="panel-head" style="margin:0 0 6px;padding:0;border:0;background:none"><h3 style="margin:0">Attendance</h3><button type="button" class="btn small ghost" data-a="attMonth" data-id="'+r.id+'">Month view</button></div>'+attChips(r, d)+'<hr style="margin:16px 0;border:0;border-top:1px solid var(--line)">' : '')+
     '<p style="margin-top:0">Is the class not happening on this date (e.g. a holiday)? Cancel just this date: the other weeks stay, and it isn\'t counted in your club hours.</p></div>'+
     '<footer style="flex-wrap:wrap"><button type="button" class="btn ghost" id="cdEdit" style="margin-inline-end:auto">Edit the class</button><button type="button" class="btn" id="cdClose">Close</button><button type="button" class="btn danger" id="cdCancel">Cancel this date</button></footer></div>';
   $("#cdClose").onclick = ()=>m.close();
   $("#cdEdit").onclick = ()=>{ m.close(); editClub(r); };
   $("#cdCancel").onclick = ()=>{ m.close(); r.skip = [...new Set([...(r.skip||[]), d])]; saveSettings(); render(); toast("Cancelled for "+fmtDate(d,{day:"numeric",month:"short"})); };
-  bindActions(m, { att:k=>tapAtt(k), attAll:k=>allAtt(k), attMonth:id=>attMonth(id, d.slice(0,7)) });
-  attOpen(m, {key});
+  m.showModal();
 }
 let freeOpen = true; // the free-time panel stays as the coach left it
 function freePanel(){
@@ -7238,7 +7232,7 @@ function pSchedule(v){
     unreq:id=>cancelRequest(me, id),
     reqat:id=>{ const [date, time, place] = id.split("|"); requestLesson(me, {date, time, place}); },
     addFree:()=>editFree(null), editFree:id=>editFree(freeRules().find(r=>r.id===id)),
-    addClub:()=>editClub(null), editClub:id=>editClub(clubRules().find(r=>r.id===id)), club:id=>clubDate(id), attMonth:id=>attMonth(id),
+    addClub:()=>editClub(null), editClub:id=>editClub(clubRules().find(r=>r.id===id)), club:id=>clubDate(id),
     done:id=>{ const [s,x] = find(id); markDone(s,x); },
     cancel:id=>{ const [s,x] = find(id); x.status = "cancelled"; saveStudent(s); render(); },
     move:id=>{ const [s,x] = find(id); moveSession(s,x); }
@@ -7797,7 +7791,7 @@ const HE = {
   "Theme / what to learn":"נושא / מה ללמוד", "Found in":"נמצא ב־", "Lessons learned":"מה למדנו", "What the student took from this game":"מה התלמיד לקח מהמשחק",
   "Enter the names of both players.":"יש להזין את שמות שני השחקנים.", "e.g. Capablanca, José Raúl":"למשל קפבלנקה, חוסה ראול", "e.g. Tartakower, Savielly":"למשל טרטקובר, סבלי",
   "e.g. New York 1924":"למשל ניו יורק 1924", "e.g. Dutch Defence":"למשל ההגנה ההולנדית", "e.g. Rook endgame technique":"למשל טכניקה בסיומי צריחים",
-  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Useful links":"קישורים שימושיים", "Choose a date":"בחירת תאריך", "At the club":"במועדון", "Club attendance":"נוכחות במועדון", "Month view":"תצוגה חודשית", "Attendance":"נוכחות", "Everyone’s here":"כולם כאן", "Not taken yet":"הנוכחות עוד לא נרשמה", "Nobody is in this group yet. Add students to it from their profile (Club group).":"עדיין אין אף אחד בקבוצה. אפשר להוסיף תלמידים אליה מהפרופיל שלהם (קבוצת מועדון).", "Came":"הגיעו", "Here":"נוכחים", "Tap a box to change it: ✓ came, ✗ didn’t come, – not taken.":"לחיצה על משבצת משנה אותה: ✓ הגיע/ה, ✗ לא הגיע/ה, – לא נרשם.", "No classes this month.":"אין שיעורים החודש.", "Nobody is in this group yet.":"עדיין אין אף אחד בקבוצה.", "Your books with their PDFs. “Give to…” adds a book to a student’s Books with the PDF already attached.":"הספרים שלך עם קובצי ה־PDF. „מתן ל…” מוסיף ספר לספרים של תלמיד/ה, עם ה־PDF כבר מצורף.", "No books in your library yet.":"עדיין אין ספרים בספרייה.", "Add book to library":"הוספת ספר לספרייה", "Edit library book":"עריכת ספר בספרייה", "No PDF yet":"עדיין אין PDF", "Replace PDF":"החלפת ה־PDF", "Give to…":"מתן ל…", "Delete from library":"מחיקה מהספרייה", "Removed from the library":"הוסר מהספרייה", "Added to the library — attach its PDF next":"נוסף לספרייה — עכשיו אפשר לצרף את ה־PDF", "PDF saved in the library":"ה־PDF נשמר בספרייה", "From your library":"מהספרייה שלך", "— Another book —":"— ספר אחר —", "Give book":"מתן הספר", "The PDF comes with it.":"ה־PDF מגיע איתו.", "This book has no PDF yet — attach one in the library first if you want it to come with the book.":"לספר הזה עדיין אין PDF — אפשר לצרף אותו בספרייה קודם, כדי שיגיע עם הספר.", "Given to students with the book":"ניתן לתלמידים יחד עם הספר", "e.g. Read chapters 1–3 first":"למשל: לקרוא קודם את פרקים 1–3", "Book added with its PDF":"הספר נוסף עם ה־PDF", "Students who already have this book keep it, with their own copy of the PDF.":"תלמידים שכבר קיבלו את הספר שומרים אותו, עם עותק משלהם של ה־PDF.", "They already have this book.":"כבר יש להם את הספר הזה.", "Everyone in that group already has this book.":"לכל מי שבקבוצה כבר יש את הספר הזה.", "The book was added, but its PDF couldn’t be copied. Try “Attach PDF” on the book.":"הספר נוסף, אבל לא ניתן היה להעתיק את ה־PDF. אפשר לנסות „צירוף PDF” על הספר.", "Attach PDF":"צירוף PDF", "Open PDF":"פתיחת ה־PDF", "Remove the PDF?":"להסיר את ה־PDF?", "PDF removed":"ה־PDF הוסר", "Choose a PDF file.":"יש לבחור קובץ PDF.", "That file is over 50 MB. Choose a smaller PDF.":"הקובץ גדול מ־50 MB. יש לבחור PDF קטן יותר.", "PDF storage isn’t set up yet.":"אחסון ה־PDF עוד לא הוגדר.", "The PDF couldn’t be uploaded. Check your connection and try again.":"לא ניתן היה להעלות את ה־PDF. כדאי לבדוק את החיבור ולנסות שוב.", "The PDF couldn’t be opened. Try again in a moment.":"לא ניתן היה לפתוח את ה־PDF. כדאי לנסות שוב עוד רגע.", "Account:":"חשבון:", "This code was already used.":"הקוד הזה כבר נוצל.", "Already using Rank Up on another device? Sign out here and sign in with the same email you used there. Otherwise, ask your coach for a new code.":"כבר משתמש/ת ב„עולים בדרגה” במכשיר אחר? יש להתנתק כאן ולהתחבר עם אותו אימייל שבו התחברת שם. אחרת, אפשר לבקש מהמאמן קוד חדש.", "Show less":"הצג פחות", "Hide":"הסתרה", "Hide this bubble":"הסתרת הבועה", "Show":"הצגה", "Show this bubble":"הצגת הבועה",  "Where":"איפה", "Not set (students choose in person or online)":"לא נקבע (התלמידים בוחרים פרונטלי או אונליין)", "At home":"בבית", "Another place…":"מקום אחר…", "Write the place, or choose one from the list.":"יש לכתוב את המקום, או לבחור אחד מהרשימה.", "e.g. At the community centre":"למשל: במתנ״ס", "Place (optional)":"מקום (לא חובה)", "e.g. At the club":"למשל: במועדון", "Students see it under the time. At the club: times you're there anyway, for students who live far.":"התלמידים רואים את זה מתחת לשעה. במועדון: זמנים שבהם את/ה שם בכל מקרה, לתלמידים שגרים רחוק.", "Every night":"כל לילה", "A copy of all your records is saved every night and kept for 30 days.":"בכל לילה נשמר עותק של כל הנתונים שלך, למשך 30 יום.", "Nightly backups aren’t turned on yet.":"הגיבוי הלילי עדיין לא הופעל.", "No nightly backup yet — the first one is made tonight.":"עדיין אין גיבוי לילי — הראשון ייעשה הלילה.", "Download":"הורדה", "Folder on this computer":"תיקייה במחשב הזה", "To save a backup into a folder automatically, open the app in Chrome or Edge on a computer.":"כדי לשמור גיבוי בתיקייה באופן אוטומטי, יש לפתוח את האפליקציה ב־Chrome או ב־Edge במחשב.", "Choose a folder and the app saves a backup into it once a day, when you open the app on this computer.":"בוחרים תיקייה, והאפליקציה שומרת בה גיבוי פעם ביום, כשפותחים אותה במחשב הזה.", "Choose a folder":"בחירת תיקייה", "Folder:":"תיקייה:", "Not saved yet.":"עוד לא נשמר.", "Save now":"שמירה עכשיו", "Change folder":"החלפת תיקייה", "Stop":"הפסקה", "Save today’s backup to your folder on this computer.":"שמירת הגיבוי של היום בתיקייה שלך במחשב הזה.", "Save backup":"שמירת גיבוי", "Couldn’t load that backup.":"לא ניתן היה לטעון את הגיבוי הזה.", "The backup couldn’t be saved in that folder.":"לא ניתן היה לשמור את הגיבוי בתיקייה הזו.", "That folder can’t be used.":"אי אפשר להשתמש בתיקייה הזו.", "Backup saved to your folder":"הגיבוי נשמר בתיקייה שלך", "Backups to the folder stopped":"הגיבויים לתיקייה הופסקו", "Loading…":"טוען…", "Choose a time":"בחירת שעה", "Change order":"שינוי סדר", "Put the sites you use most at the top.":"שימו למעלה את האתרים שאתם משתמשים בהם הכי הרבה.", "Username:":"שם משתמש:", "Username":"שם משתמש", "Change":"שינוי", "Add your username":"הוספת שם המשתמש שלך", "Add username":"הוספת שם משתמש", "Username saved":"שם המשתמש נשמר", "Username removed":"שם המשתמש הוסר", "Leave empty to remove it":"להסרה — להשאיר ריק", "Shown to students and parents on their Practice page.":"מוצגים לתלמידים ולהורים בדף התרגול.", "Add link":"הוספת קישור", "Edit link":"עריכת קישור",
+  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Useful links":"קישורים שימושיים", "Choose a date":"בחירת תאריך", "At the club":"במועדון", "Club classes: who came. Only you see this.":"שיעורי המועדון: מי הגיע. רק את/ה רואה את זה.", "No club classes yet. Add them on the Schedule page, under Club classes.":"עדיין אין שיעורי מועדון. אפשר להוסיף אותם בדף לוח הזמנים, תחת „שיעורי מועדון”.", "Dates (✓ = taken):":"תאריכים (✓ = נרשם):", "No class yet.":"עדיין לא היה שיעור.", "Attendance":"נוכחות", "Everyone’s here":"כולם כאן", "Not taken yet":"הנוכחות עוד לא נרשמה", "Nobody is in this group yet. Add students to it from their profile (Club group).":"עדיין אין אף אחד בקבוצה. אפשר להוסיף תלמידים אליה מהפרופיל שלהם (קבוצת מועדון).", "Came":"הגיעו", "Here":"נוכחים", "Tap a box to change it: ✓ came, ✗ didn’t come, – not taken.":"לחיצה על משבצת משנה אותה: ✓ הגיע/ה, ✗ לא הגיע/ה, – לא נרשם.", "No classes this month.":"אין שיעורים החודש.", "Nobody is in this group yet.":"עדיין אין אף אחד בקבוצה.", "Your books with their PDFs. “Give to…” adds a book to a student’s Books with the PDF already attached.":"הספרים שלך עם קובצי ה־PDF. „מתן ל…” מוסיף ספר לספרים של תלמיד/ה, עם ה־PDF כבר מצורף.", "No books in your library yet.":"עדיין אין ספרים בספרייה.", "Add book to library":"הוספת ספר לספרייה", "Edit library book":"עריכת ספר בספרייה", "No PDF yet":"עדיין אין PDF", "Replace PDF":"החלפת ה־PDF", "Give to…":"מתן ל…", "Delete from library":"מחיקה מהספרייה", "Removed from the library":"הוסר מהספרייה", "Added to the library — attach its PDF next":"נוסף לספרייה — עכשיו אפשר לצרף את ה־PDF", "PDF saved in the library":"ה־PDF נשמר בספרייה", "From your library":"מהספרייה שלך", "— Another book —":"— ספר אחר —", "Give book":"מתן הספר", "The PDF comes with it.":"ה־PDF מגיע איתו.", "This book has no PDF yet — attach one in the library first if you want it to come with the book.":"לספר הזה עדיין אין PDF — אפשר לצרף אותו בספרייה קודם, כדי שיגיע עם הספר.", "Given to students with the book":"ניתן לתלמידים יחד עם הספר", "e.g. Read chapters 1–3 first":"למשל: לקרוא קודם את פרקים 1–3", "Book added with its PDF":"הספר נוסף עם ה־PDF", "Students who already have this book keep it, with their own copy of the PDF.":"תלמידים שכבר קיבלו את הספר שומרים אותו, עם עותק משלהם של ה־PDF.", "They already have this book.":"כבר יש להם את הספר הזה.", "Everyone in that group already has this book.":"לכל מי שבקבוצה כבר יש את הספר הזה.", "The book was added, but its PDF couldn’t be copied. Try “Attach PDF” on the book.":"הספר נוסף, אבל לא ניתן היה להעתיק את ה־PDF. אפשר לנסות „צירוף PDF” על הספר.", "Attach PDF":"צירוף PDF", "Open PDF":"פתיחת ה־PDF", "Remove the PDF?":"להסיר את ה־PDF?", "PDF removed":"ה־PDF הוסר", "Choose a PDF file.":"יש לבחור קובץ PDF.", "That file is over 50 MB. Choose a smaller PDF.":"הקובץ גדול מ־50 MB. יש לבחור PDF קטן יותר.", "PDF storage isn’t set up yet.":"אחסון ה־PDF עוד לא הוגדר.", "The PDF couldn’t be uploaded. Check your connection and try again.":"לא ניתן היה להעלות את ה־PDF. כדאי לבדוק את החיבור ולנסות שוב.", "The PDF couldn’t be opened. Try again in a moment.":"לא ניתן היה לפתוח את ה־PDF. כדאי לנסות שוב עוד רגע.", "Account:":"חשבון:", "This code was already used.":"הקוד הזה כבר נוצל.", "Already using Rank Up on another device? Sign out here and sign in with the same email you used there. Otherwise, ask your coach for a new code.":"כבר משתמש/ת ב„עולים בדרגה” במכשיר אחר? יש להתנתק כאן ולהתחבר עם אותו אימייל שבו התחברת שם. אחרת, אפשר לבקש מהמאמן קוד חדש.", "Show less":"הצג פחות", "Hide":"הסתרה", "Hide this bubble":"הסתרת הבועה", "Show":"הצגה", "Show this bubble":"הצגת הבועה",  "Where":"איפה", "Not set (students choose in person or online)":"לא נקבע (התלמידים בוחרים פרונטלי או אונליין)", "At home":"בבית", "Another place…":"מקום אחר…", "Write the place, or choose one from the list.":"יש לכתוב את המקום, או לבחור אחד מהרשימה.", "e.g. At the community centre":"למשל: במתנ״ס", "Place (optional)":"מקום (לא חובה)", "e.g. At the club":"למשל: במועדון", "Students see it under the time. At the club: times you're there anyway, for students who live far.":"התלמידים רואים את זה מתחת לשעה. במועדון: זמנים שבהם את/ה שם בכל מקרה, לתלמידים שגרים רחוק.", "Every night":"כל לילה", "A copy of all your records is saved every night and kept for 30 days.":"בכל לילה נשמר עותק של כל הנתונים שלך, למשך 30 יום.", "Nightly backups aren’t turned on yet.":"הגיבוי הלילי עדיין לא הופעל.", "No nightly backup yet — the first one is made tonight.":"עדיין אין גיבוי לילי — הראשון ייעשה הלילה.", "Download":"הורדה", "Folder on this computer":"תיקייה במחשב הזה", "To save a backup into a folder automatically, open the app in Chrome or Edge on a computer.":"כדי לשמור גיבוי בתיקייה באופן אוטומטי, יש לפתוח את האפליקציה ב־Chrome או ב־Edge במחשב.", "Choose a folder and the app saves a backup into it once a day, when you open the app on this computer.":"בוחרים תיקייה, והאפליקציה שומרת בה גיבוי פעם ביום, כשפותחים אותה במחשב הזה.", "Choose a folder":"בחירת תיקייה", "Folder:":"תיקייה:", "Not saved yet.":"עוד לא נשמר.", "Save now":"שמירה עכשיו", "Change folder":"החלפת תיקייה", "Stop":"הפסקה", "Save today’s backup to your folder on this computer.":"שמירת הגיבוי של היום בתיקייה שלך במחשב הזה.", "Save backup":"שמירת גיבוי", "Couldn’t load that backup.":"לא ניתן היה לטעון את הגיבוי הזה.", "The backup couldn’t be saved in that folder.":"לא ניתן היה לשמור את הגיבוי בתיקייה הזו.", "That folder can’t be used.":"אי אפשר להשתמש בתיקייה הזו.", "Backup saved to your folder":"הגיבוי נשמר בתיקייה שלך", "Backups to the folder stopped":"הגיבויים לתיקייה הופסקו", "Loading…":"טוען…", "Choose a time":"בחירת שעה", "Change order":"שינוי סדר", "Put the sites you use most at the top.":"שימו למעלה את האתרים שאתם משתמשים בהם הכי הרבה.", "Username:":"שם משתמש:", "Username":"שם משתמש", "Change":"שינוי", "Add your username":"הוספת שם המשתמש שלך", "Add username":"הוספת שם משתמש", "Username saved":"שם המשתמש נשמר", "Username removed":"שם המשתמש הוסר", "Leave empty to remove it":"להסרה — להשאיר ריק", "Shown to students and parents on their Practice page.":"מוצגים לתלמידים ולהורים בדף התרגול.", "Add link":"הוספת קישור", "Edit link":"עריכת קישור",
   "Restore the suggested list":"שחזור הרשימה המומלצת", "No links yet.":"עדיין אין קישורים.", "Address":"כתובת", "What it's for (optional)":"למה זה טוב (לא חובה)", "Link saved":"הקישור נשמר", "Link added":"הקישור נוסף", "Link removed":"הקישור הוסר",
   "Students and parents won't see this link any more.":"תלמידים והורים לא יראו יותר את הקישור הזה.", "Restore the suggested list?":"לשחזר את הרשימה המומלצת?", "Your own links and changes will be replaced by the suggested list.":"הקישורים והשינויים שלך יוחלפו ברשימה המומלצת.",
   "Restore":"שחזור", "Suggested list restored":"הרשימה המומלצת שוחזרה", "Enter the site's address, e.g. lichess.org.":"יש להזין את כתובת האתר, למשל lichess.org.",
@@ -8061,7 +8055,7 @@ const HE_RX = [
   [/^Add the moves \(PGN\) to the games in the Games tab to see which openings (.+) meets and how they score\.$/, "הוספת המסעים (PGN) למשחקים בלשונית משחקים תראה אילו פתיחות $1 פוגש ומה הניקוד בהן."],
   [/^(\d+) openings? without a line$/, (m,n)=>+n===1 ? "פתיחה אחת בלי וריאנט" : n+" פתיחות בלי וריאנט"],
   [/^(\d+) rated games?$/, "$1 משחקים מדורגים"], [/^[Aa]verage opponent (\d+)$/, "יריב ממוצע $1"],
-  [/^(\d+) overdue$/, "$1 באיחור"], [/^Last backup: (\d+) days ago — download a fresh copy\.$/, "הגיבוי האחרון לפני $1 ימים — כדאי להוריד עותק חדש."], [/^Last backup: (.+)$/, "גיבוי אחרון: $1"], [/^Last saved: (.+)$/, "נשמר לאחרונה: $1"], [/^At (.+)$/, "ב־$1"], [/^Attendance — (.+)$/, "נוכחות — $1"], [/^(\d+) classes$/, "$1 שיעורים"], [/^(\d+) not taken$/, "$1 בלי נוכחות"], [/^Book library \((\d+)\)$/, "ספריית ספרים ($1)"], [/^Give “(.+)”$/, "מתן „$1”"], [/^“(.+)” given to (.+)$/, "„$1” ניתן ל־$2"], [/^Delete “(.+)” from your library\?$/, "למחוק את „$1” מהספרייה?"], [/^(.+) already has this book\.$/, "ל־$1 כבר יש את הספר הזה."], [/^(\d+) students$/, "$1 תלמידים"], [/^Uploading “(.+)”…$/, "מעלה את „$1”…"], [/^PDF attached — (.+) can open it from Books$/, "ה־PDF צורף — $1 יכול/ה לפתוח אותו מתוך הספרים"], [/^“(.+)” is deleted, and (.+) can no longer open it\. The book stays\.$/, "„$1” יימחק, ו־$2 לא יוכל/תוכל לפתוח אותו יותר. הספר נשאר."], [/^Show (\d+) more$/, "עוד $1"], [/^(\d+)d$/, "$1 ימים"],
+  [/^(\d+) overdue$/, "$1 באיחור"], [/^Last backup: (\d+) days ago — download a fresh copy\.$/, "הגיבוי האחרון לפני $1 ימים — כדאי להוריד עותק חדש."], [/^Last backup: (.+)$/, "גיבוי אחרון: $1"], [/^Last saved: (.+)$/, "נשמר לאחרונה: $1"], [/^At (.+)$/, "ב־$1"], [/^Next class: (.+)$/, "השיעור הבא: $1"], [/^(\d+) classes$/, "$1 שיעורים"], [/^(\d+) not taken$/, "$1 בלי נוכחות"], [/^Book library \((\d+)\)$/, "ספריית ספרים ($1)"], [/^Give “(.+)”$/, "מתן „$1”"], [/^“(.+)” given to (.+)$/, "„$1” ניתן ל־$2"], [/^Delete “(.+)” from your library\?$/, "למחוק את „$1” מהספרייה?"], [/^(.+) already has this book\.$/, "ל־$1 כבר יש את הספר הזה."], [/^(\d+) students$/, "$1 תלמידים"], [/^Uploading “(.+)”…$/, "מעלה את „$1”…"], [/^PDF attached — (.+) can open it from Books$/, "ה־PDF צורף — $1 יכול/ה לפתוח אותו מתוך הספרים"], [/^“(.+)” is deleted, and (.+) can no longer open it\. The book stays\.$/, "„$1” יימחק, ו־$2 לא יוכל/תוכל לפתוח אותו יותר. הספר נשאר."], [/^Show (\d+) more$/, "עוד $1"], [/^(\d+)d$/, "$1 ימים"],
   [/^From (.+) until (.+)$/, "מ־$1 עד $2"], [/^From (.+)$/, "מ־$1"],
   [/^(Good morning|Good afternoon|Good evening), (.+)$/, (m,g,n)=>HE[g]+", "+n],
   [/^In (\d+) days$/, "בעוד $1 ימים"],
