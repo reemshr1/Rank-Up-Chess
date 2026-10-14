@@ -287,6 +287,15 @@ only the coach and that student or parent can open them, through a link that wor
 for an hour. A student's own book changes never touch the PDF. Deleting the book
 deletes its PDF.
 
+### Book library
+On the Students page, the **Book library** bubble keeps the coach's own books: title,
+author, topic, pages, notes and a PDF (stored as `library/<id>.pdf`). **Give to…** adds a
+book to one student or a whole club group, and a student's **Add book** form has **From
+your library**. Either way the student gets the book's details and their own copy of
+the PDF (`<student id>/<book id>.pdf`), so it opens like any book PDF. A student who
+already has the book isn't given it twice. Deleting a book from the library keeps the
+students' books and PDFs. Students never see the library.
+
 ## 2. Student view
 
 Menu: **Home · Tasks · Practice · Games · Progress · Schedule**. At the top:
