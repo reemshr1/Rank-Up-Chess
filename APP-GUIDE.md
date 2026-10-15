@@ -197,7 +197,9 @@ time.
   everywhere it's listed. Approving a request or editing a lesson has an
   optional **Place**.
 - **Club classes** show on the schedule and block lesson requests at those
-  times. Clicking one lets you cancel just that date or edit the class. They
+  times. Clicking one lets you change the time for just that date (e.g. 19:00
+  instead of 18:00; moving the start keeps the class length; "Back to the usual
+  time" undoes it), cancel just that date, or edit the class. They
   are added and managed on the **Club classes** page.
 - Click a lesson to mark it done, cancel it, move it (including switching
   in person / online) or edit it. **Add weekly slot** and **Plan session**
