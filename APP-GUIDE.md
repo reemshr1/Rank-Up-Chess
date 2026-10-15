@@ -209,6 +209,8 @@ Everything about the classes taught at the club (menu item between Schedule
 and Assignments; coach only).
 - **Your classes:** every class (weekly or one-off), with when, where, pay per
   hour and how many students, an **Edit** button each, and **Add club class**.
+  A class can also have a **Name in Hebrew** (optional), used everywhere in
+  Hebrew: this page, the schedule, the Students page and the student app.
   Below the list: this month's club hours and pay so far and for the whole
   month (also counted on the Payments page). Click a class name to show it.
 - **The class shown:** since/until, pay, next class, cancelled dates, the
