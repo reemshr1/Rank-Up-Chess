@@ -94,6 +94,14 @@ the student is in; a private student can be in several), fee per
 session, active or archived, goals, and coach notes (and whether the student
 sees them). "Who is this?" marks the coach's own profile (My chess).
 
+**Updated marker:** each student on the app shows when they (or their parent)
+last added something from the app, on their card and under their name:
+"Updated today · practice", "Updated 10 days ago · workout" (practice, workouts,
+sleep, games, tournaments, books, training plans, openings, homework, check-ins).
+The dot is green within 3 days, yellow within 2 weeks, grey after that. "No
+updates from the app yet" until the first one. Not shown for students who aren't
+on the app, and never sent to the student.
+
 ### A student's page
 
 The header shows name, rating, title and level, what they owe, links to their

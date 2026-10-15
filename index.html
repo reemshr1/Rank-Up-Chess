@@ -556,6 +556,12 @@ dialog.wide{width:min(960px,calc(100vw - 24px))}
 #slist > .empty{grid-column:1/-1;background:var(--surface);border-radius:12px}
 #slist > .list-head{grid-column:1/-1;background:transparent;border-top:1px solid var(--line);padding:16px 2px 0;margin-top:6px}
 #slist > .club-also-note{grid-column:1/-1;margin:-4px 2px 0}
+#slist .upd{margin-top:6px}
+.upd{display:flex;align-items:center;gap:6px;color:var(--muted);font-weight:400}
+.s-head .upd{margin-top:4px}
+.upd-dot{width:8px;height:8px;border-radius:50%;background:var(--line);flex:none}
+.upd-dot.ok{background:var(--ok)}
+.upd-dot.warn{background:#E0A800}
 #slist .club-also{margin-top:6px;color:var(--muted);font-weight:400}
 #slist > .list-head:first-child{border-top:0;padding-top:4px;margin-top:0}
 #slist .student-row{display:grid;align-content:start;grid-template-columns:1fr auto;grid-template-areas:"who who" "rat bal" "next next";gap:10px;border:2px solid var(--side);border-radius:14px;background:var(--surface);padding:0 0 14px;overflow:hidden}
@@ -3132,7 +3138,7 @@ function makePortal(db){
           const who = st ? (o.type==="payment.report" && !st.payShared ? null : st) : ((fam.studentIds||[]).includes(o.sid) && PARENT_OPS.includes(o.type) && byId(o.sid)); // a student reports payments only when the coach shows them theirs
           if (who && fam && o.item) o.item.by = "parent";
           const ok = who && applyOp(who, o, true);
-          if (ok) touched.add(who);
+          if (ok){ touched.add(who); noteUpdate(who, o, !!fam); }
           // a lesson request or answer that can't be applied stays in the inbox and shows on Today with the reason
           if (!ok && (["request","move.answer"].includes(o.type) || (fam && !who))){
             issue("op:"+o._id, {who:(st||fam).name, what:"Couldn't take in "+(OP_LABEL[o.type]||"a change"), err:askedFor(o)+whyNotApplied(who, o), uid, opId:o._id}); return; }
@@ -4450,6 +4456,29 @@ function whyNotApplied(s, o){
   if (o.type==="move.answer") return "The question it answers was already settled.";
   return "It didn't match anything current.";
 }
+// The last time a student (or their parent) added something from the app: practice, workouts, games, books…
+const UPDATE_KIND = {worklog:"practice", fitness:"workout", sleep:"sleep", tournaments:"tournament", books:"book", training:"training plan", game:"game", repertoire:"opening", "assignment.status":"homework", checkin:"check-in"};
+function noteUpdate(s, o, parent){
+  const what = UPDATE_KIND[o.type] || UPDATE_KIND[o.type.split(".")[0]]; if (!what || /\.delete$/.test(o.type)) return;
+  const at = o.at || new Date().toISOString();
+  if (!s.lastUpdate || (s.lastUpdate.at||"") < at) s.lastUpdate = {at, what, by:parent ? "parent" : "student"};
+}
+// "Updated today · practice", with a dot: green within 3 days, yellow within 2 weeks, grey after that. Only for students on the app.
+// Before the app kept the time of each update: the newest entry the student made themselves.
+function lastOwnEntry(s){
+  let best = null;
+  [["worklog","practice"],["fitness","workout"],["sleep","sleep"],["training","training plan"],["tournaments","tournament"],["books","book"],["repertoire","opening"]].forEach(([k,what])=>(s[k]||[]).forEach(x=>{
+    const d = x.by==="student" && (x.date || x.start || x.studentEdited || ""); if (d && d<=today() && (!best || best.at<d)) best = {at:d, what}; }));
+  return best;
+}
+function updateMark(s){
+  if (!s.portal || !s.portal.uid){ const f = familyOf(s); if (!(f && f.portal && f.portal.uid)) return ""; }
+  const he = lang()==="he", u = s.lastUpdate || lastOwnEntry(s);
+  if (!u) return '<div class="upd small muted"><i class="upd-dot"></i>'+(he?"עוד לא עדכן/ה מהאפליקציה":"No updates from the app yet")+'</div>';
+  const d = daysBetween(u.at.slice(0,10), today()), when = d<=0 ? (he?"היום":"today") : d===1 ? (he?"אתמול":"yesterday") : d<=30 ? (he?"לפני "+d+" ימים":d+" days ago") : fmtDate(u.at.slice(0,10));
+  const what = he ? ({practice:"תרגול", workout:"אימון כושר", sleep:"שינה", tournament:"טורניר", book:"ספר", "training plan":"תוכנית אימון", game:"משחק", opening:"פתיחה", homework:"משימה", "check-in":"עדכון תרגול"}[u.what]||u.what) : u.what;
+  return '<div class="upd small" title="'+esc(fmtDate(u.at.slice(0,10))+" "+u.at.slice(11,16))+'"><i class="upd-dot '+(d<=3?"ok":d<=14?"warn":"")+'"></i>'+(he?"עודכן "+when:"Updated "+when)+' · '+esc(what)+(u.by==="parent"?(he?" (הורה)":" (parent)"):"")+'</div>';
+}
 const OP_LABEL = {"links.order":"the order of the links", "username.set":"a username", "request":"a lesson request", "request.cancel":"a withdrawn request", "move.answer":"an answer about a lesson", "assignment.status":"an assignment marked done",
   "worklog.upsert":"a practice entry", "worklog.delete":"a deleted practice entry", "fitness.upsert":"a workout", "fitness.delete":"a deleted workout", "sleep.upsert":"a night's sleep", "sleep.delete":"a deleted night's sleep", "tournaments.upsert":"a tournament", "books.upsert":"a book", "training.upsert":"a training plan", "game.upsert":"a game", "repertoire.upsert":"an opening line", "checkin":"a practice check-in", "notice.read":"a notification read", "payment.report":"a payment report", "repertoire.delete":"a deleted opening line"};
 function issuesPanel(){
@@ -4873,7 +4902,7 @@ function pStudents(v){
       return '<a class="student-row" href="#/student/'+s.id+'"><div class="who"><span class="avatar">'+esc(initials(fullName(s)))+'</span><div style="min-width:0"><div class="name">'+esc(fullName(s))+(s.self?' <span class="tag ok">Me</span>':'')+'</div><div class="small muted">'+esc(s.level||"")+(s.active?"":" · Archived")+'</div></div></div>'+
         '<div class="num"><span class="card-l small muted">Rating</span><div style="font-weight:600">'+esc(s.rating||"—")+'</div>'+(delta!==null?'<div class="small" style="color:'+(delta>=0?"var(--ok)":"var(--flag)")+'">'+(delta>=0?"+":"")+delta+'</div>':"")+'</div>'+
         '<div class="small hide-m">'+(next?"Next: "+esc(fmtDate(next.date,{weekday:"short",day:"numeric",month:"short"}))+(next.time?" "+esc(next.time):""):'<span class="muted">No session planned</span>')+
-          (!s.clubOnly && clubsOf(s).length ? '<div class="club-also"><span class="tag">Club</span> Also in '+esc(clubsOf(s).map(clubName).join(", "))+'</div>' : '')+'</div>'+
+          updateMark(s)+(!s.clubOnly && clubsOf(s).length ? '<div class="club-also"><span class="tag">Club</span> Also in '+esc(clubsOf(s).map(clubName).join(", "))+'</div>' : '')+'</div>'+
         '<div style="text-align:end" class="num">'+(!hasMoney(s)?'<span class="tag">Club</span>':l.balance>0.009?'<span class="'+(l.overdue?"tag flag":"money-owed")+'">'+money(l.balance)+'</span>':'<span class="small muted">Paid up</span>')+'</div></a>';
     };
     // private students first, then one section per club group; a student in both stays with the private ones, labelled with the group
@@ -4977,7 +5006,7 @@ function pStudent(v, r){
   const s = byId(r.id);
   if (!s){ v.innerHTML = '<p class="empty">This student no longer exists. <a href="#/students">Back to students</a></p>'; return; }
   const l = ledger(s);
-  v.innerHTML = '<a class="crumb" href="#/students">‹ Students</a><div class="s-head"><span class="avatar">'+esc(initials(fullName(s)))+'</span><div style="flex:1;min-width:200px"><h1>'+esc(fullName(s))+'</h1><p class="sub">'+[s.fide&&s.fide.title?esc(s.fide.title):"", s.rating?esc(s.rating)+" "+esc(s.ratingType):"", esc(s.level), s.active?"":"Archived"].filter(Boolean).join(" · ")+'</p></div>'+
+  v.innerHTML = '<a class="crumb" href="#/students">‹ Students</a><div class="s-head"><span class="avatar">'+esc(initials(fullName(s)))+'</span><div style="flex:1;min-width:200px"><h1>'+esc(fullName(s))+'</h1><p class="sub">'+[s.fide&&s.fide.title?esc(s.fide.title):"", s.rating?esc(s.rating)+" "+esc(s.ratingType):"", esc(s.level), s.active?"":"Archived"].filter(Boolean).join(" · ")+'</p>'+updateMark(s)+'</div>'+
     (l.balance>0.009?'<span class="tag '+(l.overdue?"flag":"warn")+'" style="font-size:.85rem;padding:4px 10px">Owes '+money(l.balance)+'</span>':'')+
     (s.fideId?'<a class="btn small" href="'+fideUrl(s.fideId)+'" target="_blank" rel="noopener">FIDE '+esc(s.fideId)+' ↗</a>':'')+
     (s.icfId?'<a class="btn small" href="'+icfUrl(s.icfId)+'" target="_blank" rel="noopener">ICF '+esc(s.icfId)+' ↗</a>':'')+
