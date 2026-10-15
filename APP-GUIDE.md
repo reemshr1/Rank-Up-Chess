@@ -89,9 +89,18 @@ checked: they are fetched automatically once a month, or on demand.
 
 **Student profile form:** full name, first name in Hebrew, boy or girl,
 FIDE and ICF ids, main rating, level, birth year, phone or email, parent or
-guardian, lessons (private, club only, or both) and club group, fee per
+guardian, lessons (private or club only) and club groups (tick every class
+the student is in; a private student can be in several), fee per
 session, active or archived, goals, and coach notes (and whether the student
 sees them). "Who is this?" marks the coach's own profile (My chess).
+
+**Updated marker:** each student on the app shows when they (or their parent)
+last added something from the app, on their card and under their name:
+"Updated today · practice", "Updated 10 days ago · workout" (practice, workouts,
+sleep, games, tournaments, books, training plans, openings, homework, check-ins).
+The dot is green within 3 days, yellow within 2 weeks, grey after that. "No
+updates from the app yet" until the first one. Not shown for students who aren't
+on the app, and never sent to the student.
 
 ### A student's page
 
