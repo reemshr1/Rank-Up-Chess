@@ -4585,7 +4585,7 @@ function attentionPanel(active, t){
   const unmarked = [], noNext = [], quiet = [];
   active.forEach(s=>{
     s.sessions.forEach(x=>{ if (x.status==="planned" && x.date<t) unmarked.push({s,x}); });
-    if (!s.sessions.some(x=>x.status==="planned" && x.date>=t)) noNext.push(s);
+    if (!s.clubOnly && !s.sessions.some(x=>x.status==="planned" && x.date>=t)) noNext.push(s); // club-only students have no private lessons to plan
     const g = practiceGap(s);
     if (g && g.days>=PRACTICE_GAP_DAYS) quiet.push({s, days:g.days, never:g.never, c:lastCheckin(s)});
   });
