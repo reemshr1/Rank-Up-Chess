@@ -89,7 +89,8 @@ checked: they are fetched automatically once a month, or on demand.
 
 **Student profile form:** full name, first name in Hebrew, boy or girl,
 FIDE and ICF ids, main rating, level, birth year, phone or email, parent or
-guardian, lessons (private, club only, or both) and club group, fee per
+guardian, lessons (private or club only) and club groups (tick every class
+the student is in; a private student can be in several), fee per
 session, active or archived, goals, and coach notes (and whether the student
 sees them). "Who is this?" marks the coach's own profile (My chess).
 
