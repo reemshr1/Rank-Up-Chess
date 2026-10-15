@@ -548,8 +548,10 @@ dialog.wide{width:min(960px,calc(100vw - 24px))}
 #slist{background:transparent;border:0;box-shadow:none;padding:0!important;display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
 #slist > .empty{grid-column:1/-1;background:var(--surface);border-radius:12px}
 #slist > .list-head{grid-column:1/-1;background:transparent;border-top:1px solid var(--line);padding:16px 2px 0;margin-top:6px}
+#slist > .club-also-note{grid-column:1/-1;margin:-4px 2px 0}
+#slist .club-also{margin-top:6px;color:var(--muted);font-weight:400}
 #slist > .list-head:first-child{border-top:0;padding-top:4px;margin-top:0}
-#slist .student-row{display:grid;grid-template-columns:1fr auto;grid-template-areas:"who who" "rat bal" "next next";gap:10px;border:2px solid var(--side);border-radius:14px;background:var(--surface);padding:0 0 14px;overflow:hidden}
+#slist .student-row{display:grid;align-content:start;grid-template-columns:1fr auto;grid-template-areas:"who who" "rat bal" "next next";gap:10px;border:2px solid var(--side);border-radius:14px;background:var(--surface);padding:0 0 14px;overflow:hidden}
 #slist .student-row .who{grid-area:who;background:var(--side);color:#fff;padding:12px 16px}
 #slist .student-row .who .muted{color:var(--side-ink)}
 #slist .student-row .avatar{background:#4F86E0;color:#fff;border-radius:50%;box-shadow:0 0 0 2px #fff}
@@ -4855,15 +4857,17 @@ function pStudents(v){
       const r = sortBy(s.ratings.filter(x=>(x.source||mainSource(s))===mainSource(s)),"date"); const delta = r.length>1 ? r[r.length-1].value - r[r.length-2].value : null;
       return '<a class="student-row" href="#/student/'+s.id+'"><div class="who"><span class="avatar">'+esc(initials(s.name))+'</span><div style="min-width:0"><div class="name">'+esc(s.name)+(s.self?' <span class="tag ok">Me</span>':'')+'</div><div class="small muted">'+esc(s.level||"")+(s.active?"":" · Archived")+'</div></div></div>'+
         '<div class="num"><span class="card-l small muted">Rating</span><div style="font-weight:600">'+esc(s.rating||"—")+'</div>'+(delta!==null?'<div class="small" style="color:'+(delta>=0?"var(--ok)":"var(--flag)")+'">'+(delta>=0?"+":"")+delta+'</div>':"")+'</div>'+
-        '<div class="small hide-m">'+(next?"Next: "+esc(fmtDate(next.date,{weekday:"short",day:"numeric",month:"short"}))+(next.time?" "+esc(next.time):""):'<span class="muted">No session planned</span>')+'</div>'+
+        '<div class="small hide-m">'+(next?"Next: "+esc(fmtDate(next.date,{weekday:"short",day:"numeric",month:"short"}))+(next.time?" "+esc(next.time):""):'<span class="muted">No session planned</span>')+
+          (!s.clubOnly && clubsOf(s).length ? '<div class="club-also"><span class="tag">Club</span> Also in '+esc(clubsOf(s).map(r=>r.name).join(", "))+'</div>' : '')+'</div>'+
         '<div style="text-align:end" class="num">'+(!hasMoney(s)?'<span class="tag">Club</span>':l.balance>0.009?'<span class="'+(l.overdue?"tag flag":"money-owed")+'">'+money(l.balance)+'</span>':'<span class="small muted">Paid up</span>')+'</div></a>';
     };
-    // private students first, then one section per club group (a student in both appears in both)
+    // private students first, then one section per club group; a student in both stays with the private ones, labelled with the group
     const priv = list.filter(s=>!s.clubOnly), groups = clubRules().map(r=>({r, ss:list.filter(s=>(s.clubIds||[]).includes(r.id))})).filter(g=>g.ss.length);
     const head = (t, n, c)=>'<div class="list-head"><b>'+esc(t)+'</b> <span class="muted small">'+n+' student'+(n===1?'':'s')+'</span>'+(c?' <span class="small muted"> · <span>'+c.done+' of '+c.target+' group workouts this month</span></span>':'')+'</div>';
     $("#slist").innerHTML = !list.length ? '<p class="empty" style="padding:18px">No students match.</p>'
       : !groups.length ? priv.map(row).join("")
-      : (priv.length ? head("Private students", priv.filter(s=>!s.self).length)+priv.map(row).join("") : '')+groups.map(g=>head(g.r.name, g.ss.length, groupChallenge(g.r))+g.ss.map(row).join("")).join("");
+      : (priv.length ? head("Private students", priv.filter(s=>!s.self).length)+priv.map(row).join("") : '')+groups.map(g=>{ const club = g.ss.filter(s=>s.clubOnly), also = g.ss.filter(s=>!s.clubOnly);
+          return head(g.r.name, g.ss.length, groupChallenge(g.r))+club.map(row).join("")+(also.length?'<p class="small muted club-also-note">'+(lang()==="he" ? (club.length?'גם בקבוצה':'בקבוצה')+', עם שיעורים פרטיים (למעלה): ' : (club.length?'Also in this group':'In this group')+', with private lessons (above): ')+esc(also.map(s=>s.name).join(", "))+'</p>':''); }).join("");
   };
   draw();
   $("#sq").oninput = e=>{ studentFilter.q = e.target.value; draw(); };
@@ -8077,7 +8081,7 @@ const HE_RX = [
   [/^Add the moves \(PGN\) to the games in the Games tab to see which openings (.+) meets and how they score\.$/, "הוספת המסעים (PGN) למשחקים בלשונית משחקים תראה אילו פתיחות $1 פוגש ומה הניקוד בהן."],
   [/^(\d+) openings? without a line$/, (m,n)=>+n===1 ? "פתיחה אחת בלי וריאנט" : n+" פתיחות בלי וריאנט"],
   [/^(\d+) rated games?$/, "$1 משחקים מדורגים"], [/^[Aa]verage opponent (\d+)$/, "יריב ממוצע $1"],
-  [/^(\d+) overdue$/, "$1 באיחור"], [/^Last backup: (\d+) days ago — download a fresh copy\.$/, "הגיבוי האחרון לפני $1 ימים — כדאי להוריד עותק חדש."], [/^Last backup: (.+)$/, "גיבוי אחרון: $1"], [/^Last saved: (.+)$/, "נשמר לאחרונה: $1"], [/^At (.+)$/, "ב־$1"], [/^Your classes \((\d+)\)$/, "החוגים שלך ($1)"], [/^Students \((\d+)\)$/, "תלמידים ($1)"], [/^Attendance — (.+)$/, "נוכחות — $1"], [/^(\d+) taught so far$/, "$1 התקיימו עד עכשיו"], [/^(\d+) classes$/, "$1 שיעורים"], [/^(\d+) not taken$/, "$1 בלי נוכחות"], [/^Book library \((\d+)\)$/, "ספריית ספרים ($1)"], [/^Give “(.+)”$/, "מתן „$1”"], [/^“(.+)” given to (.+)$/, "„$1” ניתן ל־$2"], [/^Delete “(.+)” from your library\?$/, "למחוק את „$1” מהספרייה?"], [/^(.+) already has this book\.$/, "ל־$1 כבר יש את הספר הזה."], [/^(\d+) students$/, "$1 תלמידים"], [/^Uploading “(.+)”…$/, "מעלה את „$1”…"], [/^PDF attached — (.+) can open it from Books$/, "ה־PDF צורף — $1 יכול/ה לפתוח אותו מתוך הספרים"], [/^“(.+)” is deleted, and (.+) can no longer open it\. The book stays\.$/, "„$1” יימחק, ו־$2 לא יוכל/תוכל לפתוח אותו יותר. הספר נשאר."], [/^Show (\d+) more$/, "עוד $1"], [/^(\d+)d$/, "$1 ימים"],
+  [/^(\d+) overdue$/, "$1 באיחור"], [/^Last backup: (\d+) days ago — download a fresh copy\.$/, "הגיבוי האחרון לפני $1 ימים — כדאי להוריד עותק חדש."], [/^Last backup: (.+)$/, "גיבוי אחרון: $1"], [/^Last saved: (.+)$/, "נשמר לאחרונה: $1"], [/^At (.+)$/, "ב־$1"], [/^Your classes \((\d+)\)$/, "החוגים שלך ($1)"], [/^Also in (.+)$/, "גם ב־$1"], [/^Students \((\d+)\)$/, "תלמידים ($1)"], [/^Attendance — (.+)$/, "נוכחות — $1"], [/^(\d+) taught so far$/, "$1 התקיימו עד עכשיו"], [/^(\d+) classes$/, "$1 שיעורים"], [/^(\d+) not taken$/, "$1 בלי נוכחות"], [/^Book library \((\d+)\)$/, "ספריית ספרים ($1)"], [/^Give “(.+)”$/, "מתן „$1”"], [/^“(.+)” given to (.+)$/, "„$1” ניתן ל־$2"], [/^Delete “(.+)” from your library\?$/, "למחוק את „$1” מהספרייה?"], [/^(.+) already has this book\.$/, "ל־$1 כבר יש את הספר הזה."], [/^(\d+) students$/, "$1 תלמידים"], [/^Uploading “(.+)”…$/, "מעלה את „$1”…"], [/^PDF attached — (.+) can open it from Books$/, "ה־PDF צורף — $1 יכול/ה לפתוח אותו מתוך הספרים"], [/^“(.+)” is deleted, and (.+) can no longer open it\. The book stays\.$/, "„$1” יימחק, ו־$2 לא יוכל/תוכל לפתוח אותו יותר. הספר נשאר."], [/^Show (\d+) more$/, "עוד $1"], [/^(\d+)d$/, "$1 ימים"],
   [/^From (.+) until (.+)$/, "מ־$1 עד $2"], [/^From (.+)$/, "מ־$1"],
   [/^(Good morning|Good afternoon|Good evening), (.+)$/, (m,g,n)=>HE[g]+", "+n],
   [/^In (\d+) days$/, "בעוד $1 ימים"],
