@@ -196,12 +196,36 @@ time.
   lesson, any other place an in-person one, and the lesson keeps the place
   everywhere it's listed. Approving a request or editing a lesson has an
   optional **Place**.
-- **Club classes:** classes taught at the club (weekly or one-off, with place
-  and pay per class). They show on the schedule, block lesson requests at
-  those times, and count the club hours and pay for the month.
+- **Club classes** show on the schedule and block lesson requests at those
+  times. Clicking one lets you cancel just that date or edit the class. They
+  are added and managed on the **Club classes** page.
 - Click a lesson to mark it done, cancel it, move it (including switching
   in person / online) or edit it. **Add weekly slot** and **Plan session**
   add lessons.
+
+### Club classes
+
+Everything about the classes taught at the club (menu item between Schedule
+and Assignments; coach only).
+- **Your classes:** every class (weekly or one-off), with when, where, pay per
+  hour and how many students, an **Edit** button each, and **Add club class**.
+  Below the list: this month's club hours and pay so far and for the whole
+  month (also counted on the Payments page). Click a class name to show it.
+- **The class shown:** since/until, pay, next class, cancelled dates, the
+  group's monthly workout challenge, and the students in the group (added
+  from a student's profile, Club group).
+- **Attendance:** today's class (or the last one) with a button per student:
+  one tap marks them here (green ✓), another tap takes it back.
+  **Everyone's here** marks the whole group. The dates of the last 4 weeks
+  are listed (✓ = taken) to fill in one that was missed.
+- **Month:** a row per student and a column per class: ✓ came, ✗ didn't
+  come, – not taken; each student's total, how many came to each class, and
+  the classes, hours and pay for that class that month. Tap a box to change
+  it; arrows change the month.
+- In Hebrew, children's Hebrew names are used; two with the same first name
+  show by full name.
+- Attendance is kept in the coach's settings (`club[].att`, date → who came)
+  and is never sent to students or parents.
 
 ### Assignments
 
