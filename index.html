@@ -7144,6 +7144,8 @@ const attRedraw = ()=>render();
 const ymShift = (ym, n)=>{ let y = +ym.slice(0,4), m = +ym.slice(5,7)+n; while (m>12){ m-=12; y++; } while (m<1){ m+=12; y--; } return y+"-"+String(m).padStart(2,"0"); };
 function pClub(v){
   const t = today(), he = lang()==="he", groups = clubRules().filter(r=>r.kind==="weekly" ? (!r.end || r.end>=addDays(t,-180)) : r.date>=addDays(t,-180));
+  // by day of the week, Sunday first, then by start time; one-off classes after, by date
+  groups.sort((x,y)=>(x.kind==="weekly"?0:1)-(y.kind==="weekly"?0:1) || (x.kind==="weekly" ? (+x.weekday)-(+y.weekday) : (x.date<y.date?-1:x.date>y.date?1:0)) || (toMin(x.from)||0)-(toMin(y.from)||0));
   const head = '<div class="page-head"><div><h1>Club classes</h1><p class="sub" style="margin:4px 0 0">Classes you teach at the club. They show in your schedule, students can\'t book lessons at those times, and the hours count on the Payments page. Students don\'t see attendance.</p></div><div class="row-actions"><button class="btn primary" data-a="addClub">Add club class</button></div></div>';
   const binds = { addClub:()=>editClub(null), editClub:id=>editClub(clubRules().find(r=>r.id===id)) };
   if (!groups.length){ v.innerHTML = head+'<section class="panel"><p class="empty">No club classes yet.</p></section>'; bindActions(v, binds); return; }
