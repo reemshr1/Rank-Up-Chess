@@ -2750,7 +2750,7 @@ function makeDbStore(db, userId){
     const s = byId(id); if (!s) return Promise.resolve();
     const parts = splitStudent(s), docs = [["", id, parts.main], ...Object.keys(parts.logs).map(k=>[k, k, parts.logs[k]])];
     const big = docs.find(([,,v])=>JSON.stringify(v).length > DOC_LIMIT);
-    if (big) return Promise.reject({code:"too_large", message:s.name+(big[0]?" ("+big[2].year+")":"")});
+    if (big) return Promise.reject({code:"too_large", message:fullName(s)+(big[0]?" ("+big[2].year+")":"")});
     let changedHere = false;
     const put = ([lg, docId, v])=>{
       const cache = lg ? logs : mains;
@@ -2894,7 +2894,7 @@ function openLessons(s, keepId){
 // Every document a parent's app reads: the family, and for each child the same records a student sees plus money.
 function familyDocs(f){
   const out = {}, kids = (f.studentIds||[]).map(byId).filter(Boolean);
-  out.family = stampView({name:f.name, children:kids.map(k=>({id:k.id, name:k.name, nameHe:k.nameHe||""})), coachName:state.settings.coachName||"", coachNameHe:state.settings.coachNameHe||"", weekStart:state.settings.weekStart||0});
+  out.family = stampView({name:f.name, children:kids.map(k=>({id:k.id, name:k.name, nameHe:k.nameHe||"", fullHe:k.fullHe||""})), coachName:state.settings.coachName||"", coachNameHe:state.settings.coachNameHe||"", weekStart:state.settings.weekStart||0});
   kids.forEach(k=>{
     const parts = splitStudent(studentView(k));
     out["ch-"+k.id] = Object.assign(parts.main, {notices:(k.notices||[]).filter(n=>(n.to||[]).includes("parent") && liveNotice(n)), pay:payView(k), payReports:recentReports(k)});
@@ -2905,7 +2905,7 @@ function familyDocs(f){
   return out;
 }
 function studentView(s){
-  return JSON.parse(JSON.stringify({id:s.id, name:s.name, nameHe:s.nameHe||"", level:s.level, rating:s.rating, ratingType:s.ratingType, fideId:s.fideId, icfId:s.icfId, fide:s.fide, icf:s.icf, noId:s.noId,
+  return JSON.parse(JSON.stringify({id:s.id, name:s.name, nameHe:s.nameHe||"", fullHe:s.fullHe||"", level:s.level, rating:s.rating, ratingType:s.ratingType, fideId:s.fideId, icfId:s.icfId, fide:s.fide, icf:s.icf, noId:s.noId,
     goals:s.goals, notes:s.notesShared ? s.notes : "", notesShared:!!s.notesShared, active:s.active, createdAt:s.createdAt,
     sessions:s.sessions.map(x=>({id:x.id, date:x.date, time:x.time, duration:x.duration, format:x.format, place:x.place||"", status:x.status, topics:x.topics, added:x.added, notes:isShared(x.shareNotes)?x.notes:"", slotId:x.slotId, slotDate:x.slotDate})),
     worklog:s.worklog, repertoire:s.repertoire, tournaments:s.tournaments.map(({assist, assistDays, assistFee, assistReason, ...x})=>x), books:s.books, ratings:s.ratings, training:s.training||[], requests:s.requests||[], checkins:s.checkins||[], notices:(s.notices||[]).filter(n=>(n.to||[]).includes("student") && liveNotice(n)), noticeReads:(s.noticeReads||[]), appSince:(s.portal && s.portal.linkedAt)||"", fitness:s.fitness||[], fitnessGoal:+s.fitnessGoal||0, fitnessMinGoal:+s.fitnessMinGoal||0, sleep:s.sleep||[],
@@ -3093,7 +3093,7 @@ function makePortal(db){
     const he = (accLang[uid]||lang())==="he", kids = want.family ? want.family.children||[] : [];
     const msgs = [].concat(...Object.keys(old).map(id=>{ const kid = id.startsWith("ch-") && kids.length>1 && kids.find(k=>"ch-"+k.id===id);
       const sx = id.startsWith("ch-") && byId(id.slice(3));
-      return boardAlerts(JSON.parse(old[id]), want[id], he, kid ? (he && sx && sx.nameHe) || kid.name.split(" ")[0] : ""); }));
+      return boardAlerts(JSON.parse(old[id]), want[id], he, kid ? (he && sx && sx.nameHe) || firstName(kid) : ""); }));
     sendAlerts(msgs.map(m=>Object.assign({to:uid, he}, m)));
   }
   const guard = (key, who, p)=>p.then(()=>clear(key), e=>issue(key, {who, what:"Couldn't update their board in the app", err:String(e && (e.message||e.code)||e)}));
@@ -3564,11 +3564,11 @@ async function startPreview(){
 // The coach's button: the frame over the page, a phone or computer width, and a way out.
 function openPreview(s){
   closePreview();
-  const first = s.name.split(" ")[0], w = document.createElement("div"); w.id = "pvWrap"; w.setAttribute("role", "dialog"); w.setAttribute("aria-label", "Student view");
+  const first = firstName(s), w = document.createElement("div"); w.id = "pvWrap"; w.setAttribute("role", "dialog"); w.setAttribute("aria-label", "Student view");
   w.innerHTML = '<div class="pv-bar"><b>👁 <span>'+esc("Viewing as "+first)+'</span></b> <span class="small muted">'+esc("What "+first+" sees in the app · nothing here is saved or sent")+'</span>'+
     '<span class="seg" role="group" aria-label="Size" style="margin:0"><button type="button" class="on" data-pv="wide">Computer</button><button type="button" data-pv="phone">Phone</button></span>'+
     '<button type="button" class="btn small primary" id="pvExit">Exit student view</button></div>'+
-    '<iframe id="pvFrame" title="'+esc("Student view — "+s.name)+'" src="'+esc(location.pathname+"?preview="+encodeURIComponent(s.id)+"#/home")+'"></iframe>';
+    '<iframe id="pvFrame" title="'+esc("Student view — "+fullName(s))+'" src="'+esc(location.pathname+"?preview="+encodeURIComponent(s.id)+"#/home")+'"></iframe>';
   document.body.appendChild(w); applyLang();
   w.querySelector("#pvExit").onclick = closePreview;
   w.querySelectorAll("[data-pv]").forEach(b=>b.onclick = ()=>{ w.querySelectorAll("[data-pv]").forEach(x=>x.classList.toggle("on", x===b)); w.classList.toggle("pv-phone", b.dataset.pv==="phone"); });
@@ -3749,7 +3749,7 @@ function dateFields(root){
 const syncDates = root=>root && root.querySelectorAll('input[data-dmy]').forEach(n=>n._dmyShow && n._dmyShow());
 function openForm({title, fields, submit="Save", onSubmit, danger, parentOk}){
   // Parents view their child's records; only lesson requests and changes are open to them.
-  if (PARENT() && !parentOk){ toast("View only — "+(state.students[0]?state.students[0].name.split(" ")[0]:"your child")+" or the coach can change this"); return; }
+  if (PARENT() && !parentOk){ toast("View only — "+(state.students[0]?firstName(state.students[0]):"your child")+" or the coach can change this"); return; }
   const m = $("#modal");
   m.innerHTML = '<form class="modal-form" method="dialog"><header><h2>'+esc(title)+'</h2></header><div class="modal-body">'+
     fields.map(f=>{
@@ -3839,7 +3839,7 @@ function renderNav(){
     const s = state.students[0], cur = r.page==="student" ? tabGroup(r.tab) : r.page==="assignment" ? "assignments" : r.page==="schedule" ? "schedule" : r.page==="payments" && (PARENT() || (s && s.pay)) ? "payments" : r.page==="progress" ? "progress" : "home";
     // a family with more than one child picks whose board to show
     const fam = PARENT() && state.family, pick = $("#childPick");
-    if (pick){ pick.hidden = !(fam && fam.children.length>1); if (fam) pick.innerHTML = fam.children.map(k=>'<option value="'+esc(k.id)+'"'+(k.id===fam.current?" selected":"")+'>'+esc((lang()==="he" && k.nameHe) || k.name)+'</option>').join(""); }
+    if (pick){ pick.hidden = !(fam && fam.children.length>1); if (fam) pick.innerHTML = fam.children.map(k=>'<option value="'+esc(k.id)+'"'+(k.id===fam.current?" selected":"")+'>'+esc((lang()==="he" && (k.fullHe||k.nameHe)) || k.name)+'</option>').join(""); }
     const fresh = s ? unseenUpdates(s) : [], cnt = k=>fresh.filter(u=>updateArea(u)===k).length;
     const html = s ? studentNav(s).map(([k,href,l,ic])=>'<a href="'+href+'"'+(cur===k?' aria-current="page"':"")+'>'+ic+'<span>'+l+'</span>'+(cnt(k) && cur!==k ? '<i class="nav-badge" aria-label="'+cnt(k)+' new">'+cnt(k)+'</i>' : '')+'</a>').join("") : "";
     $("#nav").innerHTML = html; $("#bnav").innerHTML = html; return;
@@ -3956,7 +3956,7 @@ function freshness(s){
 let progSource = "", progPeriod = 30;
 const progRecent = s=>sortBy(s.sessions.filter(x=>x.status==="done"),"date",-1).slice(0,3);
 function pProgress(v, s){
-  const t = today(), first = s.name.split(" ")[0];
+  const t = today(), first = firstName(s);
   // rating
   const srcOf = r=>r.source||mainSource(s), sources = RATING_SOURCES.filter(x=>s.ratings.some(r=>srcOf(r)===x));
   const src = sources.includes(progSource) ? progSource : sources.includes(mainSource(s)) ? mainSource(s) : sources[0];
@@ -4052,7 +4052,7 @@ function lessonPayTag(s, r){
 function pFamilyPay(v, s){
   const p = s.pay; const m = n=>(p && p.currency||"")+(Math.round(n*100)/100).toLocaleString(LOCALE());
   if (!p){ v.innerHTML = '<div class="page-head"><div><h1>Payments</h1></div></div><p class="empty">Nothing here yet.</p>'; return; }
-  v.innerHTML = '<div class="page-head"><div><h1>Payments</h1><p class="sub">'+esc(s.name)+(p.rate?' · '+m(p.rate)+' per lesson':'')+'</p>'+freshness(s)+'</div></div>'+
+  v.innerHTML = '<div class="page-head"><div><h1>Payments</h1><p class="sub">'+esc(fullName(s))+(p.rate?' · '+m(p.rate)+' per lesson':'')+'</p>'+freshness(s)+'</div></div>'+
     '<div class="stats"><div class="stat"><div class="v num'+(p.balance>0.009?" money-owed":"")+'">'+(p.balance>0.009?m(p.balance):p.balance<-0.009?m(-p.balance):"✓")+'</div><div class="l">'+(p.balance>0.009?(p.overdue?p.age+" days overdue":"To pay"):p.balance<-0.009?"In credit":"Paid up")+'</div></div>'+
       '<div class="stat"><div class="v num">'+m(p.charged)+'</div><div class="l">Charged in total</div></div><div class="stat"><div class="v num">'+m(p.paid)+'</div><div class="l">Paid in total</div></div>'+
       '<div class="stat"><div class="v num">'+(p.lastPay?esc(fmtShort(p.lastPay.date)):"—")+'</div><div class="l">'+(p.lastPay?"Last payment · "+m(p.lastPay.amount):"No payments yet")+'</div></div></div>'+
@@ -4067,7 +4067,7 @@ function pFamilyPay(v, s){
       '<p class="small muted" style="margin:8px 0 0">The last two years. Lessons are charged once they have taken place; cancelled lessons aren\'t charged.</p>' : '<p class="empty">No charges or payments yet.</p>');
 }
 function pHome(v, s){
-  const t = today(), first = (lang()==="he" && (s.nameHe||"").trim()) || s.name.split(" ")[0]; // the Hebrew name in Hebrew
+  const t = today(), first = (lang()==="he" && (s.nameHe||"").trim()) || firstName(s); // the Hebrew name in Hebrew
   const lessons = sortBy(s.sessions.filter(x=>x.status==="planned" && x.date>=t),"date").slice(0,4);
   const hw = asSort(state.assignments.filter(a=>a.status!=="Reviewed"));
   const todo = hw.filter(a=>a.status==="Assigned");
@@ -4387,10 +4387,10 @@ function pDashboard(v){
   payReportsPanel()+
   attentionPanel(active, t)+
   '<div class="grid g2">'+
-  panel("Coming up this week", sessions.length ? '<ul class="list">'+sessions.map(({s,x})=>'<li><div class="main"><div class="title"><a href="#/student/'+s.id+'/sessions">'+esc(s.name)+'</a></div><div class="small muted">'+esc(x.topics||"No topic yet")+'</div></div><div style="text-align:end"><div class="small">'+esc(x.date===t?"Today":fmtDate(x.date,{weekday:"short",day:"numeric",month:"short"}))+'</div><div class="small muted">'+esc(x.time||"")+(x.duration?" · "+x.duration+" min":"")+'</div></div></li>').join("")+'</ul>' : '<p class="empty">No sessions planned for the next 7 days.</p>')+
-  panel("Who owes you", owing.length ? '<ul class="list">'+owing.slice(0,8).map(({s,l})=>'<li><div class="main"><div class="title"><a href="#/student/'+s.id+'/payments">'+esc(s.name)+'</a></div><div class="small muted">'+(l.lastPay?"Last paid "+esc(fmtShort(l.lastPay.date)):"No payments yet")+'</div></div><div style="text-align:end"><div class="money-owed num">'+money(l.balance)+'</div>'+(l.overdue?'<span class="tag flag">'+l.age+' days overdue</span>':'')+'<button class="btn small ghost" data-a="remind" data-id="'+s.id+'" style="margin-top:4px">Remind</button>'+'</div></li>').join("")+'</ul>' : '<p class="empty">Everyone is paid up.</p>')+
-  (!tours.length ? "" : panel("Tournaments ahead", tours.length ? '<ul class="list">'+tourGroups.map(({x,ss})=>{ const d = daysBetween(t,tourNext(x,t)); return '<li><div class="main"><div class="title">'+esc(x.name)+'</div><div class="small muted">'+ss.map(s=>'<a href="#/student/'+s.id+'/tournaments">'+esc(s.name)+'</a>').join(", ")+(x.location?" · "+esc(x.location):"")+'</div></div><div style="text-align:end"><div class="small">'+esc(fmtShort(tourNext(x,t)))+'</div><span class="tag '+(d<=7?"warn":"board")+'">'+(d<=0?"In progress":d===1?"Tomorrow":"In "+d+" days")+'</span></div></li>'; }).join("")+'</ul>' : '<p class="empty">No tournaments in the next 60 days.</p>'))+
-  (!tasks.length ? "" : panel("Assignments due", tasks.length ? '<ul class="list">'+tasks.map(({s,x})=>'<li><div class="main"><div class="title">'+esc(x.title)+'</div><div class="small muted"><a href="'+(x.href||'#/student/'+s.id+'/work')+'">'+esc(s.name)+'</a> · '+esc(x.category)+'</div></div>'+(x.review?'<span class="tag warn">Done · to review</span>':'<span class="tag '+(x.due<t?"flag":x.due===t?"warn":"")+'">'+(x.due<t?"Overdue":x.due===t?"Today":esc(fmtShort(x.due)))+'</span>')+'</li>').join("")+'</ul>' : '<p class="empty">Nothing due in the next 3 days.</p>'))+
+  panel("Coming up this week", sessions.length ? '<ul class="list">'+sessions.map(({s,x})=>'<li><div class="main"><div class="title"><a href="#/student/'+s.id+'/sessions">'+esc(fullName(s))+'</a></div><div class="small muted">'+esc(x.topics||"No topic yet")+'</div></div><div style="text-align:end"><div class="small">'+esc(x.date===t?"Today":fmtDate(x.date,{weekday:"short",day:"numeric",month:"short"}))+'</div><div class="small muted">'+esc(x.time||"")+(x.duration?" · "+x.duration+" min":"")+'</div></div></li>').join("")+'</ul>' : '<p class="empty">No sessions planned for the next 7 days.</p>')+
+  panel("Who owes you", owing.length ? '<ul class="list">'+owing.slice(0,8).map(({s,l})=>'<li><div class="main"><div class="title"><a href="#/student/'+s.id+'/payments">'+esc(fullName(s))+'</a></div><div class="small muted">'+(l.lastPay?"Last paid "+esc(fmtShort(l.lastPay.date)):"No payments yet")+'</div></div><div style="text-align:end"><div class="money-owed num">'+money(l.balance)+'</div>'+(l.overdue?'<span class="tag flag">'+l.age+' days overdue</span>':'')+'<button class="btn small ghost" data-a="remind" data-id="'+s.id+'" style="margin-top:4px">Remind</button>'+'</div></li>').join("")+'</ul>' : '<p class="empty">Everyone is paid up.</p>')+
+  (!tours.length ? "" : panel("Tournaments ahead", tours.length ? '<ul class="list">'+tourGroups.map(({x,ss})=>{ const d = daysBetween(t,tourNext(x,t)); return '<li><div class="main"><div class="title">'+esc(x.name)+'</div><div class="small muted">'+ss.map(s=>'<a href="#/student/'+s.id+'/tournaments">'+esc(fullName(s))+'</a>').join(", ")+(x.location?" · "+esc(x.location):"")+'</div></div><div style="text-align:end"><div class="small">'+esc(fmtShort(tourNext(x,t)))+'</div><span class="tag '+(d<=7?"warn":"board")+'">'+(d<=0?"In progress":d===1?"Tomorrow":"In "+d+" days")+'</span></div></li>'; }).join("")+'</ul>' : '<p class="empty">No tournaments in the next 60 days.</p>'))+
+  (!tasks.length ? "" : panel("Assignments due", tasks.length ? '<ul class="list">'+tasks.map(({s,x})=>'<li><div class="main"><div class="title">'+esc(x.title)+'</div><div class="small muted"><a href="'+(x.href||'#/student/'+s.id+'/work')+'">'+esc(fullName(s))+'</a> · '+esc(x.category)+'</div></div>'+(x.review?'<span class="tag warn">Done · to review</span>':'<span class="tag '+(x.due<t?"flag":x.due===t?"warn":"")+'">'+(x.due<t?"Overdue":x.due===t?"Today":esc(fmtShort(x.due)))+'</span>')+'</li>').join("")+'</ul>' : '<p class="empty">Nothing due in the next 3 days.</p>'))+
   '</div>';
   $("#dSes").onclick = ()=>planSession();
   $("#dNote").onclick = ()=>coachNotices();
@@ -4403,12 +4403,12 @@ function pDashboard(v){
     nudge:id=>{ const x = byId(id); if (x) nudgeStudent(x); }, attnMore:k=>{ attnAll[k] = !attnAll[k]; render(); },
     issueRetry:id=>portal && portal.retry(id), issueDrop:id=>confirmBox("Discard this change?", "What they sent will be deleted. They can send it again from their app.", "Discard", ()=>portal.discard(id)),
     decline:id=>{ const [s,r] = req(id); if (!r) return;
-      if (r.kind==="move") return openForm({title:"Can't meet then — "+s.name, submit:"Decline the move", fields:[
-          {name:"note",label:"Message to "+s.name.split(" ")[0]+" (optional)",type:"textarea",value:"",placeholder:"e.g. How about Sunday at 17:00?"}],
-        onSubmit:d=>{ r.status = "declined"; r.decided = today(); r.reply = d.note; r.needsAnswer = true; saveStudent(s); render(); toast(s.name.split(" ")[0]+" will be asked to cancel, keep the lesson or try another time");
+      if (r.kind==="move") return openForm({title:"Can't meet then — "+fullName(s), submit:"Decline the move", fields:[
+          {name:"note",label:"Message to "+firstName(s)+" (optional)",type:"textarea",value:"",placeholder:"e.g. How about Sunday at 17:00?"}],
+        onSubmit:d=>{ r.status = "declined"; r.decided = today(); r.reply = d.note; r.needsAnswer = true; saveStudent(s); render(); toast(firstName(s)+" will be asked to cancel, keep the lesson or try another time");
           sendConfirm("declinedMove", s, {date:r.date, time:r.time, was:r.was, note:d.note}); }});
-      confirmBox("Decline this request?", r.kind==="cancel" ? s.name+" asked to cancel the lesson on "+fmtDate(r.was.date,{weekday:"short",day:"numeric",month:"short"})+". The lesson stays as planned and they'll see the request as declined."
-        : s.name+" asked for "+fmtDate(r.date,{weekday:"short",day:"numeric",month:"short"})+" "+r.time+". They'll see it as declined.","Decline",()=>{ r.status = "declined"; r.decided = today(); saveStudent(s); render(); toast("Request declined");
+      confirmBox("Decline this request?", r.kind==="cancel" ? fullName(s)+" asked to cancel the lesson on "+fmtDate(r.was.date,{weekday:"short",day:"numeric",month:"short"})+". The lesson stays as planned and they'll see the request as declined."
+        : fullName(s)+" asked for "+fmtDate(r.date,{weekday:"short",day:"numeric",month:"short"})+" "+r.time+". They'll see it as declined.","Decline",()=>{ r.status = "declined"; r.decided = today(); saveStudent(s); render(); toast("Request declined");
           sendConfirm(r.kind==="cancel" ? "declinedCancel" : "declined", s, r.kind==="cancel" ? {date:r.was.date, time:r.was.time} : {date:r.date, time:r.time}); }); } });
 }
 // What a request asked for, so the coach can still act on one that couldn't be applied.
@@ -4430,7 +4430,7 @@ function whyNotApplied(s, o){
       if (les.date<today()) return "The lesson on "+when(les)+" has already passed.";
       return "There's already a pending change for the lesson on "+when(les)+".";
     }
-    return "It couldn't be added to "+s.name.split(" ")[0]+"'s requests.";
+    return "It couldn't be added to "+firstName(s)+"'s requests.";
   }
   if (o.type==="move.answer") return "The question it answers was already settled.";
   return "It didn't match anything current.";
@@ -4454,16 +4454,16 @@ function payReportsPanel(){
       const earlier = (s.payReports||[]).filter(x=>x!==r && x.status!=="declined" && (x.reported||"")+x.id < (r.reported||"")+r.id);
       const dup = (les && lessonPaid(s, les)) || earlier.some(x=>(r.sessionId && x.sessionId===r.sessionId) || (+x.amount===+r.amount && x.date===r.date))
         || s.payments.some(p=>+p.amount===+r.amount && p.date===r.date && !earlier.some(x=>x.paymentId===p.id) && !(s.payReports||[]).some(x=>x.paymentId===p.id));
-      return '<li><div class="main"><div class="title"><a href="#/student/'+s.id+'/payments">'+esc(s.name)+'</a> · <span class="num">'+money(r.amount)+'</span> <span class="tag">'+(r.by==="student" ? "by the student" : "by the parent")+'</span>'+(dup?' <span class="tag flag">Possible duplicate</span>':'')+'</div><div class="small muted">'+
+      return '<li><div class="main"><div class="title"><a href="#/student/'+s.id+'/payments">'+esc(fullName(s))+'</a> · <span class="num">'+money(r.amount)+'</span> <span class="tag">'+(r.by==="student" ? "by the student" : "by the parent")+'</span>'+(dup?' <span class="tag flag">Possible duplicate</span>':'')+'</div><div class="small muted">'+
         esc(fmtDate(r.date))+(r.method?' · '+esc(r.method):'')+' · '+(les?esc("for the lesson on "+when(les)):esc("towards the balance"))+(r.note?' · “'+esc(r.note)+'”':'')+'</div></div>'+
         '<div class="row-actions"><button class="btn small primary" data-a="prOk" data-id="'+esc(s.id+"|"+r.id)+'">Confirm</button><button class="btn small ghost" data-a="prNo" data-id="'+esc(s.id+"|"+r.id)+'">Not received</button></div></li>'; }).join("")+
     '</ul><p class="small muted" style="margin:8px 0 0">Confirm adds the payment to the ledger'+'. Nothing is recorded until you confirm.</p></section>';
 }
 function decidePayReport(key, ok){
   const [sid, rid] = key.split("|"), s = byId(sid), r = s && (s.payReports||[]).find(x=>x.id===rid); if (!r) return;
-  if (!ok) return confirmBox("Mark as not received?", (r.by==="student" ? s.name.split(" ")[0] : "The parent")+" will see that you haven't received this payment, so they can check with you.", "Not received", ()=>{
+  if (!ok) return confirmBox("Mark as not received?", (r.by==="student" ? firstName(s) : "The parent")+" will see that you haven't received this payment, so they can check with you.", "Not received", ()=>{
     r.status = "declined"; r.decided = today(); saveStudent(s); render(); toast("Marked as not received"); });
-  const p = {id:uid(), date:r.date, amount:+r.amount, method:r.method||"", note:(r.by==="student" ? "Reported by "+s.name.split(" ")[0] : "Reported by the parent")+(r.note?": "+r.note:""), sessionId:r.sessionId||""};
+  const p = {id:uid(), date:r.date, amount:+r.amount, method:r.method||"", note:(r.by==="student" ? "Reported by "+firstName(s) : "Reported by the parent")+(r.note?": "+r.note:""), sessionId:r.sessionId||""};
   s.payments.push(p); r.status = "confirmed"; r.decided = today(); r.paymentId = p.id;
   saveStudent(s); render(); toast("Payment recorded");
 }
@@ -4474,7 +4474,7 @@ function requestsPanel(){
     if (r.kind==="move" && r.status==="declined" && (r.needsAnswer || (r.answered && daysBetween(r.answered, t)<=3))) answers.push({s,r}); }));
   if (!reqs.length && !answers.length) return "";
   const ansLine = ({s,r})=>{ const les = s.sessions.find(x=>x.id===r.sessionId), when = day(r.was.date)+(r.was.time?" "+r.was.time:"");
-    return '<li><div class="main"><div class="title"><a href="#/student/'+s.id+'/sessions">'+esc(s.name)+'</a></div><div class="small muted">'+
+    return '<li><div class="main"><div class="title"><a href="#/student/'+s.id+'/sessions">'+esc(fullName(s))+'</a></div><div class="small muted">'+
       (r.needsAnswer ? 'You declined the move of the '+esc(when)+' lesson · waiting for their answer'
         : r.answer==="cancel" ? 'Cancelled the '+esc(when)+' lesson after you declined the move'
         : r.answer==="keep" ? 'Will come to the '+esc(when)+' lesson as planned'
@@ -4489,20 +4489,20 @@ function requestsPanel(){
             : '<span class="tag warn">Move lesson</span> '+esc(day(r.was.date))+(r.was.time?' '+esc(r.was.time):'')+' → '+esc(day(r.date))+' · '+esc(r.time)+' · '+r.duration+' min'+(r.place?' · '+esc(r.place):''))+
           (r.was.format && r.format && r.format!==r.was.format ? ' · <span>'+esc(r.was.format)+' → '+esc(r.format)+'</span>' : '')
         : '<span class="tag board">New lesson</span> '+esc(day(r.date))+' · '+esc(r.time)+' · '+r.duration+' min · '+esc(r.place || r.format);
-      return '<li><div class="main"><div class="title"><a href="#/student/'+s.id+'/sessions">'+esc(s.name)+'</a>'+(r.by==="parent"?' <span class="tag">from the parent</span>':'')+'</div><div class="small muted">'+what+(r.note?' · '+esc(r.note):'')+'</div>'+
+      return '<li><div class="main"><div class="title"><a href="#/student/'+s.id+'/sessions">'+esc(fullName(s))+'</a>'+(r.by==="parent"?' <span class="tag">from the parent</span>':'')+'</div><div class="small muted">'+what+(r.note?' · '+esc(r.note):'')+'</div>'+
       (r.date<today()?'<div class="small" style="color:var(--flag)">This date has passed</div>':'')+'</div><div class="row-actions"><button class="btn small ghost" data-a="decline" data-id="'+s.id+'|'+r.id+'">Decline</button><button class="btn small primary" data-a="approve" data-id="'+s.id+'|'+r.id+'">Approve</button></div></li>'; }).join("")+answers.map(ansLine).join("")+'</ul></section>';
 }
 function approveRequest(s, r){
   const ack = {}, les = r.sessionId && s.sessions.find(x=>x.id===r.sessionId);
   if (r.kind==="cancel"){
     if (!les){ r.status = "declined"; r.decided = today(); saveStudent(s); render(); toast("That lesson no longer exists"); return; }
-    return confirmBox("Cancel the lesson?", s.name+"’s lesson on "+fmtDate(les.date,{weekday:"short",day:"numeric",month:"short"})+(les.time?" at "+les.time:"")+" will be marked cancelled. Nothing is charged for it.", "Cancel lesson", ()=>{
-      les.status = "cancelled"; r.status = "approved"; r.decided = today(); saveStudent(s); render(); toast("Lesson cancelled — "+s.name.split(" ")[0]+" will see it in their app");
+    return confirmBox("Cancel the lesson?", fullName(s)+"’s lesson on "+fmtDate(les.date,{weekday:"short",day:"numeric",month:"short"})+(les.time?" at "+les.time:"")+" will be marked cancelled. Nothing is charged for it.", "Cancel lesson", ()=>{
+      les.status = "cancelled"; r.status = "approved"; r.decided = today(); saveStudent(s); render(); toast("Lesson cancelled — "+firstName(s)+" will see it in their app");
       sendConfirm("cancelled", s, {date:les.date, time:les.time}); });
   }
   if (r.kind==="move"){
     if (!les){ r.status = "declined"; r.decided = today(); saveStudent(s); render(); toast("That lesson no longer exists"); return; }
-    return openForm({title:"Move lesson — "+s.name, submit:"Move lesson", fields:[
+    return openForm({title:"Move lesson — "+fullName(s), submit:"Move lesson", fields:[
         {name:"date",label:"Date",type:"date",value:r.date},{name:"time",label:"Start time",type:"time",value:r.time},
         {name:"duration",label:"Duration (minutes)",type:"number",value:r.duration||les.duration||60,min:15},
         {name:"format",label:"Format",type:"select",options:["In person","Online","Group"],value:r.format||les.format||"In person"},
@@ -4513,11 +4513,11 @@ function approveRequest(s, r){
         const was = {date:les.date, time:les.time||""};
         const formatChanged = c.format!==(les.format||"In person"), switched = formatChanged && c.date===les.date && c.time===(les.time||"");
         Object.assign(les, {date:c.date, time:c.time, duration:c.duration, format:c.format, place:c.format==="Online" ? "" : (d.place||"").trim()}); if (les.slotId) les.custom = true;
-        r.status = "approved"; r.decided = today(); saveStudent(s); render(); toast((switched ? "Lesson changed to "+c.format.toLowerCase() : "Lesson moved")+" — "+s.name.split(" ")[0]+" will see it in their app");
+        r.status = "approved"; r.decided = today(); saveStudent(s); render(); toast((switched ? "Lesson changed to "+c.format.toLowerCase() : "Lesson moved")+" — "+firstName(s)+" will see it in their app");
         sendConfirm("moved", s, Object.assign({date:c.date, time:c.time, was}, formatChanged ? {format:c.format} : {}));
       }});
   }
-  openForm({title:"Approve lesson — "+s.name, submit:"Approve", fields:[
+  openForm({title:"Approve lesson — "+fullName(s), submit:"Approve", fields:[
       {name:"date",label:"Date",type:"date",value:r.date},
       {name:"time",label:"Start time",type:"time",value:r.time},
       {name:"duration",label:"Duration (minutes)",type:"number",value:r.duration||60,min:15},
@@ -4530,7 +4530,7 @@ function approveRequest(s, r){
       const x = {id:uid(), date:d.date, time:d.time, duration:d.duration===""?60:+d.duration, format:d.format, status:"planned", topics:d.topics, notes:"", fee:d.fee===""?s.rate:+d.fee};
       const pl = d.format==="Online" ? "" : (d.place||"").trim(); if (pl) x.place = pl;
       const err = clashCheck(s.id, x, ack); if (err) return err;
-      s.sessions.push(x); r.status = "approved"; r.sessionId = x.id; r.decided = today(); saveStudent(s); render(); toast("Lesson added — "+s.name.split(" ")[0]+" will see it in their app");
+      s.sessions.push(x); r.status = "approved"; r.sessionId = x.id; r.decided = today(); saveStudent(s); render(); toast("Lesson added — "+firstName(s)+" will see it in their app");
       sendConfirm("added", s, {date:x.date, time:x.time});
     }});
 }
@@ -4572,8 +4572,8 @@ function sendCheckin(s, reason){
 }
 // A friendly message to send from the coach's phone.
 function nudgeStudent(s){
-  const g = practiceGap(s), first = s.name.split(" ")[0];
-  shareMessage({title:"Nudge — "+s.name, sub:"A friendly check-in. Edit it before sending.", contact:s.contact,
+  const g = practiceGap(s), first = firstName(s);
+  shareMessage({title:"Nudge — "+fullName(s), sub:"A friendly check-in. Edit it before sending.", contact:s.contact,
     text:lng=>lng==="he" ? "היי "+first+", שמתי לב שלא נרשם תרגול כבר "+(g?g.days:"כמה")+" ימים. הכול בסדר? אפילו 15 דקות של פאזלים ביום עושות הבדל. מחכה לראות אותך בשיעור!\n"+signName("he")
       : "Hi "+first+", I noticed no practice has been logged for "+(g?g.days:"a few")+" days. Everything OK? Even 15 minutes of puzzles a day makes a difference. See you at the lesson!\n"+signName("en"),
     subject:lng=>lng==="he"?"תרגול שחמט":"Chess practice", copied:"Message copied"});
@@ -4595,9 +4595,9 @@ function attentionPanel(active, t){
   const more = (k, n)=>n>4 ? '<li><button type="button" class="linkish small" data-a="attnMore" data-id="'+k+'">'+(attnAll[k] ? "Show less" : "Show "+(n-4)+" more")+'</button></li>' : "";
   const col = (title, body)=>'<div style="min-width:0"><h3 class="subh" style="margin-top:0">'+title+'</h3><ul class="list">'+body+'</ul></div>';
   return '<section class="panel" style="margin-bottom:16px;border-color:var(--warn)"><div class="panel-head"><h2>Needs attention</h2></div><div class="grid g3">'+
-    (unmarked.length?col("Lessons not marked done ("+unmarked.length+")", top("unmarked", unmarked).map(({s,x})=>'<li><div class="main"><div class="title">'+esc(s.name)+'</div><div class="small muted">'+esc(fmtDate(x.date,{weekday:"short",day:"numeric",month:"short"}))+(x.time?" "+esc(x.time):"")+'</div></div><button class="btn small" data-a="done" data-id="'+s.id+'|'+x.id+'">Mark done</button></li>').join("")+more("unmarked", unmarked.length)):"")+
-    (noNext.length?col("No lesson planned ("+noNext.length+")", top("noNext", sortBy(noNext,"name")).map(s=>'<li><div class="main"><div class="title"><a href="#/student/'+s.id+'/sessions">'+esc(s.name)+'</a></div><div class="small muted">'+(()=>{ const last = sortBy(s.sessions.filter(x=>x.status==="done"),"date",-1)[0]; return last?"Last lesson "+esc(fmtShort(last.date)):"No lessons yet"; })()+'</div></div><button class="btn small" data-a="plan" data-id="'+s.id+'">Plan</button></li>').join("")+more("noNext", noNext.length)):"")+
-    (quiet.length?col("No practice for "+PRACTICE_GAP_DAYS+"+ days ("+quiet.length+")", top("quiet", quiet).map(({s,days,never,c})=>'<li><div class="main"><div class="title"><a href="#/student/'+s.id+'/work">'+esc(s.name)+'</a></div><div class="small muted">'+(never?"Has the app, no practice logged yet":"Last practice "+days+" days ago")+'</div>'+
+    (unmarked.length?col("Lessons not marked done ("+unmarked.length+")", top("unmarked", unmarked).map(({s,x})=>'<li><div class="main"><div class="title">'+esc(fullName(s))+'</div><div class="small muted">'+esc(fmtDate(x.date,{weekday:"short",day:"numeric",month:"short"}))+(x.time?" "+esc(x.time):"")+'</div></div><button class="btn small" data-a="done" data-id="'+s.id+'|'+x.id+'">Mark done</button></li>').join("")+more("unmarked", unmarked.length)):"")+
+    (noNext.length?col("No lesson planned ("+noNext.length+")", top("noNext", sortBy(noNext,"name")).map(s=>'<li><div class="main"><div class="title"><a href="#/student/'+s.id+'/sessions">'+esc(fullName(s))+'</a></div><div class="small muted">'+(()=>{ const last = sortBy(s.sessions.filter(x=>x.status==="done"),"date",-1)[0]; return last?"Last lesson "+esc(fmtShort(last.date)):"No lessons yet"; })()+'</div></div><button class="btn small" data-a="plan" data-id="'+s.id+'">Plan</button></li>').join("")+more("noNext", noNext.length)):"")+
+    (quiet.length?col("No practice for "+PRACTICE_GAP_DAYS+"+ days ("+quiet.length+")", top("quiet", quiet).map(({s,days,never,c})=>'<li><div class="main"><div class="title"><a href="#/student/'+s.id+'/work">'+esc(fullName(s))+'</a></div><div class="small muted">'+(never?"Has the app, no practice logged yet":"Last practice "+days+" days ago")+'</div>'+
       (c ? '<div class="small"><span class="tag warn">'+esc((CHECKIN_REASONS.find(r=>r[0]===c.reason)||[,"Answered"])[1])+'</span>'+(c.note?' “'+esc(c.note)+'”':'')+' <span class="muted">'+esc(fmtShort(c.date))+'</span></div>' : '')+
       '</div><button class="btn small ghost" data-a="nudge" data-id="'+s.id+'">Nudge</button></li>').join("")+more("quiet", quiet.length)):"")+
     '</div></section>';
@@ -4622,18 +4622,18 @@ function searchAll(q){
   const hit = (...parts)=>{ const h = foldText(parts.join(" ")); return words.every(w=>h.includes(w)); };
   const add = (key, label, items)=>{ if (items.length) groups.push({key, label, items}); };
   const ss = sortBy(state.students,"name");
-  add("students","Students", ss.filter(s=>hit(s.name,s.level,s.contact,s.guardian,s.goals,s.notes,s.fideId,s.icfId))
+  add("students","Students", ss.filter(s=>hit(s.name,s.fullHe,s.level,s.contact,s.guardian,s.goals,s.notes,s.fideId,s.icfId))
     .map(s=>({title:s.name, sub:[s.level, s.active?"":"Archived"].filter(Boolean).join(" · "), href:"#/student/"+s.id})));
   const ses = []; ss.forEach(s=>s.sessions.forEach(x=>{ if ((x.topics||x.notes) && hit(x.topics,x.notes)) ses.push({s,x}); }));
-  add("sessions","Lessons", ses.sort((a,b)=>a.x.date<b.x.date?1:-1).map(({s,x})=>({title:x.topics||"Lesson notes", sub:s.name+" · "+fmtDate(x.date)+(x.notes&&!hit(x.topics)?" · "+x.notes.slice(0,80):""), href:"#/student/"+s.id+"/sessions"})));
+  add("sessions","Lessons", ses.sort((a,b)=>a.x.date<b.x.date?1:-1).map(({s,x})=>({title:x.topics||"Lesson notes", sub:fullName(s)+" · "+fmtDate(x.date)+(x.notes&&!hit(x.topics)?" · "+x.notes.slice(0,80):""), href:"#/student/"+s.id+"/sessions"})));
   const own = [], studied = [];
   state.games.forEach(g=>{ const s = byId(g.studentId); if (!s) return;
     if (g.kind==="study"){ if (hit(g.white,g.black,g.event,g.opening,g.theme,g.notes,g.year,g.source)) studied.push({s,g}); }
     else if (hit(g.opponent,gameEvent(g,s),g.opening,g.notes,g.round?"round "+g.round:"",g.timeControl)) own.push({s,g}); });
-  add("games","Games", own.sort((a,b)=>(a.g.date||"")<(b.g.date||"")?1:-1).map(({s,g})=>({title:s.name+" "+gameTitle(g)+" "+(g.result||""), sub:[gameEvent(g,s), g.opening, fmtDate(g.date)].filter(Boolean).join(" · "), href:"#/student/"+s.id+"/games"})));
+  add("games","Games", own.sort((a,b)=>(a.g.date||"")<(b.g.date||"")?1:-1).map(({s,g})=>({title:fullName(s)+" "+gameTitle(g)+" "+(g.result||""), sub:[gameEvent(g,s), g.opening, fmtDate(g.date)].filter(Boolean).join(" · "), href:"#/student/"+s.id+"/games"})));
   add("studied","Model games", studied.map(({s,g})=>({title:studyTitle(g)+" "+(g.result||""), sub:[s.name, g.theme, g.event, g.year].filter(Boolean).join(" · "), href:"#/student/"+s.id+"/studied"})));
   const rep = []; ss.forEach(s=>s.repertoire.forEach(x=>{ if (hit(x.name,x.eco,x.lines,x.notes,x.against,x.againstOther,x.firstMove)) rep.push({s,x}); }));
-  add("repertoire","Repertoire", rep.map(({s,x})=>({title:x.name+(x.eco?" ("+x.eco+")":""), sub:s.name+" · "+x.color+(x.against?" · vs "+(x.againstOther||x.against):""), href:"#/student/"+s.id+"/repertoire", rep:x.name})));
+  add("repertoire","Repertoire", rep.map(({s,x})=>({title:x.name+(x.eco?" ("+x.eco+")":""), sub:fullName(s)+" · "+x.color+(x.against?" · vs "+(x.againstOther||x.against):""), href:"#/student/"+s.id+"/repertoire", rep:x.name})));
   add("assignments","Assignments", state.assignments.filter(a=>byId(a.studentId) && hit(a.title,a.type,a.instructions,a.feedback,(a.games||[]).map(g=>[g.white,g.black,g.event,g.date,g.note].join(" ")).join(" ")))
     .map(a=>({title:a.title, sub:byId(a.studentId).name+" · "+a.type+" · "+(STATUS_LABEL[a.status]||a.status), href:"#/assignment/"+a.id})));
   const tr = []; ss.forEach(s=>s.tournaments.forEach(x=>{ if (hit(x.name,x.location,x.notes,x.format)) tr.push({s,x}); }));
@@ -4736,7 +4736,7 @@ function ratingProblems(failed, changed, why, signedOut){
 let studentFilter = {q:"", show:"active"};
 /* ---------- notifications: a message from the coach to chosen parents and/or students, shown in their app ---------- */
 // In the text, {name} is the child's name (the Hebrew name when set) and [boy|girl] picks the word, e.g. [מדווח|מדווחת].
-const bcName = s=>(s.nameHe||"").trim() || s.name.split(" ")[0];
+const bcName = s=>(s.nameHe||"").trim() || firstName(s);
 const bcFill = (text, s)=>String(text).replace(/\{name\}|\{שם\}/g, bcName(s)).replace(/\[([^\[\]|]*)\|([^\[\]|]*)\]/g, (m,a,b)=>s.gender==="f" ? b : a);
 // A notification disappears from the app this many days after it was sent.
 const NOTICE_DAYS = 7;
@@ -4765,7 +4765,7 @@ function coachNotices(){
       return '<li style="display:block"><p class="pre" dir="auto" style="margin:0">'+esc(g.text)+'</p>'+
         '<div class="small muted" style="margin-top:4px">'+esc(fmtDate(g.date,{weekday:"short",day:"numeric",month:"short"}))+' · <span>'+(g.names.length===1?esc(g.names[0]):g.names.length+" students")+'</span>'+(g.edited?' · <span>Edited</span>':'')+'</div>'+
         '<div class="small" style="margin-top:4px"><span class="tag '+(g.reads.length>=g.sent?'ok':'board')+'">Read '+g.reads.length+' of '+g.sent+'</span>'+(fresh?' <span class="tag warn">+'+fresh+' new</span>':'')+
-        (g.reads.length?' <span class="muted">'+g.reads.map(r=>esc(r.s.name.split(" ")[0])+(r.who==="parent"?"’s parent":"")).join(", ")+'</span>':'')+'</div>'+
+        (g.reads.length?' <span class="muted">'+g.reads.map(r=>esc(firstName(r.s))+(r.who==="parent"?"’s parent":"")).join(", ")+'</span>':'')+'</div>'+
         '<div class="row-actions" style="margin-top:8px;justify-content:flex-start"><button type="button" class="btn small" data-ned="'+g.id+'">Edit</button><button type="button" class="btn small ghost" data-ndel="'+g.id+'">Delete</button></div></li>'; }).join("")+'</ul>'
       : '<p class="empty">No notifications sent yet.</p>')+
     '</div><footer><button type="button" class="btn" id="ntClose">Close</button></footer></div>';
@@ -4788,7 +4788,7 @@ function editNotice(g){
   if (!tpl){ const s0 = g.ss[0].s, guess = g.text.split(bcName(s0)).join("{name}");
     tpl = g.ss.every(({s, n})=>bcFill(guess, s)===n.text) ? guess : g.text; approx = tpl===g.text && g.ss.some(({n})=>n.text!==g.text); }
   openForm({title:"Edit notification", submit:"Save", fields:[{name:"text", label:"Message", type:"textarea", value:tpl, full:true,
-      hint:approx ? "This is "+g.ss[0].s.name.split(" ")[0]+"’s copy. Use {name} for each child’s name." : "{name} = the child’s name · [boy|girl] = the right word"}],
+      hint:approx ? "This is "+firstName(g.ss[0].s)+"’s copy. Use {name} for each child’s name." : "{name} = the child’s name · [boy|girl] = the right word"}],
     onSubmit:d=>{ const text = String(d.text||"").trim(); if (!text) return "Write the message.";
       g.ss.forEach(({s, n})=>{ const x = (s.notices||[]).find(y=>y.id===n.id); if (!x) return; x.text = bcFill(text, s); x.tpl = text; x.edited = today(); saveStudent(s); });
       toast("Notification updated"); render(); setTimeout(coachNotices, 0); }});
@@ -4801,9 +4801,9 @@ function sendNotice(){
     '<div class="field full"><label>Quick choice for</label><div class="row-actions" style="justify-content:flex-start"><label class="chk"><input type="checkbox" id="ntP" checked> Parents</label><label class="chk"><input type="checkbox" id="ntS"> Students</label></div></div>'+
     '<div class="field full"><label>Who</label><div class="row-actions" style="justify-content:flex-start;flex-wrap:wrap"><button type="button" class="btn small" data-pick="all">Everyone</button><button type="button" class="btn small" data-pick="none">No one</button><button type="button" class="btn small" data-pick="private">Private students</button>'+
       groups.map(r=>'<button type="button" class="btn small" data-pick="club:'+r.id+'">'+esc(clubName(r))+'</button>').join("")+'</div>'+
-      '<div class="notice-list"><div class="notice-row notice-head small muted"><span></span><span>Student</span><span>Parent</span></div>'+all.map(s=>'<div class="notice-row"><span>'+esc(s.name)+(s.clubOnly?' <span class="tag">Club</span>':'')+(s.clubOnly||hasParentApp(s)?'':' <span class="small muted">· parent not on the app</span>')+'</span>'+
-        '<label class="chk" title="Student"><input type="checkbox" data-sid="'+s.id+'" data-who="student" aria-label="'+esc(s.name)+' — student"></label>'+
-        '<label class="chk" title="Parent"><input type="checkbox" data-sid="'+s.id+'" data-who="parent" aria-label="'+esc(s.name)+' — parent"'+(s.clubOnly?' disabled':'')+'></label></div>').join("")+'</div></div>'+
+      '<div class="notice-list"><div class="notice-row notice-head small muted"><span></span><span>Student</span><span>Parent</span></div>'+all.map(s=>'<div class="notice-row"><span>'+esc(fullName(s))+(s.clubOnly?' <span class="tag">Club</span>':'')+(s.clubOnly||hasParentApp(s)?'':' <span class="small muted">· parent not on the app</span>')+'</span>'+
+        '<label class="chk" title="Student"><input type="checkbox" data-sid="'+s.id+'" data-who="student" aria-label="'+esc(fullName(s))+' — student"></label>'+
+        '<label class="chk" title="Parent"><input type="checkbox" data-sid="'+s.id+'" data-who="parent" aria-label="'+esc(fullName(s))+' — parent"'+(s.clubOnly?' disabled':'')+'></label></div>').join("")+'</div></div>'+
     '<p class="small muted" id="ntCount" style="margin:4px 0 0"></p></div><p class="form-err" role="alert" hidden></p>'+
     '<footer><button type="button" class="btn" data-act="cancel">Cancel</button><button type="submit" class="btn primary">Send</button></footer></form>';
   const boxes = [...m.querySelectorAll("[data-sid]")], err = m.querySelector(".form-err");
@@ -4851,11 +4851,11 @@ function pStudents(v){
   if ($("#ratingsNow")) $("#ratingsNow").onclick = ()=>syncRatings(true);
   const draw = ()=>{
     const q = studentFilter.q.toLowerCase(), t = today();
-    const list = sortBy(state.students,"name").sort((a,b)=>(b.self?1:0)-(a.self?1:0)).filter(s=>(studentFilter.show==="all"||(studentFilter.show==="active")===s.active) && s.name.toLowerCase().includes(q));
+    const list = sortBy(state.students,"name").sort((a,b)=>(b.self?1:0)-(a.self?1:0)).filter(s=>(studentFilter.show==="all"||(studentFilter.show==="active")===s.active) && (s.name+" "+(s.fullHe||"")).toLowerCase().includes(q));
     const row = s=>{
       const l = ledger(s); const next = sortBy(s.sessions.filter(x=>x.status==="planned"&&x.date>=t),"date")[0];
       const r = sortBy(s.ratings.filter(x=>(x.source||mainSource(s))===mainSource(s)),"date"); const delta = r.length>1 ? r[r.length-1].value - r[r.length-2].value : null;
-      return '<a class="student-row" href="#/student/'+s.id+'"><div class="who"><span class="avatar">'+esc(initials(s.name))+'</span><div style="min-width:0"><div class="name">'+esc(s.name)+(s.self?' <span class="tag ok">Me</span>':'')+'</div><div class="small muted">'+esc(s.level||"")+(s.active?"":" · Archived")+'</div></div></div>'+
+      return '<a class="student-row" href="#/student/'+s.id+'"><div class="who"><span class="avatar">'+esc(initials(fullName(s)))+'</span><div style="min-width:0"><div class="name">'+esc(fullName(s))+(s.self?' <span class="tag ok">Me</span>':'')+'</div><div class="small muted">'+esc(s.level||"")+(s.active?"":" · Archived")+'</div></div></div>'+
         '<div class="num"><span class="card-l small muted">Rating</span><div style="font-weight:600">'+esc(s.rating||"—")+'</div>'+(delta!==null?'<div class="small" style="color:'+(delta>=0?"var(--ok)":"var(--flag)")+'">'+(delta>=0?"+":"")+delta+'</div>':"")+'</div>'+
         '<div class="small hide-m">'+(next?"Next: "+esc(fmtDate(next.date,{weekday:"short",day:"numeric",month:"short"}))+(next.time?" "+esc(next.time):""):'<span class="muted">No session planned</span>')+
           (!s.clubOnly && clubsOf(s).length ? '<div class="club-also"><span class="tag">Club</span> Also in '+esc(clubsOf(s).map(clubName).join(", "))+'</div>' : '')+'</div>'+
@@ -4867,7 +4867,7 @@ function pStudents(v){
     $("#slist").innerHTML = !list.length ? '<p class="empty" style="padding:18px">No students match.</p>'
       : !groups.length ? priv.map(row).join("")
       : (priv.length ? head("Private students", priv.filter(s=>!s.self).length)+priv.map(row).join("") : '')+groups.map(g=>{ const club = g.ss.filter(s=>s.clubOnly), also = g.ss.filter(s=>!s.clubOnly);
-          return head(clubName(g.r), g.ss.length, groupChallenge(g.r))+club.map(row).join("")+(also.length?'<p class="small muted club-also-note">'+(lang()==="he" ? (club.length?'גם בקבוצה':'בקבוצה')+', עם שיעורים פרטיים (למעלה): ' : (club.length?'Also in this group':'In this group')+', with private lessons (above): ')+esc(also.map(s=>s.name).join(", "))+'</p>':''); }).join("");
+          return head(clubName(g.r), g.ss.length, groupChallenge(g.r))+club.map(row).join("")+(also.length?'<p class="small muted club-also-note">'+(lang()==="he" ? (club.length?'גם בקבוצה':'בקבוצה')+', עם שיעורים פרטיים (למעלה): ' : (club.length?'Also in this group':'In this group')+', with private lessons (above): ')+esc(also.map(fullName).join(", "))+'</p>':''); }).join("");
   };
   draw();
   $("#sq").oninput = e=>{ studentFilter.q = e.target.value; draw(); };
@@ -4888,10 +4888,10 @@ function addRating(s, source, value, date){
 }
 function editStudent(s){
   const isNew = !s; const x = s || blankStudent();
-  openForm({ title: isNew?"Add student":"Edit "+x.name, submit:isNew?"Add student":"Save changes",
+  openForm({ title: isNew?"Add student":"Edit "+fullName(x), submit:isNew?"Add student":"Save changes",
     fields:[
       {name:"name",label:"Full name",value:x.name,required:true,full:true},
-      {name:"nameHe",label:"First name in Hebrew",value:x.nameHe||"",placeholder:"e.g. גיא",hint:"Used in messages to parents"},
+      {name:"fullHe",label:"Full name in Hebrew (optional)",value:x.fullHe||x.nameHe||"",placeholder:"e.g. גיא לוי",hint:"Shown when the app is in Hebrew, and its first name in messages to parents"},
       {name:"gender",label:"Boy or girl",type:"select",options:[["","—"],["m","Boy"],["f","Girl"]],value:x.gender||"",hint:"For the right Hebrew forms in messages"},
       {name:"fideId",label:"FIDE ID",value:x.fideId,placeholder:"e.g. 2807681",hint:"The number on the player's ratings.fide.com profile"},
       {name:"icfId",label:"Israeli Chess Federation ID",value:x.icfId,placeholder:"e.g. 20256",hint:"The Id= number on chess.org.il"},
@@ -4937,7 +4937,7 @@ function editStudent(s){
       if (!isNew && (+x.rate||0)!==oldRate){ const t = today(), onOld = v=>v!==""&&v!=null&&+v===oldRate;
         (x.slots||[]).forEach(sl=>{ if (onOld(sl.fee)) sl.fee = x.rate; });
         x.sessions.forEach(ss=>{ if (ss.status==="planned" && ss.date>=t && onOld(ss.fee)){ ss.fee = x.rate; repriced++; } }); }
-      x.nameHe = (d.nameHe||"").trim(); x.gender = d.gender||"";
+      x.fullHe = (d.fullHe||"").trim().replace(/\s+/g," "); x.nameHe = x.fullHe.split(" ")[0]; x.gender = d.gender||"";
       if ("lessons" in d){ x.clubOnly = d.lessons==="club"; const others = (x.clubIds||[]).filter(id=>id!==(x.clubIds||[])[0]); x.clubIds = d.clubId ? [d.clubId, ...others.filter(id=>id!==d.clubId)] : others; }
       if (isNew){ state.students.push(x); location.hash = "#/student/"+x.id; }
       saveStudent(x); render(); toast(isNew?"Student added":repriced?"Changes saved — new fee applied to "+repriced+" planned session"+(repriced===1?"":"s"):"Changes saved");
@@ -4953,7 +4953,7 @@ function groupNav(s, cur){
   const g = TAB_GROUPS[tabGroup(cur)]; if (!g) return "";
   const n = {games:studentGames(s.id).length, studied:studyGames(s.id).length};
   // the student's own games are "My games" for them, "Guy’s games" for the coach and parents
-  const own = STUDENT() && !PARENT() ? "My games" : ((lang()==="he" && (s.nameHe||"").trim()) || s.name.split(" ")[0])+"’s games";
+  const own = STUDENT() && !PARENT() ? "My games" : ((lang()==="he" && (s.nameHe||"").trim()) || firstName(s))+"’s games";
   const lab = STUDENT() ? {work:"Daily practice", fitness:"Fitness", books:"Reading", tournaments:"Tournaments", games:own, studied:"Model games", repertoire:"Openings"}
     : {work:"Daily work", fitness:"Fitness", books:"Books", tournaments:"Tournaments", games:own, studied:"Model games", repertoire:"Repertoire"};
   return subNav(g.map(k=>[k, "#/student/"+s.id+"/"+k, lab[k]+(n[k]?" ("+n[k]+")":"")]), cur);
@@ -4962,11 +4962,11 @@ function pStudent(v, r){
   const s = byId(r.id);
   if (!s){ v.innerHTML = '<p class="empty">This student no longer exists. <a href="#/students">Back to students</a></p>'; return; }
   const l = ledger(s);
-  v.innerHTML = '<a class="crumb" href="#/students">‹ Students</a><div class="s-head"><span class="avatar">'+esc(initials(s.name))+'</span><div style="flex:1;min-width:200px"><h1>'+esc(s.name)+'</h1><p class="sub">'+[s.fide&&s.fide.title?esc(s.fide.title):"", s.rating?esc(s.rating)+" "+esc(s.ratingType):"", esc(s.level), s.active?"":"Archived"].filter(Boolean).join(" · ")+'</p></div>'+
+  v.innerHTML = '<a class="crumb" href="#/students">‹ Students</a><div class="s-head"><span class="avatar">'+esc(initials(fullName(s)))+'</span><div style="flex:1;min-width:200px"><h1>'+esc(fullName(s))+'</h1><p class="sub">'+[s.fide&&s.fide.title?esc(s.fide.title):"", s.rating?esc(s.rating)+" "+esc(s.ratingType):"", esc(s.level), s.active?"":"Archived"].filter(Boolean).join(" · ")+'</p></div>'+
     (l.balance>0.009?'<span class="tag '+(l.overdue?"flag":"warn")+'" style="font-size:.85rem;padding:4px 10px">Owes '+money(l.balance)+'</span>':'')+
     (s.fideId?'<a class="btn small" href="'+fideUrl(s.fideId)+'" target="_blank" rel="noopener">FIDE '+esc(s.fideId)+' ↗</a>':'')+
     (s.icfId?'<a class="btn small" href="'+icfUrl(s.icfId)+'" target="_blank" rel="noopener">ICF '+esc(s.icfId)+' ↗</a>':'')+
-    (s.self ? '' : '<button class="btn" id="stView" title="See the app as '+esc(s.name.split(" ")[0])+' sees it">👁 Student view</button>')+'<button class="btn" id="stEdit">Edit profile</button></div>'+
+    (s.self ? '' : '<button class="btn" id="stView" title="See the app as '+esc(firstName(s))+' sees it">👁 Student view</button>')+'<button class="btn" id="stEdit">Edit profile</button></div>'+
     '<nav class="tabs" aria-label="Student sections">'+TABS.filter(([k])=>!((s.self || !hasMoney(s)) && k==="payments")).map(([k,lab])=>'<a href="#/student/'+s.id+'/'+k+'"'+(tabGroup(r.tab)===k?' aria-current="page"':"")+'>'+lab+'</a>').join("")+'</nav><div id="tab"></div>';
   $("#stEdit").onclick = ()=>editStudent(s);
   if ($("#stView")) $("#stView").onclick = ()=>openPreview(s);
@@ -5063,19 +5063,19 @@ function tOverview(el, s){
     delRating:id=>{ const p = s.ratings.find(y=>y.id===id); if (!p) return;
       confirmBox("Remove this rating?", (p.source||mainSource(s))+" "+p.value+" from "+fmtDate(p.date)+" will be removed from the history.","Remove",()=>{ s.ratings = s.ratings.filter(y=>y.id!==id); saveStudent(s); render(); toast("Rating removed"); }); },
     edit:()=>editStudent(s),
-    shareNotes:()=>{ s.notesShared = !s.notesShared; saveStudent(s); render(); toast(s.notesShared?"Notes are now visible to "+s.name.split(" ")[0]:"Notes are private again"); },
+    shareNotes:()=>{ s.notesShared = !s.notesShared; saveStudent(s); render(); toast(s.notesShared?"Notes are now visible to "+firstName(s):"Notes are private again"); },
     invite:()=>{ s.invite = {code:inviteCode(), created:today()}; saveStudent(s); render(); },
     uninvite:()=>{ delete s.invite; saveStudent(s); render(); toast("Invite cancelled"); },
     sendInv:()=>s.invite && sendInvite("student", s, s.invite.code),
     famSend:()=>{ const f = familyOf(s); if (f && f.invite) sendInvite("parent", s, f.invite.code); },
     famNew:()=>{ const f = {id:"fam-"+uid(), name:(s.guardian ? s.guardian.split(/[,·]/)[0].trim() : s.name.split(" ").slice(-1)[0]+" family"), studentIds:[s.id], invite:{code:inviteCode(), created:today()}}; families().push(f); saveSettings(); render(); },
-    famAdd:()=>{ const f = families().find(x=>x.id===$("#famPick").value); if (!f) return; f.studentIds = [...new Set([...(f.studentIds||[]), s.id])]; saveSettings(); portal && portal.scheduleFamily(f.id); render(); toast(s.name.split(" ")[0]+" added to "+f.name); },
+    famAdd:()=>{ const f = families().find(x=>x.id===$("#famPick").value); if (!f) return; f.studentIds = [...new Set([...(f.studentIds||[]), s.id])]; saveSettings(); portal && portal.scheduleFamily(f.id); render(); toast(firstName(s)+" added to "+f.name); },
     famInvite:()=>{ const f = familyOf(s); f.invite = {code:inviteCode(), created:today()}; saveSettings(); render(); },
     famUninvite:()=>{ const f = familyOf(s); delete f.invite; if (!f.portal && (f.studentIds||[]).length<=1) state.settings.families = families().filter(x=>x!==f); saveSettings(); render(); toast("Invite cancelled"); },
     famRename:()=>{ const f = familyOf(s); openForm({title:"Rename family", submit:"Save", fields:[{name:"name",label:"Family name",value:f.name,full:true}], onSubmit:d=>{ if (!d.name) return "Enter a name."; f.name = d.name; saveSettings(); render(); }}); },
-    famLeave:()=>{ const f = familyOf(s); confirmBox("Remove "+s.name+" from "+f.name+"?", "The parent will no longer see "+s.name.split(" ")[0]+"’s board.", "Remove", ()=>{ f.studentIds = f.studentIds.filter(x=>x!==s.id); saveSettings(); portal && portal.scheduleFamily(f.id); render(); }); },
+    famLeave:()=>{ const f = familyOf(s); confirmBox("Remove "+fullName(s)+" from "+f.name+"?", "The parent will no longer see "+firstName(s)+"’s board.", "Remove", ()=>{ f.studentIds = f.studentIds.filter(x=>x!==s.id); saveSettings(); portal && portal.scheduleFamily(f.id); render(); }); },
     famUnlink:()=>{ const f = familyOf(s); confirmBox("Disconnect "+f.name+"?", "The parent will no longer see the board in the app. Your records stay here, and you can invite them again later.", "Disconnect", ()=>{ portal.unlinkFamily(f); render(); toast(f.name+" disconnected"); }); },
-    unlink:()=>confirmBox("Disconnect "+s.name+"?", "They will no longer see their board in the app. Their records stay here, and you can invite them again later.","Disconnect",()=>{ portal.unlink(s); render(); toast(s.name+" disconnected"); })
+    unlink:()=>confirmBox("Disconnect "+fullName(s)+"?", "They will no longer see their board in the app. Their records stay here, and you can invite them again later.","Disconnect",()=>{ portal.unlink(s); render(); toast(fullName(s)+" disconnected"); })
   });
 }
 // Codes avoid letters and digits that are easy to mix up (O/0, I/1).
@@ -5088,20 +5088,20 @@ function parentPanel(s){
   const f = familyOf(s), others = families().filter(x=>x!==f);
   let body;
   if (store.kind!=="db") return "";
-  if (!f) body = '<p class="small muted" style="margin:0 0 10px">A parent sees '+esc(s.name.split(" ")[0])+'’s lessons, assignments, progress, balance and payments, and can request, cancel or move lessons. One parent account can follow several of your students (siblings).</p>'+
+  if (!f) body = '<p class="small muted" style="margin:0 0 10px">A parent sees '+esc(firstName(s))+'’s lessons, assignments, progress, balance and payments, and can request, cancel or move lessons. One parent account can follow several of your students (siblings).</p>'+
     '<div class="row-actions"><button class="btn small primary" data-a="famNew">Invite a parent</button>'+(others.length?'<select id="famPick" class="search" style="width:auto" aria-label="Family">'+others.map(x=>'<option value="'+x.id+'">'+esc(x.name)+'</option>').join("")+'</select><button class="btn small" data-a="famAdd">Add to this family</button>':'')+'</div>';
   else {
     const kids = (f.studentIds||[]).map(byId).filter(Boolean);
-    body = '<p style="margin:0">'+esc(f.name)+' · '+kids.map(k=>esc(k.name)).join(", ")+'</p>'+
+    body = '<p style="margin:0">'+esc(f.name)+' · '+kids.map(k=>esc(fullName(k))).join(", ")+'</p>'+
       (f.portal ? '<p class="small muted">Connected since '+esc(fmtDate(f.portal.linkedAt))+'. They see the balance and payments too, but never other families or notes you keep private.</p>'+(f.portal.email ? '<p class="small" style="margin:4px 0 8px"><span class="muted">Account:</span> <bdi dir="ltr">'+esc(f.portal.email)+'</bdi></p>' : '')+'<div class="row-actions"><button class="btn small ghost danger" data-a="famUnlink">Disconnect</button>'
        : f.invite ? '<ol class="steps">'+(WEB?'<li>Send them the link to the app: <bdi class="link-box" dir="ltr">'+esc(APP_LINK())+'</bdi></li><li>They create an account with their email and a password.</li>':'<li>Share Rank Up with the parent by email and give them Editor access. Don\'t turn on a public link.</li>')+'<li>Give them this code: <span class="code-box">'+esc(f.invite.code)+'</span></li><li>They open the app and enter the code. They\'re connected the next time you open Rank Up.</li></ol><div class="row-actions"><button class="btn small primary" data-a="famSend">Send invite message</button><button class="btn small ghost" data-a="famUninvite">Cancel invite</button>'
        : '<div class="row-actions" style="margin-top:8px"><button class="btn small primary" data-a="famInvite">Invite a parent</button>')+
-      '<button class="btn small ghost" data-a="famRename">Rename family</button>'+(kids.length>1?'<button class="btn small ghost" data-a="famLeave">Remove '+esc(s.name.split(" ")[0])+' from the family</button>':'')+'</div>';
+      '<button class="btn small ghost" data-a="famRename">Rename family</button>'+(kids.length>1?'<button class="btn small ghost" data-a="famLeave">Remove '+esc(firstName(s))+' from the family</button>':'')+'</div>';
   }
   return '<section class="panel" style="margin-top:16px"><div class="panel-head"><h2>Parent app</h2>'+(f&&f.portal?'<span class="tag ok">Connected</span>':f&&f.invite?'<span class="tag warn">Waiting for the parent</span>':'')+'</div>'+body+'</section>';
 }
 function appPanel(s){
-  const first = esc(s.name.split(" ")[0]);
+  const first = esc(firstName(s));
   let body;
   if (store.kind!=="db") body = '<p class="small muted" style="margin:0">The student app works in the published Rank Up on claude.ai, where your records are stored in your account.</p>';
   else if (s.portal) body = '<p style="margin:0">'+first+' is connected to the app since '+esc(fmtDate(s.portal.linkedAt))+'.</p>'+(s.portal.email ? '<p class="small" style="margin:4px 0 0"><span class="muted">Account:</span> <bdi dir="ltr">'+esc(s.portal.email)+'</bdi></p>' : '')+'<p class="small muted">They see their lessons, assignments, goals, games, practice, reading and repertoire. They don\'t see payments, fees, contact details, other students or notes you keep private.</p><button class="btn small ghost danger" data-a="unlink">Disconnect</button>';
@@ -5132,21 +5132,21 @@ function editSession(s, x){
 }
 // Marking a session done asks for what was covered while it is fresh, and can go straight on to the parents' summary.
 function markDone(s, x){
-  openForm({title:"Mark done — "+s.name, submit:"Mark done", fields:[
+  openForm({title:"Mark done — "+fullName(s), submit:"Mark done", fields:[
       {name:"topics",label:"What you covered",value:x.topics||"",full:true,placeholder:"e.g. Rook endgames: Lucena & Philidor"},
       {name:"notes",label:"Notes & observations",type:"textarea",value:x.notes||"",placeholder:"What went well, what to work on next. Private unless you choose to share it."},
       {name:"shareNotes",label:"Notes in the student app",type:"select",options:[["0","Private"],["1","Visible to the student"]],value:isShared(x.shareNotes)?"1":"0"},
-      {name:"fee",label:"Fee ("+state.settings.currency+")",type:"number",value:x.fee??s.rate,min:0,step:"any",hint:"Added to "+s.name.split(" ")[0]+"’s balance"},
+      {name:"fee",label:"Fee ("+state.settings.currency+")",type:"number",value:x.fee??s.rate,min:0,step:"any",hint:"Added to "+firstName(s)+"’s balance"},
       {name:"then",label:"Then",type:"select",options:[["","Nothing else"],["summary","Write a summary for the parents"]],value:""}],
     onSubmit:d=>{
       Object.assign(x, {status:"done", topics:d.topics, notes:d.notes, shareNotes:d.shareNotes==="1", fee:d.fee===""?0:d.fee});
-      saveStudent(s); render(); toast("Marked done — "+money(x.fee)+" added to "+s.name.split(" ")[0]+"’s balance");
+      saveStudent(s); render(); toast("Marked done — "+money(x.fee)+" added to "+firstName(s)+"’s balance");
       if (d.then==="summary") setTimeout(()=>shareSummary(s, x), 0);
     }});
 }
 // A short message for the parents: what the lesson covered, open homework and the next lesson. Editable before sending.
 function summaryText(s, x, withNotes, lng){
-  const he = lng==="he", first = s.name.split(" ")[0], t = x.date;
+  const he = lng==="he", first = firstName(s), t = x.date;
   const fd = (d, o)=>new Date(d+"T00:00").toLocaleDateString(he?"he-IL":undefined, o);
   const hw = sortBy(state.assignments.filter(a=>a.studentId===s.id && a.status==="Assigned"),"due");
   const next = sortBy(s.sessions.filter(y=>y.status==="planned" && y.date>t),"date")[0];
@@ -5194,7 +5194,7 @@ function shareMessage({title, sub, contact, text, subject, copied, startLang}){
 }
 const APP_LINK = ()=>WEB ? location.origin+location.pathname : (state.settings.appLink || "https://claude.ai/artifact/HdUATP5UzeZDyRtZfVJoe6");
 function inviteText(kind, s, code, lng){
-  const first = s.name.split(" ")[0], coach = signName(lng), he = lng==="he";
+  const first = firstName(s), coach = signName(lng), he = lng==="he";
   const steps = WEB ? (he
     ? ["1. לפתוח את הקישור וליצור חשבון עם כתובת מייל וסיסמה (או להתחבר אם כבר יש חשבון):", APP_LINK(), "2. להזין את הקוד: "+code, "3. זהו — הלוח יופיע ברגע שאפתח את האפליקציה.", "", "טיפ: בטלפון אפשר להוסיף את האפליקציה למסך הבית דרך תפריט הדפדפן ← „הוספה למסך הבית”."]
     : ["1. Open this link and create an account with your email and a password (or sign in if you already have one):", APP_LINK(), "2. Enter this code: "+code, "3. That's it — the board appears as soon as I open the app.", "", "Tip: on your phone, add it to your home screen from the browser menu → “Add to Home Screen”."]) : he
@@ -5206,7 +5206,7 @@ function inviteText(kind, s, code, lng){
   return [intro, "", ...steps, ...(coach?["", coach]:[])].join("\n");
 }
 function reminderText(s, lng){
-  const l = ledger(s), first = s.name.split(" ")[0], he = lng==="he", coach = signName(lng), pay = state.settings.payInfo||"";
+  const l = ledger(s), first = firstName(s), he = lng==="he", coach = signName(lng), pay = state.settings.payInfo||"";
   const amt = (state.settings.currency||"")+(Math.round(l.balance*100)/100).toLocaleString(he?"he-IL":"en");
   const d = new Date(today()+"T00:00").toLocaleDateString(he?"he-IL":undefined,{day:"numeric",month:"long"});
   const lines = he
@@ -5215,12 +5215,12 @@ function reminderText(s, lng){
   return [...lines, ...(coach?[coach]:[])].join("\n");
 }
 function sendReminder(s){
-  shareMessage({title:"Payment reminder — "+s.name, sub:"A polite reminder with the balance"+(state.settings.payInfo?" and how to pay":"")+". Edit it before sending.", contact:s.contact,
+  shareMessage({title:"Payment reminder — "+fullName(s), sub:"A polite reminder with the balance"+(state.settings.payInfo?" and how to pay":"")+". Edit it before sending.", contact:s.contact,
     text:lng=>reminderText(s, lng), subject:lng=>lng==="he"?"תזכורת תשלום — שיעורי שחמט":"Payment reminder — chess lessons", copied:"Reminder copied"});
 }
 // A ready message after deciding on a lesson, so the student or parent hears about it right away.
 function confirmText(kind, s, o, lng){
-  const he = lng==="he", first = s.name.split(" ")[0], coach = signName(lng);
+  const he = lng==="he", first = firstName(s), coach = signName(lng);
   const day = (d,t)=>new Date(d+"T00:00").toLocaleDateString(he?"he-IL":undefined,{weekday:"long",day:"numeric",month:"long"})+(t?(he?" בשעה ":" at ")+t:"");
   const L = he ? {
       added:()=>"שלום! השיעור של "+first+" נקבע ל"+day(o.date,o.time)+". נתראה!",
@@ -5243,16 +5243,16 @@ function confirmText(kind, s, o, lng){
 }
 const CONFIRM_TITLE = {added:"Lesson confirmed", moved:"Lesson moved", cancelled:"Lesson cancelled", declined:"Request declined", declinedCancel:"Lesson stays", declinedMove:"Move declined"};
 function sendConfirm(kind, s, o){
-  setTimeout(()=>shareMessage({title:CONFIRM_TITLE[kind]+" — "+s.name, sub:"Let them know now — they see it in the app too.", contact:s.contact,
+  setTimeout(()=>shareMessage({title:CONFIRM_TITLE[kind]+" — "+fullName(s), sub:"Let them know now — they see it in the app too.", contact:s.contact,
     text:lng=>confirmText(kind, s, o, lng), subject:lng=>lng==="he"?"שיעור שחמט — עדכון":"Chess lesson — update", copied:"Message copied"}), 0);
 }
 function sendInvite(kind, s, code){
-  shareMessage({title:kind==="parent"?"Invite message — parent":"Invite message — "+s.name, sub:"Share the app with them by email first (Editor access), then send this.", contact:s.contact,
+  shareMessage({title:kind==="parent"?"Invite message — parent":"Invite message — "+fullName(s), sub:"Share the app with them by email first (Editor access), then send this.", contact:s.contact,
     text:lng=>inviteText(kind, s, code, lng), subject:lng=>lng==="he"?"הזמנה ל־„עולים בדרגה”":"Your invitation to Rank Up", copied:"Invite copied"});
 }
 function shareSummary(s, x){
-  const m = $("#modal"), c = contactParts(s.contact), first = s.name.split(" ")[0];
-  m.innerHTML = '<div class="modal-form"><header><h2>Lesson summary — '+esc(s.name)+'</h2><p class="sub small">Edit the message, then send it'+(s.guardian?' to '+esc(s.guardian):'')+'.</p></header>'+
+  const m = $("#modal"), c = contactParts(s.contact), first = firstName(s);
+  m.innerHTML = '<div class="modal-form"><header><h2>Lesson summary — '+esc(fullName(s))+'</h2><p class="sub small">Edit the message, then send it'+(s.guardian?' to '+esc(s.guardian):'')+'.</p></header>'+
     '<div style="padding:8px 20px;overflow:auto"><textarea id="sumTxt" class="fb" style="min-height:220px" aria-label="Summary message"></textarea>'+
     '<div class="row-actions" style="margin-top:8px;align-items:center;gap:14px">'+(x.notes?'<label class="check small"><input type="checkbox" id="sumNotes"> Include my notes &amp; observations</label>':'')+
       '<label class="small" style="display:flex;align-items:center;gap:6px">Language <select id="sumLang" class="search" style="min-width:auto;padding:4px 8px"><option value="en">English</option><option value="he">עברית</option></select></label></div>'+
@@ -5284,10 +5284,10 @@ function tSessions(el, s){
     (x.status==="done"?'<span class="tag ok">Done</span>':x.status==="cancelled"?'<span class="tag">Cancelled</span>':(x.date<t?'<span class="tag warn">Not marked</span>':'<span class="tag board">Planned</span>'))+
     '<div class="row-actions">'+(x.status==="planned"?'<button class="btn small" data-a="done" data-id="'+x.id+'">Mark done</button>':"")+(x.status==="done"?'<button class="btn small" data-a="sum" data-id="'+x.id+'">Send summary</button>':"")+'<button class="btn small ghost" data-a="edit" data-id="'+x.id+'">Edit</button></div></div></li>';
   const slots = s.slots||[];
-  el.innerHTML = panel("Weekly slots", slots.length ? '<ul class="list">'+slots.map(sl=>'<li><div class="main"><div class="title">↻ '+esc(slotLabel(sl))+'</div><div class="small muted">From '+esc(fmtDate(sl.start))+(sl.end?' until '+esc(fmtDate(sl.end)):' · no end date')+'</div></div><button class="btn small ghost" data-a="editSlot" data-id="'+sl.id+'">Edit</button></li>').join("")+'</ul>' : '<p class="empty" style="padding:4px 0">No weekly slot. If '+esc(s.name.split(" ")[0])+' has a fixed lesson time, add it here and the sessions are planned automatically, 8 weeks ahead.</p>', '<button class="btn small" data-a="addSlot">Add weekly slot</button>')+
+  el.innerHTML = panel("Weekly slots", slots.length ? '<ul class="list">'+slots.map(sl=>'<li><div class="main"><div class="title">↻ '+esc(slotLabel(sl))+'</div><div class="small muted">From '+esc(fmtDate(sl.start))+(sl.end?' until '+esc(fmtDate(sl.end)):' · no end date')+'</div></div><button class="btn small ghost" data-a="editSlot" data-id="'+sl.id+'">Edit</button></li>').join("")+'</ul>' : '<p class="empty" style="padding:4px 0">No weekly slot. If '+esc(firstName(s))+' has a fixed lesson time, add it here and the sessions are planned automatically, 8 weeks ahead.</p>', '<button class="btn small" data-a="addSlot">Add weekly slot</button>')+
     '<div class="grid g2" style="margin-top:16px">'+panel("Planned"+(upAll.length>up.length?" (next "+up.length+" of "+upAll.length+")":""), up.length?'<ul class="list">'+up.map(row).join("")+'</ul>':'<p class="empty">Nothing planned. Add the next session to keep momentum.</p>','<button class="btn small primary" data-a="add">Add session</button>')+
     panel("History", past.length?'<ul class="list">'+past.map(row).join("")+'</ul>':'<p class="empty">Finished sessions appear here.</p>')+'</div>'+
-    (()=>{ const tr = sortBy((s.training||[]).filter(x=>x.date>=addDays(t,-14)),"date"); return tr.length ? '<div style="margin-top:16px">'+panel(s.name.split(" ")[0]+"’s own training plan", '<ul class="list">'+tr.map(x=>'<li><div class="main"><div class="title">'+esc(fmtDate(x.date,{weekday:"short",day:"numeric",month:"short"}))+(x.time?' <span class="muted small">'+esc(x.time)+'</span>':'')+' · '+esc(x.what||"")+'</div>'+(x.note?'<div class="small muted">'+esc(x.note)+'</div>':'')+'</div><span class="small muted">'+(x.duration?esc(x.duration)+" min":"")+'</span></li>').join("")+'</ul>')+'</div>' : ""; })();
+    (()=>{ const tr = sortBy((s.training||[]).filter(x=>x.date>=addDays(t,-14)),"date"); return tr.length ? '<div style="margin-top:16px">'+panel(firstName(s)+"’s own training plan", '<ul class="list">'+tr.map(x=>'<li><div class="main"><div class="title">'+esc(fmtDate(x.date,{weekday:"short",day:"numeric",month:"short"}))+(x.time?' <span class="muted small">'+esc(x.time)+'</span>':'')+' · '+esc(x.what||"")+'</div>'+(x.note?'<div class="small muted">'+esc(x.note)+'</div>':'')+'</div><span class="small muted">'+(x.duration?esc(x.duration)+" min":"")+'</span></li>').join("")+'</ul>')+'</div>' : ""; })();
   bindActions(el,{ add:()=>editSession(s,null), edit:id=>editSession(s,s.sessions.find(x=>x.id===id)),
     addSlot:()=>editSlot(s,null), editSlot:id=>editSlot(s, s.slots.find(x=>x.id===id)),
     done:id=>markDone(s, s.sessions.find(y=>y.id===id)), sum:id=>shareSummary(s, s.sessions.find(y=>y.id===id)) });
@@ -5381,7 +5381,7 @@ function linksPanel(list, s){
   const names = (s && s.usernames)||{}, canEdit = !PARENT(), own = STUDENT() && !PARENT(), re = canEdit && linkReorder;
   list = orderedLinks(list, s);
   return '<section class="panel" style="margin-top:16px"><div class="panel-head"><h2>Useful links</h2>'+(canEdit && list.length>1 ? '<button type="button" class="btn small'+(re?' primary':'')+'" data-lk="reorder">'+(re ? "Done" : "Change order")+'</button>' : '')+'</div>'+
-    (re ? '<p class="small muted" style="margin:0 0 10px">'+(own ? "Put the sites you use most at the top." : "The order "+esc(s.name.split(" ")[0])+" sees.")+'</p>' : '')+'<div class="links-grid">'+
+    (re ? '<p class="small muted" style="margin:0 0 10px">'+(own ? "Put the sites you use most at the top." : "The order "+esc(firstName(s))+" sees.")+'</p>' : '')+'<div class="links-grid">'+
     list.map((l,i)=>{ const key = linkHost(l.url), u = key && names[key], pu = u && profileUrl(l.url, u); // one username per site (Lichess and Lichess puzzles share it)
       const moves = re && l.id ? '<div class="link-move"><button type="button" class="btn small ghost" data-lk="up" data-id="'+esc(l.id)+'"'+(i===0?' disabled':'')+' aria-label="Move '+esc(l.name)+' up">↑</button><button type="button" class="btn small ghost" data-lk="down" data-id="'+esc(l.id)+'"'+(i===list.length-1?' disabled':'')+' aria-label="Move '+esc(l.name)+' down">↓</button></div>' : '';
       return '<div class="link-card'+(re?' moving':'')+'">'+moves+'<a href="'+esc(l.url)+'" target="_blank" rel="noopener"><b>'+esc(l.name)+' <span aria-hidden="true">↗</span></b>'+
@@ -5490,7 +5490,7 @@ function streakLine(s){
   return out.length ? '<div class="medal-row">'+out.join("")+'</div>' : '';
 }
 function medalsPanel(s){
-  const st = streaksOf(s), first = s.name.split(" ")[0];
+  const st = streaksOf(s), first = firstName(s);
   return panel(STUDENT() && !PARENT() ? "My medals" : first+"’s medals", Object.keys(STREAKS).map(k=>{ const d = STREAKS[k], o = st[k], u = n=>n+" "+d.unit+(n===1?"":"s");
     if (!o) return '<div class="medal-track"><b>'+d.label+'</b><p class="small muted" style="margin:4px 0 0">'+(STUDENT() ? "Starts once your coach sets a weekly fitness goal." : "Set a weekly fitness goal in the Fitness tab to start this streak.")+'</p></div>';
     const won = k==="practice" ? o.level : tierOf(d.steps, o.best), nxt = k==="practice" ? d.steps[o.level] : d.steps.find(x=>x>o.best); // the next medal not reached yet
@@ -5527,7 +5527,7 @@ function logSleep(s, date){
       saveStudent(s); render(); toast("Sleep saved"); }});
 }
 function tFitness(el, s){ const nav = groupNav(s, "fitness");
-  const t = today(), list = s.fitness||[], g = fitGoal(s), goal = g.n || g.m, first = s.name.split(" ")[0];
+  const t = today(), list = s.fitness||[], g = fitGoal(s), goal = g.n || g.m, first = firstName(s);
   const byMin = !g.n && !!g.m; // a minutes-only goal: the bars count minutes
   const weeks = []; for (let i=7;i>=0;i--){ const a = addDays(weekStartOf(t),-7*i), b = addDays(a,6), ws = list.filter(w=>w.date>=a && w.date<=b); weeks.push({a, n:ws.length, m:ws.reduce((x,w)=>x+(+w.minutes||0),0)}); }
   const now = weeks[7], val = w=>byMin ? w.m : w.n, maxN = Math.max(byMin ? g.m : g.n, ...weeks.map(val), 1);
@@ -5618,7 +5618,7 @@ function openPractice(s, entry, preset){
     {name:"cbFile",label:"ChessBase file",value:x?.cbFile||"",full:true,placeholder:"e.g. Rook endings.cbv",suggest:cbFiles,show:isCB},
     {name:"cbSection",label:"Chapter or section",value:x?.cbSection||"",placeholder:"e.g. Lucena position",show:isCB},
     {name:"cbCount",label:"Positions / games covered",type:"number",value:x?.cbCount??"",min:0,show:isCB},
-    {name:"gWhose",label:"Whose game",type:"select",options:[["own","A game "+s.name.split(" ")[0]+" played"],["other","A game by other players"]],value:x?.gWhose||((x?.gameId&&(state.games.find(g=>g.id===x.gameId)||{}).kind==="study")?"other":"own"),full:true,show:isGame},
+    {name:"gWhose",label:"Whose game",type:"select",options:[["own","A game "+firstName(s)+" played"],["other","A game by other players"]],value:x?.gWhose||((x?.gameId&&(state.games.find(g=>g.id===x.gameId)||{}).kind==="study")?"other":"own"),full:true,show:isGame},
     {name:"gameId",label:"Which game",type:"select",options:gameOpts,value:x?.gameId||"",full:true,show:isGame},
     {name:"gStatus",label:"Analysis status after this session",type:"select",options:ANALYSIS_STATUS.slice(1),value:x?.gStatus||"In progress",full:true,show:isGame},
     {name:"bookId",label:"Book",type:"select",options:bookOpts,value:x?.bookId||"",full:true,show:showBook},
@@ -5685,7 +5685,7 @@ function syncBook(s, b, w){
   if (w.page!=="" && w.page!=null && (!b.lastRead || w.date>=b.lastRead)) b.page = +w.page;
   if (!b.lastRead || w.date>b.lastRead) b.lastRead = w.date;
   if (b.status==="Want to read" || b.status==="Paused"){ b.status = "Reading"; if (!b.started) b.started = w.date; }
-  if (b.pages && bookPages(s, b).read>=+b.pages && b.status!=="Finished"){ b.status = "Finished"; b.finished = w.date; setTimeout(()=>toast(s.name.split(" ")[0]+" finished “"+b.title+"”"),60); }
+  if (b.pages && bookPages(s, b).read>=+b.pages && b.status!=="Finished"){ b.status = "Finished"; b.finished = w.date; setTimeout(()=>toast(firstName(s)+" finished “"+b.title+"”"),60); }
 }
 
 /* ---------- books ---------- */
@@ -5739,7 +5739,7 @@ function editBook(s, b){
       s.books = s.books.filter(y=>y.id!==x.id); s.worklog.forEach(w=>{ if (w.bookId===x.id){ w.bookTitle = x.title; w.bookId = ""; } }); saveStudent(s); render(); toast("Book deleted"); })},
     onSubmit:d=>{
       const lb = d.lib && bookLib().find(y=>y.id===d.lib); delete d.lib;
-      if (lb){ if (s.books.some(y=>y.libId===lb.id)) return s.name.split(" ")[0]+" already has this book.";
+      if (lb){ if (s.books.some(y=>y.libId===lb.id)) return firstName(s)+" already has this book.";
         Object.assign(d, {title:lb.title, author:lb.author||"", topic:lb.topic||"Other", pages:lb.pages||""}); if (!d.notes) d.notes = lb.notes||""; x.libId = lb.id; }
       if (!d.title) return "Enter the book's title.";
       if (d.pages!=="" && d.page!=="" && +d.page > +d.pages) return "The current page is past the end of the book.";
@@ -5774,7 +5774,7 @@ function uploadBookPdf(s, b){
     const path = s.id+"/"+b.id+".pdf"; toast("Uploading “"+f.name+"”…");
     let r; try { r = await bookFiles().upload(path, f, {upsert:true, contentType:"application/pdf"}); } catch(e){ r = {error:e}; }
     if (r.error) return toast(storageErr(r.error));
-    b.pdf = {path, name:f.name.slice(0,120), size:f.size, at:today()}; saveStudent(s); render(); toast("PDF attached — "+s.name.split(" ")[0]+" can open it from Books");
+    b.pdf = {path, name:f.name.slice(0,120), size:f.size, at:today()}; saveStudent(s); render(); toast("PDF attached — "+firstName(s)+" can open it from Books");
   };
   document.body.appendChild(inp); inp.hidden = true; inp.click(); setTimeout(()=>inp.remove(), 60000);
 }
@@ -5787,7 +5787,7 @@ async function openBookPdf(b){
 }
 function removeBookPdf(s, b){
   if (!b || !b.pdf) return;
-  confirmBox("Remove the PDF?", "“"+(b.pdf.name||"The PDF")+"” is deleted, and "+s.name.split(" ")[0]+" can no longer open it. The book stays.", "Remove", async ()=>{
+  confirmBox("Remove the PDF?", "“"+(b.pdf.name||"The PDF")+"” is deleted, and "+firstName(s)+" can no longer open it. The book stays.", "Remove", async ()=>{
     try { await bookFiles().remove([b.pdf.path]); } catch(e){}
     delete b.pdf; saveStudent(s); render(); toast("PDF removed"); });
 }
@@ -5865,14 +5865,14 @@ function giveLibBook(lb){
   if (!act.length) return toast("Add a student first.");
   const has = s=>s.books.some(b=>b.libId===lb.id);
   openForm({title:"Give “"+lb.title+"”", submit:"Give book", fields:[
-      {name:"to",label:"Student",type:"select",options:[...sortBy(act,"name").map(s=>[s.id, s.name+(has(s)?" (already has it)":"")]),
+      {name:"to",label:"Student",type:"select",options:[...sortBy(act,"name").map(s=>[s.id, fullName(s)+(has(s)?" (already has it)":"")]),
         ...clubRules().map(r=>({r, n:act.filter(s=>(s.clubIds||[]).includes(r.id)).length})).filter(g=>g.n).map(g=>["club:"+g.r.id, "Whole group: "+clubName(g.r)+" ("+g.n+")"])],value:"",full:true,
        hint:lb.pdf ? "The PDF comes with it." : "This book has no PDF yet — attach one in the library first if you want it to come with the book."}],
     onSubmit:d=>{
       const ss = /^club:/.test(d.to) ? act.filter(s=>(s.clubIds||[]).includes(d.to.slice(5))) : act.filter(s=>s.id===d.to);
       const todo = ss.filter(s=>!has(s)); if (!todo.length) return ss.length===1 ? "They already have this book." : "Everyone in that group already has this book.";
       setTimeout(async ()=>{ let ok = 0; for (const s of todo) if (await addLibBook(lb, s)) ok++; render();
-        toast(ok===todo.length ? "“"+lb.title+"” given to "+(todo.length===1 ? todo[0].name.split(" ")[0] : todo.length+" students") : "The book was added, but its PDF couldn’t be copied for "+(todo.length-ok)+" student(s). Try “Attach PDF” on their book."); }, 0);
+        toast(ok===todo.length ? "“"+lb.title+"” given to "+(todo.length===1 ? firstName(todo[0]) : todo.length+" students") : "The book was added, but its PDF couldn’t be copied for "+(todo.length-ok)+" student(s). Try “Attach PDF” on their book."); }, 0);
     }});
 }
 function tBooks(el, s){
@@ -5909,7 +5909,7 @@ function tBooks(el, s){
   const section = (title, list, empty)=> list.length || empty ? '<h2 class="shelf-h">'+title+' <span class="muted small">'+list.length+'</span></h2>'+(list.length?'<div class="shelf">'+list.map(card).join("")+'</div>':'<p class="empty">'+empty+'</p>') : "";
   el.innerHTML = groupNav(s,"books")+'<div class="page-head" style="margin-bottom:8px"><p class="sub" style="margin:0">'+by("Reading").length+' reading now · '+finishedYear+' finished in '+year+' · '+recentPages+' pages in the last 4 weeks</p><button class="btn primary" data-a="add">Add book</button></div>'+
     (s.books.length ? section("Reading now", sortBy(by("Reading"),"lastRead",-1), "Nothing in progress.")+section("Up next", by("Want to read"))+section("Paused", by("Paused"))+section("Finished", sortBy(by("Finished"),"finished",-1))
-      : '<section class="panel"><p class="empty" style="margin:0">No books yet. Add the books '+esc(s.name.split(" ")[0])+' is working through — then log reading here or from Daily work, and the current page, last-read date and pace update on their own.</p></section>');
+      : '<section class="panel"><p class="empty" style="margin:0">No books yet. Add the books '+esc(firstName(s))+' is working through — then log reading here or from Daily work, and the current page, last-read date and pace update on their own.</p></section>');
   bindActions(el,{
     add:()=>editBook(s,null),
     edit:id=>editBook(s, s.books.find(b=>b.id===id)),
@@ -5951,7 +5951,7 @@ function editGame(s, g, preset){
   openForm({title:isNew?"Add game":"Edit game", submit:isNew?"Add game":"Save changes", fields:[
       {name:"opponent",label:"Opponent",value:x.opponent,placeholder:"Opponent's name",suggest:opps},
       {name:"opponentRating",label:"Opponent's rating",type:"number",value:x.opponentRating,min:0},
-      {name:"color",label:s.name.split(" ")[0]+" played",type:"select",options:["White","Black"],value:x.color},
+      {name:"color",label:firstName(s)+" played",type:"select",options:["White","Black"],value:x.color},
       {name:"result",label:"Result",type:"select",options:[["1-0","1-0"],["½-½","½-½"],["0-1","0-1"],["*","Unfinished / unknown"]],value:x.result},
       {name:"date",label:"Date played",type:"date",value:x.date},
       {name:"timeControl",label:"Time control",type:"select",options:TIME_CONTROLS,value:x.timeControl},
@@ -6028,7 +6028,7 @@ function tGames(el, s){
           '<td>'+statusTag(g.analysis)+(g.lastAnalysed?'<div class="small muted">'+esc(fmtShort(g.lastAnalysed))+'</div>':'')+'</td>'+
           '<td class="c-act"><div class="row-actions" style="flex-wrap:nowrap">'+(g.pgn?'<button class="btn small" data-a="board" data-id="'+g.id+'">Board</button>':'')+'<button class="btn small ghost" data-a="analyse" data-id="'+g.id+'">Log analysis</button><button class="btn small ghost" data-a="editGame" data-id="'+g.id+'">Edit</button></div></td></tr>').join("")+
         '</tbody></table></div>'
-        : '<p class="empty">'+(all.length?"No games match this filter.":"No games yet. Add them one by one, or import a PGN file from a tournament — games are matched to "+esc(s.name.split(" ")[0])+"’s side and to tournaments automatically.")+'</p>')+
+        : '<p class="empty">'+(all.length?"No games match this filter.":"No games yet. Add them one by one, or import a PGN file from a tournament — games are matched to "+esc(firstName(s))+"’s side and to tournaments automatically.")+'</p>')+
     '</section>';
   $("#gImport").onchange = async e=>{ const files = [...e.target.files]; e.target.value = ""; let txt = ""; for (const f of files){ if (f.size>4*1024*1024){ toast(f.name+" is too large (over 4 MB)."); continue; } txt += "\n\n"+await f.text(); } if (txt.trim()) importGames(s, txt); };
   bindActions(el,{
@@ -6134,7 +6134,7 @@ function tStudied(el, s){
             '<td>'+statusTag(g.analysis)+(g.lastAnalysed?'<div class="small muted">'+esc(fmtShort(g.lastAnalysed))+'</div>':'')+'</td>'+
             '<td class="c-act"><div class="row-actions" style="flex-wrap:nowrap">'+(g.pgn?'<button class="btn small" data-a="board" data-id="'+g.id+'">Board</button>':'')+'<button class="btn small ghost" data-a="analyse" data-id="'+g.id+'">Log analysis</button><button class="btn small ghost" data-a="editS" data-id="'+g.id+'">Edit</button></div></td></tr>'; }).join("")+
         '</tbody></table></div>'
-        :'<p class="empty">'+(all.length?"No games match this filter.":"No model games yet. Add classic or model games "+esc(s.name.split(" ")[0])+" analyses — from a book, a ChessBase database, or games you choose — and log each analysis session against them.")+'</p>')+
+        :'<p class="empty">'+(all.length?"No games match this filter.":"No model games yet. Add classic or model games "+esc(firstName(s))+" analyses — from a book, a ChessBase database, or games you choose — and log each analysis session against them.")+'</p>')+
     '</section>';
   $("#sImport").onchange = async e=>{ const files = [...e.target.files]; e.target.value = ""; let txt = ""; for (const f of files){ if (f.size>4*1024*1024){ toast(f.name+" is too large (over 4 MB)."); continue; } txt += "\n\n"+await f.text(); } if (txt.trim()) importStudy(s, txt); };
   bindActions(el,{
@@ -6264,7 +6264,7 @@ function openingsPanel(s){
   const games = studentGames(s.id), withMoves = [], groups = {};
   games.forEach(g=>{ const o = openingOf(g); if (!o) return; withMoves.push(g); (groups[o.key] = groups[o.key] || Object.assign({games:[], replies:{}}, o)).games.push(g); if (o.reply) groups[o.key].replies[o.reply] = (groups[o.key].replies[o.reply]||0)+1; });
   if (!games.length) return "";
-  if (!withMoves.length) return '<p class="small muted" style="margin:0 0 12px">Add the moves (PGN) to the games in the Games tab to see which openings '+esc(s.name.split(" ")[0])+' meets and how they score.</p>';
+  if (!withMoves.length) return '<p class="small muted" style="margin:0 0 12px">Add the moves (PGN) to the games in the Games tab to see which openings '+esc(firstName(s))+' meets and how they score.</p>';
   const lines = key=>s.repertoire.filter(x=>x.v===2 && repKey(x)===key);
   const rows = Object.values(groups).map(o=>Object.assign(o, {sc:scoreLine(o.games), have:lines(o.key)}))
     .sort((a,b)=>(a.have.length?1:0)-(b.have.length?1:0) || b.games.length-a.games.length);
@@ -6317,7 +6317,7 @@ function tRepertoire(el, s){
   const firsts = WHITE_FIRST.filter(f=>white.some(x=>(x.firstMove||"1.e4")===f));
   const whiteHtml = firsts.length ? firsts.map(f=>{ const body = groupRows(DEFENCES[f], white.filter(x=>(x.firstMove||"1.e4")===f), x=>x.against, CORE[f], k=>({color:"White", firstMove:f, against:k}));
       return body ? '<h4 class="rep-first">'+ltr(f)+'</h4>'+body : ""; }).join("") || '<p class="empty">No White lines match this filter.</p>'
-    : '<p class="empty">No White repertoire yet. Start with the first move '+esc(s.name.split(" ")[0])+' plays, then add an answer to each defence.</p>';
+    : '<p class="empty">No White repertoire yet. Start with the first move '+esc(firstName(s))+' plays, then add an answer to each defence.</p>';
   const blackHtml = black.length ? (groupRows(BLACK_AGAINST, black, x=>x.against, BLACK_CORE, k=>({color:"Black", against:k})) || '<p class="empty">No Black lines match this filter.</p>')
     : '<p class="empty">No Black repertoire yet.</p>'+groupRows(BLACK_AGAINST, [], x=>x.against, BLACK_CORE, k=>({color:"Black", against:k}));
   el.innerHTML = groupNav(s,"repertoire")+'<p class="sub" style="margin:0 0 12px">'+[count("Studied")+" studied", count("Learning")+" learning", count("Developing")+" in development"+(devC||devS?" ("+[devC?devC+" by you":"", devS?devS+" by the student":""].filter(Boolean).join(", ")+")":""), count("Needs review")+(count("Needs review")===1?" needs":" need")+" review"].join(" · ")+'</p>'+(STUDENT() ? "" : openingsPanel(s))+
@@ -6494,7 +6494,7 @@ function tPayments(el, s){
   const rows = [...l.charges.map(c=>({date:c.date,label:c.label,charge:c.amount})), ...s.payments.map(p=>({date:p.date,label:payLabel(s,p),pay:+p.amount,id:p.id,kind:"pay",note:p.note})), ...s.charges.map(c=>({date:c.date,id:c.id,kind:"chargeRef"}))]
     .filter(r=>r.kind!=="chargeRef").sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:(a.pay?1:-1));
   rows.forEach(r=>{ run += (r.charge||0)-(r.pay||0); r.bal = run; });
-  const first = s.name.split(" ")[0];
+  const first = firstName(s);
   const share = '<div class="pay-share">'+(s.payShared
       ? '<span class="tag ok">Visible in '+esc(first)+'’s app</span> <span class="small muted">'+esc(first)+' sees a Payments tab with the balance and statement.</span> <button class="btn small ghost" data-a="payHide">Hide from '+esc(first)+'’s app</button>'
       : '<span class="small muted">Only you'+(familyOf(s) ? ' and the parent' : '')+' see these payments.</span> <button class="btn small" data-a="payShow">Show payments in '+esc(first)+'’s app</button>')+
@@ -6538,7 +6538,7 @@ function asTag(a){ const t = today();
   if (a.due && a.due<t) return '<span class="tag flag">Overdue</span>';
   return '<span class="tag board">Assigned</span>'; }
 function asRow(a, showStudent){ const s = byId(a.studentId); const n = (a.games||[]).length;
-  return '<a class="as-row" href="#/assignment/'+a.id+'"><div class="main"><div class="title">'+esc(a.title)+'</div><div class="small muted">'+[showStudent&&s?esc(s.name):"", esc(a.type), n+" game"+(n===1?"":"s"), a.due?"due "+esc(fmtShort(a.due)):""].filter(Boolean).join(" · ")+'</div></div>'+asTag(a)+'</a>'; }
+  return '<a class="as-row" href="#/assignment/'+a.id+'"><div class="main"><div class="title">'+esc(a.title)+'</div><div class="small muted">'+[showStudent&&s?esc(fullName(s)):"", esc(a.type), n+" game"+(n===1?"":"s"), a.due?"due "+esc(fmtShort(a.due)):""].filter(Boolean).join(" · ")+'</div></div>'+asTag(a)+'</a>'; }
 function asSort(list){ const rank = {Submitted:0, Assigned:1, Reviewed:2}; return list.slice().sort((a,b)=>(rank[a.status]-rank[b.status]) || (a.status==="Reviewed" ? ((b.due||"")>(a.due||"")?1:-1) : ((a.due||"9")<(b.due||"9")?-1:1))); }
 
 /* assignment library: reusable assignments kept in settings (title, type, instructions, games) */
@@ -6616,7 +6616,7 @@ function tAssignments(el, s){
     el.innerHTML = box("To do", todo, PARENT() ? "All assignments are done." : "All tasks are done, nice job!")+(done.length ? box("Done", done, "") : "");
   } else
   el.innerHTML = '<section class="panel" style="padding:0"><div class="panel-head"><h2>Assignments</h2>'+coachOnly('<button class="btn small primary" data-a="new">New assignment</button>')+'</div>'+
-    (list.length ? list.map(a=>'<div class="as-item">'+asRow(a,false)+(a.status==="Assigned"?'<button class="btn small" data-a="done" data-id="'+a.id+'">Mark done</button>':'')+'</div>').join("") : '<p class="empty" style="padding:4px 18px 18px">'+(PARENT() ? 'All assignments are done.' : STUDENT() ? 'All tasks are done, nice job!' : 'No assignments yet. Add a task like “30 puzzles on pins”, or upload games in PGN for '+esc(s.name)+' to analyse.')+'</p>')+'</section>';
+    (list.length ? list.map(a=>'<div class="as-item">'+asRow(a,false)+(a.status==="Assigned"?'<button class="btn small" data-a="done" data-id="'+a.id+'">Mark done</button>':'')+'</div>').join("") : '<p class="empty" style="padding:4px 18px 18px">'+(PARENT() ? 'All assignments are done.' : STUDENT() ? 'All tasks are done, nice job!' : 'No assignments yet. Add a task like “30 puzzles on pins”, or upload games in PGN for '+esc(fullName(s))+' to analyse.')+'</p>')+'</section>';
   bindActions(el,{ new:()=>editAssignment(null, s.id),
     done:id=>{ const a = state.assignments.find(x=>x.id===id); a.status = "Submitted"; a.submitted = today(); saveAssignment(a); render(); toast(STUDENT() ? "Marked done — your coach will review it" : "Marked done — waiting for your review"); } });
 }
@@ -6658,7 +6658,7 @@ function pAssignment(v, r){
   if (!a || !s){ v.innerHTML = '<p class="empty">This assignment no longer exists. <a href="#/assignments">Back to assignments</a></p>'; return; }
   a.games = a.games||[];
   const pct = Math.round(JSON.stringify(a).length / MAX_DOC * 100);
-  v.innerHTML = '<a class="crumb" href="#/student/'+s.id+'/assignments">‹ '+esc(s.name)+'</a>'+
+  v.innerHTML = '<a class="crumb" href="#/student/'+s.id+'/assignments">‹ '+esc(fullName(s))+'</a>'+
     '<div class="page-head"><div><h1>'+esc(a.title)+'</h1><p class="sub">'+[esc(a.type), "Given "+esc(fmtShort(a.assigned||today())), a.due?"due "+esc(fmtDate(a.due)):""].filter(Boolean).join(" · ")+'</p></div>'+
     '<div class="row-actions"><div class="seg" role="group" aria-label="Status" style="margin:0">'+(STUDENT() && a.status==="Reviewed" ? '<button type="button" class="on">'+STATUS_LABEL.Reviewed+'</button>' : AS_STATUS.filter(x=>!STUDENT() || x!=="Reviewed").map(x=>'<button type="button" class="'+(a.status===x?"on":"")+'" data-a="status" data-id="'+x+'">'+STATUS_LABEL[x]+'</button>').join(""))+'</div>'+coachOnly('<button class="btn" data-a="lib">Save to library</button><button class="btn" data-a="edit">Edit</button>')+'</div></div>'+
     '<section class="panel" style="margin-bottom:16px"><div class="panel-head"><h2>Games <span class="small muted" style="font-weight:400;font-family:var(--body)">optional</span></h2><div class="row-actions">'+
@@ -6696,7 +6696,7 @@ function pAssignment(v, r){
     gdel:id=>{ const g = a.games.find(x=>x.id===id); confirmBox("Remove this game?", g.white+" – "+g.black+" will be removed from the assignment.","Remove",()=>{ a.games = a.games.filter(x=>x.id!==id); saveAssignment(a); render(); }); },
     dl:async ()=>{
       const data = a.games.map(g=>g.pgn.trim()).join("\n\n")+"\n";
-      const name = (s.name+" "+a.title).toLowerCase().replace(/[^a-z0-9\u0590-\u05ff]+/g,"-").replace(/^-|-$/g,"").slice(0,80)+".pgn";
+      const name = (fullName(s)+" "+a.title).toLowerCase().replace(/[^a-z0-9\u0590-\u05ff]+/g,"-").replace(/^-|-$/g,"").slice(0,80)+".pgn";
       let dl = null; try { dl = window.claude && await window.claude.use("downloads"); } catch(e){}
       if (!dl) return toast("Downloads aren't available here.");
       try { await dl.save({filename:name, data}); } catch(e){ if (e && e.code!=="cancelled") toast("The file wasn't saved."); }
@@ -6794,6 +6794,9 @@ function freeRules(){ return state.settings.free||[]; }
 /* ---------- club classes: the coach's work at a club, paid by the hour ---------- */
 // settings.club holds {id, name, place, kind:"weekly"|"once", weekday, start, end, date, from, to, rate, skip:[dates]}.
 // They are only the coach's: they block the coach's time and count club hours, students never see them.
+// A student's name in the app's language: the Hebrew full name (and its first word) when there is one.
+const fullName = s=>(lang()==="he" && (s.fullHe||"").trim()) || s.name;
+const firstName = s=>(lang()==="he" && (((s.fullHe||"").trim().split(/\s+/)[0]) || (s.nameHe||"").trim())) || s.name.split(" ")[0];
 const clubRules = ()=>state.settings.club||[];
 // A class's name in the app's language: the Hebrew name when there is one.
 const clubName = r=>(lang()==="he" && (r.nameHe||"").trim()) || r.name;
@@ -6928,7 +6931,7 @@ function clashesFor(sid, c){
   });
   if (st!==null) clubOn(c.date).forEach(o=>{ if (o.a<en && st<o.b) out.push({kind:"club", text:"Your club class "+clubName(o.r)+" "+o.r.from+"–"+o.r.to}); });
   const me = byId(sid);
-  if (me) me.tournaments.forEach(t=>{ if (playDates(t) ? playDates(t).includes(c.date) : t.start && c.date>=t.start && c.date<=(t.end||t.start)) out.push({kind:"tour", text:me.name.split(" ")[0]+" is playing "+t.name+" that day"}); });
+  if (me) me.tournaments.forEach(t=>{ if (playDates(t) ? playDates(t).includes(c.date) : t.start && c.date>=t.start && c.date<=(t.end||t.start)) out.push({kind:"tour", text:firstName(me)+" is playing "+t.name+" that day"}); });
   return out;
 }
 function clashCheck(sid, c, st){
@@ -6943,7 +6946,7 @@ function slotLabel(sl){ return "Every "+WEEKDAYS[+sl.weekday]+" · "+sl.time+" �
 function editSlot(s, sl, preset){
   const isNew = !sl; const x = sl || Object.assign({id:uid(), weekday:dow(today()), time:"17:00", duration:90, format:"In person", fee:s.rate, start:today(), end:""}, preset||{});
   const ack = {};
-  openForm({title:(isNew?"Add weekly slot":"Edit weekly slot")+" — "+s.name, submit:isNew?"Add slot":"Save changes", fields:[
+  openForm({title:(isNew?"Add weekly slot":"Edit weekly slot")+" — "+fullName(s), submit:isNew?"Add slot":"Save changes", fields:[
       {name:"weekday",label:"Day",type:"select",options:WEEKDAYS.map((d,i)=>[String(i),d]),value:String(x.weekday)},
       {name:"time",label:"Start time",type:"time",value:x.time},
       {name:"duration",label:"Duration (minutes)",type:"number",value:x.duration,min:15},
@@ -6993,7 +6996,7 @@ function planSession(preset){
       if (d.repeat==="weekly"){
         const sl = {id:uid(), weekday:dow(d.date||today()), time:d.time, duration:dur, format:d.format, fee, start:d.date||today(), end:d.end};
         const err = clashCheck(s.id, {id:"-", date:sl.start, time:sl.time, duration:dur, format:d.format}, ack); if (err) return err;
-        s.slots = s.slots||[]; s.slots.push(sl); ensureRecurring(s); saveStudent(s); render(); toast("Weekly slot added for "+s.name); return;
+        s.slots = s.slots||[]; s.slots.push(sl); ensureRecurring(s); saveStudent(s); render(); toast("Weekly slot added for "+fullName(s)); return;
       }
       const x = {id:uid(), date:d.date||today(), time:d.time, duration:dur, format:d.format, status:"planned", topics:d.topics, notes:"", fee, added:today()};
       const err = clashCheck(s.id, x, ack); if (err) return err;
@@ -7002,7 +7005,7 @@ function planSession(preset){
 }
 function moveSession(s, x){
   const ack = {};
-  openForm({title:"Move session — "+s.name, submit:"Move", fields:[
+  openForm({title:"Move session — "+fullName(s), submit:"Move", fields:[
       {name:"date",label:"Date",type:"date",value:x.date},{name:"time",label:"Start time",type:"time",value:x.time||""},
       {name:"duration",label:"Duration (minutes)",type:"number",value:x.duration??90,min:15}],
     onSubmit:d=>{
@@ -7017,7 +7020,7 @@ function moveSession(s, x){
 function sessionActions(s, x){
   const m = $("#modal"); const cl = x.status==="cancelled" ? [] : clashesFor(s.id, x);
   const end = toMin(x.time)!==null ? fmtMin(toMin(x.time)+(+x.duration||60)) : "";
-  m.innerHTML = '<div class="modal-form"><header><h2>'+esc(s.name)+'</h2><p class="sub small">'+esc(fmtDay(x.date))+(x.time?" · "+esc(x.time)+"–"+end:" · no time set")+' · '+esc(x.format||"")+(x.slotId?' · weekly slot':'')+'</p></header>'+
+  m.innerHTML = '<div class="modal-form"><header><h2>'+esc(fullName(s))+'</h2><p class="sub small">'+esc(fmtDay(x.date))+(x.time?" · "+esc(x.time)+"–"+end:" · no time set")+' · '+esc(x.format||"")+(x.slotId?' · weekly slot':'')+'</p></header>'+
     '<div style="padding:8px 20px 4px">'+(x.topics?'<p style="margin:0 0 8px">'+esc(x.topics)+'</p>':'')+
     (cl.length?'<div class="clash-box">'+cl.map(c=>'<div>⚠ '+esc(c.text)+'</div>').join("")+'</div>':'')+
     '<p class="small muted" style="margin:6px 0 0">Status: '+esc({planned:"Planned",done:"Done",cancelled:"Cancelled"}[x.status])+(x.status==="done"?" · "+money(x.fee)+" charged":"")+'</p></div>'+
@@ -7105,7 +7108,7 @@ const clubKids = (r, d)=>{ const was = ((r.att||{})[d])||[];
   return sortBy(state.students.filter(s=>!s.self && ((s.active && (s.clubIds||[]).includes(r.id)) || was.includes(s.id))), "name"); };
 // First names (in Hebrew when there is one); the full name when two share a first name.
 function kidNames(list){
-  const first = s=>(lang()==="he" && (s.nameHe||"").trim()) || s.name.split(" ")[0], n = {};
+  const first = s=>(lang()==="he" && (s.nameHe||"").trim()) || firstName(s), n = {};
   list.forEach(s=>{ n[first(s)] = (n[first(s)]||0)+1; });
   return id=>{ const s = list.find(x=>x.id===id); return !s ? "" : n[first(s)]>1 ? s.name : first(s); };
 }
@@ -7151,12 +7154,12 @@ function pClub(v){
   const dates = []; for (let x=first; x<=last; x=addDays(x,1)) if (classOn(x)) dates.push(x);
   const att = r.att||{}, members = sortBy(state.students.filter(s=>!s.self && s.active && (s.clubIds||[]).includes(r.id)), "name");
   const kids = sortBy(state.students.filter(s=>!s.self && ((s.active && (s.clubIds||[]).includes(r.id)) || dates.some(x=>(att[x]||[]).includes(s.id)))), "name");
-  const held = dates.filter(x=>att[x]), nm = kidNames(kids), rowName = s=>he ? nm(s.id) : s.name, dayLbl = x=>x===t ? (he ? "היום" : "Today") : fmtDate(x,{weekday:"short",day:"numeric",month:"short"});
+  const held = dates.filter(x=>att[x]), nm = kidNames(kids), rowName = s=>he ? ((s.fullHe||"").trim() || nm(s.id)) : s.name, dayLbl = x=>x===t ? (he ? "היום" : "Today") : fmtDate(x,{weekday:"short",day:"numeric",month:"short"});
   const mins = toMin(r.to)-toMin(r.from), taught = dates.filter(x=>x<=t).length, hrs = Math.round(taught*mins/6)/10, pay = Math.round(taught*mins/60*(+r.rate||0)*100)/100;
   const cancelled = (r.skip||[]).filter(x=>x>=t).sort(), ch = groupChallenge(r, null);
   const cell = (s,x)=>{ if (x>t) return '<td class="att-c muted">·</td>';
     const L = att[x], on = !!L && L.includes(s.id);
-    return '<td class="att-c"><button type="button" class="att-cell'+(on?' on':L?' off':'')+'" data-a="att" data-id="'+r.id+'|'+x+'|'+s.id+'" aria-label="'+esc(s.name+" "+x)+'">'+(on?'✓':L?'✗':'–')+'</button></td>'; };
+    return '<td class="att-c"><button type="button" class="att-cell'+(on?' on':L?' off':'')+'" data-a="att" data-id="'+r.id+'|'+x+'|'+s.id+'" aria-label="'+esc(fullName(s)+" "+x)+'">'+(on?'✓':L?'✗':'–')+'</button></td>'; };
   v.innerHTML = head+
     // all the classes
     '<section class="panel" style="margin-bottom:16px"><div class="panel-head"><h2>Your classes ('+groups.length+')</h2></div><ul class="list">'+
@@ -7173,7 +7176,7 @@ function pClub(v){
         (ch?'<div><span class="muted">Workout challenge</span> <b class="num">'+ch.done+'</b>/'+ch.target+(he?' החודש':' this month')+'</div>':'')+
       '</div>'+
       '<h3 class="club-h">Students ('+members.length+')</h3>'+
-      (members.length ? '<p style="margin:0">'+members.map(s=>'<a href="#/student/'+s.id+'/overview">'+esc(s.name)+'</a>').join(", ")+'</p>' : '<p class="small muted" style="margin:0">Nobody yet.</p>')+
+      (members.length ? '<p style="margin:0">'+members.map(s=>'<a href="#/student/'+s.id+'/overview">'+esc(fullName(s))+'</a>').join(", ")+'</p>' : '<p class="small muted" style="margin:0">Nobody yet.</p>')+
       '<p class="small muted" style="margin:4px 0 0">Add a student to the group from their profile (Club group).</p>'+
       '<h3 class="club-h">Attendance'+(d?' — '+esc(dayLbl(d)):'')+'</h3>'+
       (d ? attChips(r, d) : '<p class="small muted" style="margin:0">No class yet.</p>')+
@@ -7220,7 +7223,7 @@ function weekAssignments(first){
   const day = d=>d===t ? "Today" : d===addDays(t,1) ? "Tomorrow" : fmtDate(d,{weekday:"short",day:"numeric",month:"short"});
   return '<section class="panel" style="margin-bottom:12px"><div class="panel-head"><h2>Assignments due this week</h2><span class="small muted">'+esc(range)+'</span></div>'+
     (list.length ? '<ul class="list">'+list.map(a=>{ const st = byId(a.studentId);
-      return '<li><div class="main"><div class="title"><a href="#/assignment/'+a.id+'">'+esc(a.title)+'</a></div><div class="small muted">'+[STUDENT()||!st ? "" : esc(st.name), esc(a.type||"")].filter(Boolean).join(" · ")+'</div></div>'+
+      return '<li><div class="main"><div class="title"><a href="#/assignment/'+a.id+'">'+esc(a.title)+'</a></div><div class="small muted">'+[STUDENT()||!st ? "" : esc(fullName(st)), esc(a.type||"")].filter(Boolean).join(" · ")+'</div></div>'+
         '<div class="row-actions" style="flex-wrap:nowrap"><span class="small'+(a.status==="Assigned" && a.due<t ? '" style="color:var(--flag);font-weight:600' : '')+'">'+esc(day(a.due))+'</span>'+asTag(a)+'</div></li>'; }).join("")+'</ul>'
       : '<p class="empty" style="padding:4px 0">Nothing due this week.</p>')+'</section>';
 }
@@ -7241,12 +7244,12 @@ function pSchedule(v){
   v.innerHTML = (st ? '<div class="page-head"><div><h1>Schedule</h1><p class="sub">Your lessons, tournaments, assignments and own training</p>'+freshness(me)+'</div><div class="row-actions"><button class="btn" data-a="plan">Plan training</button><button class="btn primary" data-a="req">Request a lesson</button></div></div>'
       : '<div class="page-head"><div><h1>Schedule</h1><p class="sub">'+slotsN+' weekly slot'+(slotsN===1?"":"s")+' · sessions are planned 8 weeks ahead automatically</p></div><div class="row-actions"><button class="btn" id="scSlot">Add weekly slot</button><button class="btn primary" id="scAdd">Plan session</button></div></div>')+
     (st ? "" : freePanel())+
-    (unmarked.length?'<section class="panel" style="margin-bottom:16px;border-color:var(--warn)"><div class="panel-head"><h2>Past sessions still marked as planned</h2><span class="small muted">Marking them done adds the fee to the balance</span></div><ul class="list">'+sortBy(unmarked.map(u=>Object.assign({d:u.x.date},u)),"d",-1).map(({s,x})=>'<li><div class="main"><div class="title">'+esc(s.name)+'</div><div class="small muted">'+esc(fmtDate(x.date))+(x.time?" "+esc(x.time):"")+(x.topics?" · "+esc(x.topics):"")+'</div></div><div class="row-actions"><button class="btn small primary" data-a="done" data-id="'+s.id+'|'+x.id+'">Mark done</button><button class="btn small" data-a="cancel" data-id="'+s.id+'|'+x.id+'">Cancelled</button></div></li>').join("")+'</ul></section>':'')+
+    (unmarked.length?'<section class="panel" style="margin-bottom:16px;border-color:var(--warn)"><div class="panel-head"><h2>Past sessions still marked as planned</h2><span class="small muted">Marking them done adds the fee to the balance</span></div><ul class="list">'+sortBy(unmarked.map(u=>Object.assign({d:u.x.date},u)),"d",-1).map(({s,x})=>'<li><div class="main"><div class="title">'+esc(fullName(s))+'</div><div class="small muted">'+esc(fmtDate(x.date))+(x.time?" "+esc(x.time):"")+(x.topics?" · "+esc(x.topics):"")+'</div></div><div class="row-actions"><button class="btn small primary" data-a="done" data-id="'+s.id+'|'+x.id+'">Mark done</button><button class="btn small" data-a="cancel" data-id="'+s.id+'|'+x.id+'">Cancelled</button></div></li>').join("")+'</ul></section>':'')+
     weekAssignments(schedView==="week" ? first : t)+
     '<div class="sched-bar"><div class="seg" role="group" aria-label="View" style="margin:0"><button type="button" class="'+(schedView==="week"?"on":"")+'" data-a="view" data-id="week">'+(phone?"Days":"Week")+'</button><button type="button" class="'+(schedView==="list"?"on":"")+'" data-a="view" data-id="list">List</button></div>'+
       (schedView==="week"?'<div class="row-actions"><button class="btn small" data-a="wk" data-id="-1" aria-label="'+(phone?"Earlier days":"Previous week")+'"><span dir="ltr">'+(lang()==="he"?"›":"‹")+'</span></button><button class="btn small" data-a="wk" data-id="0">Today</button><button class="btn small" data-a="wk" data-id="1" aria-label="'+(phone?"Later days":"Next week")+'"><span dir="ltr">'+(lang()==="he"?"‹":"›")+'</span></button></div>':'')+
       '<b class="sched-title">'+esc(title)+'</b></div>'+
-    (clashes.length?'<div class="clash-box" style="margin-bottom:12px"><b>'+clashes.length+' session'+(clashes.length===1?" has a clash":"s have clashes")+' '+(schedView==="week"?(phone?"in these days":"this week"):"in the next 4 weeks")+'</b>'+clashes.map(i=>'<div>⚠ '+esc(i.s.name)+', '+esc(fmtDate(i.date,{weekday:"short",day:"numeric",month:"short"}))+(i.x.time?" "+esc(i.x.time):"")+': '+esc(i.clash.map(c=>c.text).join("; "))+' <button class="btn small ghost" data-a="open" data-id="'+i.s.id+'|'+i.x.id+'">Fix</button></div>').join("")+'</div>':'')+
+    (clashes.length?'<div class="clash-box" style="margin-bottom:12px"><b>'+clashes.length+' session'+(clashes.length===1?" has a clash":"s have clashes")+' '+(schedView==="week"?(phone?"in these days":"this week"):"in the next 4 weeks")+'</b>'+clashes.map(i=>'<div>⚠ '+esc(fullName(i.s))+', '+esc(fmtDate(i.date,{weekday:"short",day:"numeric",month:"short"}))+(i.x.time?" "+esc(i.x.time):"")+': '+esc(i.clash.map(c=>c.text).join("; "))+' <button class="btn small ghost" data-a="open" data-id="'+i.s.id+'|'+i.x.id+'">Fix</button></div>').join("")+'</div>':'')+
     (schedView==="week" ? weekGrid(first, items, n) : listView(items, t));
   const ff = $("#freeFold"); if (ff) ff.addEventListener("toggle", ()=>{ freeOpen = ff.open; });
   if (!st){ $("#scAdd").onclick = ()=>planSession(); $("#scSlot").onclick = ()=>pickStudent("Add a weekly slot for…", s=>editSlot(s,null)); }
@@ -7281,7 +7284,7 @@ const HOUR_PX = 48;
 const TIMED = {session:1, train:1, req:1, club:1};
 const evLabel = i => {
   if (i.kind==="club") return i.x.name;
-  if (!STUDENT()) return i.s.name;
+  if (!STUDENT()) return fullName(i.s);
   if (i.kind==="train") return "Training · "+(i.x.what||"");
   if (i.kind==="req") return i.x.status==="declined" ? "Declined request" : i.x.kind==="move" ? "Requested move" : "Requested lesson";
   const pc = i.kind==="session" && pendingChange(i.s, i.x);
@@ -7307,7 +7310,7 @@ function weekGrid(ws, items, n=7){
   const head = '<div class="wk-corner"></div>'+days.map(d=>'<div class="wk-dh'+(d===t?" today":"")+'"><span>'+esc(new Date(d+"T00:00").toLocaleDateString(LOCALE(),{weekday:"short"}))+'</span><b>'+new Date(d+"T00:00").getDate()+'</b></div>').join("");
   const allday = '<div class="wk-corner small muted">All day</div>'+days.map(d=>{
     const its = items.filter(i=>i.date===d && i.kind!=="free" && i.kind!=="taken" && (!TIMED[i.kind] || toMin(i.x.time)===null));
-    const who = i=>STUDENT() ? "" : ' · '+(i.all||[i.s]).map(x=>esc(x.name.split(" ")[0])).join(", ");
+    const who = i=>STUDENT() ? "" : ' · '+(i.all||[i.s]).map(x=>esc(firstName(x))).join(", ");
     return '<div class="wk-ad">'+its.map(i=>{
       if (i.kind==="tour") return '<div class="chip-ev tour" title="'+esc(i.x.name)+'">♜ '+esc(i.x.name)+who(i)+(i.round?' <span class="muted">R'+i.day+'</span>':i.days>1?' <span class="muted">'+i.day+'/'+i.days+'</span>':'')+'</div>';
       if (i.kind==="due") return '<a class="chip-ev due" href="#/assignment/'+i.x.id+'">Due: '+esc(i.x.title)+who(i)+'</a>';
@@ -7344,7 +7347,7 @@ function listView(items, t){
       const st = STUDENT(), x = i.x;
       if (i.kind==="club") return '<li><div class="main"><div class="title">'+esc(x.name)+'</div><div class="small muted">'+esc(x.time)+'–'+esc(fmtMin(toMin(x.time)+x.duration))+(x.place?' · '+esc(x.place):'')+'</div></div><span class="tag">Club class</span><button class="btn small ghost" data-a="club" data-id="'+esc(x.id)+'">Options</button></li>';
       if (i.kind==="tour") return '<li><div class="main"><div class="title">'+esc(x.name)+(i.round?' <span class="muted small">round '+i.day+'</span>':i.days>1?' <span class="muted small">day '+i.day+' of '+i.days+'</span>':'')+'</div><div class="small muted">'+[st?"":(i.all||[i.s]).map(y=>'<a href="#/student/'+y.id+'/tournaments">'+esc(y.name)+'</a>').join(", "), esc(x.location||""), st?esc(x.format||""):""].filter(Boolean).join(" · ")+'</div></div><span class="tag board">Tournament</span></li>';
-      if (i.kind==="due") return '<li><div class="main"><div class="title"><a href="#/assignment/'+x.id+'">'+esc(x.title)+'</a></div><div class="small muted">'+(st?"":esc(i.s.name)+' · ')+esc(x.type)+'</div></div><span class="tag warn">Assignment due</span></li>';
+      if (i.kind==="due") return '<li><div class="main"><div class="title"><a href="#/assignment/'+x.id+'">'+esc(x.title)+'</a></div><div class="small muted">'+(st?"":esc(fullName(i.s))+' · ')+esc(x.type)+'</div></div><span class="tag warn">Assignment due</span></li>';
       if (i.kind==="req") return '<li><div class="main"><div class="title">'+(x.kind==="move"?"Move request":"Lesson request")+'</div><div class="small muted">'+[x.time, x.duration+" min", where(x)].filter(Boolean).map(esc).join(" · ")+(x.note?' · '+esc(x.note):'')+'</div></div><div class="row-actions">'+(x.status==="pending"?'<span class="tag warn">Waiting for your coach</span><button class="btn small ghost" data-a="unreq" data-id="'+x.id+'">Cancel</button>':'<span class="tag flag">Declined</span>')+'</div></li>';
       if (i.kind==="taken") return '<li><div class="main"><div class="title muted">Taken '+esc(x.from)+'–'+esc(x.to)+'</div><div class="small muted">Another lesson</div></div><span class="tag">Booked</span></li>';
       if (i.kind==="free") return '<li><div class="main"><div class="title">Coach free '+esc(x.from)+'–'+esc(x.to)+'</div><div class="small muted">'+(x.place ? esc(x.place)+' · ' : '')+'Open for lessons</div></div><button class="btn small" data-a="reqat" data-id="'+x.date+'|'+x.from+'|'+esc(x.place||"")+'">Request</button></li>';
@@ -7352,7 +7355,7 @@ function listView(items, t){
       if (st){ const pc = pendingChange(i.s, x), na = needsAnswer(i.s, x);
         return '<li><div class="main"><div class="title">Lesson'+(x.topics?' — '+esc(x.topics):'')+(x.slotId?' <span class="muted small">↻ weekly</span>':'')+'</div><div class="small muted">'+[x.time||"No time set", x.duration?x.duration+" min":"", where(x)].filter(Boolean).map(esc).join(" · ")+'</div></div><div class="row-actions">'+
           (x.status==="done"?'<span class="tag ok">Done</span>' : na ? '<span class="tag warn">Answer needed</span><button class="btn small" data-a="open" data-id="'+i.s.id+'|'+x.id+'">Answer</button>' : pc ? '<span class="tag warn">'+(pc.kind==="cancel"?"Cancel requested":"Move requested")+'</span><button class="btn small ghost" data-a="open" data-id="'+i.s.id+'|'+x.id+'">Withdraw</button>' : changeable(x) ? '<button class="btn small ghost" data-a="open" data-id="'+i.s.id+'|'+x.id+'">Can\'t make it?</button>' : '<span class="tag board">Lesson</span>')+'</div></li>'; }
-      return '<li><div class="main"><div class="title"><a href="#/student/'+i.s.id+'/sessions">'+esc(i.s.name)+'</a>'+(x.slotId?' <span class="muted small">↻ weekly</span>':'')+'</div><div class="small muted">'+esc(x.time||"No time set")+(x.duration?" · "+x.duration+" min":"")+" · "+esc(where(x)||"")+(x.topics?" · "+esc(x.topics):"")+'</div>'+(i.clash.length?'<div class="small" style="color:var(--flag)">⚠ '+esc(i.clash.map(c=>c.text).join("; "))+'</div>':'')+'</div>'+
+      return '<li><div class="main"><div class="title"><a href="#/student/'+i.s.id+'/sessions">'+esc(fullName(i.s))+'</a>'+(x.slotId?' <span class="muted small">↻ weekly</span>':'')+'</div><div class="small muted">'+esc(x.time||"No time set")+(x.duration?" · "+x.duration+" min":"")+" · "+esc(where(x)||"")+(x.topics?" · "+esc(x.topics):"")+'</div>'+(i.clash.length?'<div class="small" style="color:var(--flag)">⚠ '+esc(i.clash.map(c=>c.text).join("; "))+'</div>':'')+'</div>'+
         '<div class="row-actions">'+(x.status==="done"?'<span class="tag ok">Done</span>':'<button class="btn small" data-a="move" data-id="'+i.s.id+'|'+x.id+'">Move</button><button class="btn small ghost" data-a="open" data-id="'+i.s.id+'|'+x.id+'">More</button>')+'</div></li>';
     }).join("")+'</ul></section></div>').join("");
 }
@@ -7379,10 +7382,10 @@ function pPayments(v){
   v.innerHTML = '<div class="page-head"><div><h1>Payments</h1><p class="sub">Unpaid is anything older than '+esc(state.settings.overdueDays)+' days — change this in Settings</p></div><button class="btn primary" id="pRec">Record payment</button></div>'+
     '<div class="stats"><div class="stat"><div class="v num'+(out>0?" money-owed":"")+'">'+money(out)+'</div><div class="l">Outstanding</div></div><div class="stat"><div class="v num">'+overdueN+'</div><div class="l">Students overdue</div></div><div class="stat"><div class="v num">'+money(rec)+'</div><div class="l">Received this month</div></div><div class="stat"><div class="v num">'+allPays.length+'</div><div class="l">Payments recorded</div></div></div>'+
     '<section class="panel" style="margin-bottom:16px"><div class="panel-head"><h2>Balances</h2></div><div class="table-wrap"><table><thead><tr><th>Student</th><th class="r">Charged</th><th class="r">Paid</th><th class="r">Balance</th><th>Last payment</th><th>Status</th><th></th></tr></thead><tbody>'+
-    rows.map(({s,l})=>'<tr><td><a href="#/student/'+s.id+'/payments">'+esc(s.name)+'</a></td><td class="r num">'+money(l.charged)+'</td><td class="r num">'+money(l.paid)+'</td><td class="r num'+(l.balance>0.009?" money-owed":"")+'">'+money(l.balance)+'</td><td class="small">'+(l.lastPay?esc(fmtDate(l.lastPay.date)):'<span class="muted">—</span>')+'</td><td>'+(l.overdue?'<span class="tag flag">'+l.age+' days overdue</span>':l.balance>0.009?'<span class="tag warn">Due</span>':l.balance<-0.009?'<span class="tag ok">In credit</span>':'<span class="tag ok">Paid up</span>')+'</td><td><button class="btn small" data-a="pay" data-id="'+s.id+'">Record</button></td></tr>').join("")+
+    rows.map(({s,l})=>'<tr><td><a href="#/student/'+s.id+'/payments">'+esc(fullName(s))+'</a></td><td class="r num">'+money(l.charged)+'</td><td class="r num">'+money(l.paid)+'</td><td class="r num'+(l.balance>0.009?" money-owed":"")+'">'+money(l.balance)+'</td><td class="small">'+(l.lastPay?esc(fmtDate(l.lastPay.date)):'<span class="muted">—</span>')+'</td><td>'+(l.overdue?'<span class="tag flag">'+l.age+' days overdue</span>':l.balance>0.009?'<span class="tag warn">Due</span>':l.balance<-0.009?'<span class="tag ok">In credit</span>':'<span class="tag ok">Paid up</span>')+'</td><td><button class="btn small" data-a="pay" data-id="'+s.id+'">Record</button></td></tr>').join("")+
     '</tbody></table></div></section>'+
     incomePanel()+
-    panel("Recent payments", allPays.length?'<ul class="list">'+allPays.slice(0,25).map(({s,p})=>'<li><div class="main"><div class="title">'+esc(s.name)+'</div><div class="small muted">'+esc(fmtDate(p.date))+' · '+esc(p.method||"")+(p.note?" · "+esc(p.note):"")+'</div></div><span class="num" style="color:var(--ok);font-weight:600">'+money(p.amount)+'</span><button class="btn small ghost" data-a="editPay" data-id="'+s.id+'|'+p.id+'">Edit</button></li>').join("")+'</ul>':'<p class="empty">No payments recorded yet.</p>')+clubPayPanel();
+    panel("Recent payments", allPays.length?'<ul class="list">'+allPays.slice(0,25).map(({s,p})=>'<li><div class="main"><div class="title">'+esc(fullName(s))+'</div><div class="small muted">'+esc(fmtDate(p.date))+' · '+esc(p.method||"")+(p.note?" · "+esc(p.note):"")+'</div></div><span class="num" style="color:var(--ok);font-weight:600">'+money(p.amount)+'</span><button class="btn small ghost" data-a="editPay" data-id="'+s.id+'|'+p.id+'">Edit</button></li>').join("")+'</ul>':'<p class="empty">No payments recorded yet.</p>')+clubPayPanel();
   $("#pRec").onclick = ()=>pickStudent("Record a payment from…", s=>editPayment(s,null));
   $("#incYear").onchange = e=>{ incomeYear = e.target.value; render(); };
   bindActions(v,{ pay:id=>editPayment(byId(id),null),
@@ -7820,7 +7823,7 @@ const HE = {
   "Theme / what to learn":"נושא / מה ללמוד", "Found in":"נמצא ב־", "Lessons learned":"מה למדנו", "What the student took from this game":"מה התלמיד לקח מהמשחק",
   "Enter the names of both players.":"יש להזין את שמות שני השחקנים.", "e.g. Capablanca, José Raúl":"למשל קפבלנקה, חוסה ראול", "e.g. Tartakower, Savielly":"למשל טרטקובר, סבלי",
   "e.g. New York 1924":"למשל ניו יורק 1924", "e.g. Dutch Defence":"למשל ההגנה ההולנדית", "e.g. Rook endgame technique":"למשל טכניקה בסיומי צריחים",
-  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Useful links":"קישורים שימושיים", "Choose a date":"בחירת תאריך", "At the club":"במועדון", "Name in Hebrew (optional)":"שם בעברית (לא חובה)", "Shown when the app is in Hebrew":"מוצג כשהאפליקציה בעברית", "Club classes":"חוגים במועדון", "Classes you teach at the club. They show in your schedule, students can't book lessons at those times, and the hours count on the Payments page. Students don't see attendance.":"החוגים שאת/ה מלמד/ת במועדון. הם מופיעים בלוח הזמנים, תלמידים לא יכולים לקבוע שיעור בזמנים האלה, והשעות נספרות בדף התשלומים. התלמידים לא רואים את הנוכחות.", "No club classes yet.":"עדיין אין חוגים במועדון.", "Ended":"הסתיים", "Since":"מאז", "until":"עד", "Pay":"תשלום", "Next class":"השיעור הבא", "Workout challenge":"אתגר אימונים", "this month":"החודש", "Nobody yet.":"עדיין אין אף אחד.", "Add a student to the group from their profile (Club group).":"מוסיפים תלמיד/ה לקבוצה מהפרופיל שלו/ה (קבוצה במועדון).", "Dates (✓ = taken):":"תאריכים (✓ = נרשם):", "No class yet.":"עדיין לא היה שיעור.", "Attendance":"נוכחות", "Everyone’s here":"כולם כאן", "Not taken yet":"הנוכחות עוד לא נרשמה", "Nobody is in this group yet. Add students to it from their profile (Club group).":"עדיין אין אף אחד בקבוצה. אפשר להוסיף תלמידים אליה מהפרופיל שלהם (קבוצת מועדון).", "Came":"הגיעו", "Here":"נוכחים", "Tap a box to change it: ✓ came, ✗ didn’t come, – not taken.":"לחיצה על משבצת משנה אותה: ✓ הגיע/ה, ✗ לא הגיע/ה, – לא נרשם.", "No classes this month.":"אין שיעורים החודש.", "Nobody is in this group yet.":"עדיין אין אף אחד בקבוצה.", "Your books with their PDFs. “Give to…” adds a book to a student’s Books with the PDF already attached.":"הספרים שלך עם קובצי ה־PDF. „מתן ל…” מוסיף ספר לספרים של תלמיד/ה, עם ה־PDF כבר מצורף.", "No books in your library yet.":"עדיין אין ספרים בספרייה.", "Add book to library":"הוספת ספר לספרייה", "Edit library book":"עריכת ספר בספרייה", "No PDF yet":"עדיין אין PDF", "Replace PDF":"החלפת ה־PDF", "Give to…":"מתן ל…", "Delete from library":"מחיקה מהספרייה", "Removed from the library":"הוסר מהספרייה", "Added to the library — attach its PDF next":"נוסף לספרייה — עכשיו אפשר לצרף את ה־PDF", "PDF saved in the library":"ה־PDF נשמר בספרייה", "From your library":"מהספרייה שלך", "— Another book —":"— ספר אחר —", "Give book":"מתן הספר", "The PDF comes with it.":"ה־PDF מגיע איתו.", "This book has no PDF yet — attach one in the library first if you want it to come with the book.":"לספר הזה עדיין אין PDF — אפשר לצרף אותו בספרייה קודם, כדי שיגיע עם הספר.", "Given to students with the book":"ניתן לתלמידים יחד עם הספר", "e.g. Read chapters 1–3 first":"למשל: לקרוא קודם את פרקים 1–3", "Book added with its PDF":"הספר נוסף עם ה־PDF", "Students who already have this book keep it, with their own copy of the PDF.":"תלמידים שכבר קיבלו את הספר שומרים אותו, עם עותק משלהם של ה־PDF.", "They already have this book.":"כבר יש להם את הספר הזה.", "Everyone in that group already has this book.":"לכל מי שבקבוצה כבר יש את הספר הזה.", "The book was added, but its PDF couldn’t be copied. Try “Attach PDF” on the book.":"הספר נוסף, אבל לא ניתן היה להעתיק את ה־PDF. אפשר לנסות „צירוף PDF” על הספר.", "Attach PDF":"צירוף PDF", "Open PDF":"פתיחת ה־PDF", "Remove the PDF?":"להסיר את ה־PDF?", "PDF removed":"ה־PDF הוסר", "Choose a PDF file.":"יש לבחור קובץ PDF.", "That file is over 50 MB. Choose a smaller PDF.":"הקובץ גדול מ־50 MB. יש לבחור PDF קטן יותר.", "PDF storage isn’t set up yet.":"אחסון ה־PDF עוד לא הוגדר.", "The PDF couldn’t be uploaded. Check your connection and try again.":"לא ניתן היה להעלות את ה־PDF. כדאי לבדוק את החיבור ולנסות שוב.", "The PDF couldn’t be opened. Try again in a moment.":"לא ניתן היה לפתוח את ה־PDF. כדאי לנסות שוב עוד רגע.", "Account:":"חשבון:", "This code was already used.":"הקוד הזה כבר נוצל.", "Already using Rank Up on another device? Sign out here and sign in with the same email you used there. Otherwise, ask your coach for a new code.":"כבר משתמש/ת ב„עולים בדרגה” במכשיר אחר? יש להתנתק כאן ולהתחבר עם אותו אימייל שבו התחברת שם. אחרת, אפשר לבקש מהמאמן קוד חדש.", "Show less":"הצג פחות", "Hide":"הסתרה", "Hide this bubble":"הסתרת הבועה", "Show":"הצגה", "Show this bubble":"הצגת הבועה",  "Where":"איפה", "Not set (students choose in person or online)":"לא נקבע (התלמידים בוחרים פרונטלי או אונליין)", "At home":"בבית", "Another place…":"מקום אחר…", "Write the place, or choose one from the list.":"יש לכתוב את המקום, או לבחור אחד מהרשימה.", "e.g. At the community centre":"למשל: במתנ״ס", "Place (optional)":"מקום (לא חובה)", "e.g. At the club":"למשל: במועדון", "Students see it under the time. At the club: times you're there anyway, for students who live far.":"התלמידים רואים את זה מתחת לשעה. במועדון: זמנים שבהם את/ה שם בכל מקרה, לתלמידים שגרים רחוק.", "Every night":"כל לילה", "A copy of all your records is saved every night and kept for 30 days.":"בכל לילה נשמר עותק של כל הנתונים שלך, למשך 30 יום.", "Nightly backups aren’t turned on yet.":"הגיבוי הלילי עדיין לא הופעל.", "No nightly backup yet — the first one is made tonight.":"עדיין אין גיבוי לילי — הראשון ייעשה הלילה.", "Download":"הורדה", "Folder on this computer":"תיקייה במחשב הזה", "To save a backup into a folder automatically, open the app in Chrome or Edge on a computer.":"כדי לשמור גיבוי בתיקייה באופן אוטומטי, יש לפתוח את האפליקציה ב־Chrome או ב־Edge במחשב.", "Choose a folder and the app saves a backup into it once a day, when you open the app on this computer.":"בוחרים תיקייה, והאפליקציה שומרת בה גיבוי פעם ביום, כשפותחים אותה במחשב הזה.", "Choose a folder":"בחירת תיקייה", "Folder:":"תיקייה:", "Not saved yet.":"עוד לא נשמר.", "Save now":"שמירה עכשיו", "Change folder":"החלפת תיקייה", "Stop":"הפסקה", "Save today’s backup to your folder on this computer.":"שמירת הגיבוי של היום בתיקייה שלך במחשב הזה.", "Save backup":"שמירת גיבוי", "Couldn’t load that backup.":"לא ניתן היה לטעון את הגיבוי הזה.", "The backup couldn’t be saved in that folder.":"לא ניתן היה לשמור את הגיבוי בתיקייה הזו.", "That folder can’t be used.":"אי אפשר להשתמש בתיקייה הזו.", "Backup saved to your folder":"הגיבוי נשמר בתיקייה שלך", "Backups to the folder stopped":"הגיבויים לתיקייה הופסקו", "Loading…":"טוען…", "Choose a time":"בחירת שעה", "Change order":"שינוי סדר", "Put the sites you use most at the top.":"שימו למעלה את האתרים שאתם משתמשים בהם הכי הרבה.", "Username:":"שם משתמש:", "Username":"שם משתמש", "Change":"שינוי", "Add your username":"הוספת שם המשתמש שלך", "Add username":"הוספת שם משתמש", "Username saved":"שם המשתמש נשמר", "Username removed":"שם המשתמש הוסר", "Leave empty to remove it":"להסרה — להשאיר ריק", "Shown to students and parents on their Practice page.":"מוצגים לתלמידים ולהורים בדף התרגול.", "Add link":"הוספת קישור", "Edit link":"עריכת קישור",
+  "Chosen by coach":"נבחר ע״י המאמן", "Online database":"מאגר אונליין", "ChessBase":"ChessBase", "Studied game":"משחק לדוגמה", "Useful links":"קישורים שימושיים", "Choose a date":"בחירת תאריך", "At the club":"במועדון", "Full name in Hebrew (optional)":"שם מלא בעברית (לא חובה)", "Shown when the app is in Hebrew, and its first name in messages to parents":"מוצג כשהאפליקציה בעברית; השם הפרטי שבו משמש בהודעות להורים", "Name in Hebrew (optional)":"שם בעברית (לא חובה)", "Shown when the app is in Hebrew":"מוצג כשהאפליקציה בעברית", "Club classes":"חוגים במועדון", "Classes you teach at the club. They show in your schedule, students can't book lessons at those times, and the hours count on the Payments page. Students don't see attendance.":"החוגים שאת/ה מלמד/ת במועדון. הם מופיעים בלוח הזמנים, תלמידים לא יכולים לקבוע שיעור בזמנים האלה, והשעות נספרות בדף התשלומים. התלמידים לא רואים את הנוכחות.", "No club classes yet.":"עדיין אין חוגים במועדון.", "Ended":"הסתיים", "Since":"מאז", "until":"עד", "Pay":"תשלום", "Next class":"השיעור הבא", "Workout challenge":"אתגר אימונים", "this month":"החודש", "Nobody yet.":"עדיין אין אף אחד.", "Add a student to the group from their profile (Club group).":"מוסיפים תלמיד/ה לקבוצה מהפרופיל שלו/ה (קבוצה במועדון).", "Dates (✓ = taken):":"תאריכים (✓ = נרשם):", "No class yet.":"עדיין לא היה שיעור.", "Attendance":"נוכחות", "Everyone’s here":"כולם כאן", "Not taken yet":"הנוכחות עוד לא נרשמה", "Nobody is in this group yet. Add students to it from their profile (Club group).":"עדיין אין אף אחד בקבוצה. אפשר להוסיף תלמידים אליה מהפרופיל שלהם (קבוצת מועדון).", "Came":"הגיעו", "Here":"נוכחים", "Tap a box to change it: ✓ came, ✗ didn’t come, – not taken.":"לחיצה על משבצת משנה אותה: ✓ הגיע/ה, ✗ לא הגיע/ה, – לא נרשם.", "No classes this month.":"אין שיעורים החודש.", "Nobody is in this group yet.":"עדיין אין אף אחד בקבוצה.", "Your books with their PDFs. “Give to…” adds a book to a student’s Books with the PDF already attached.":"הספרים שלך עם קובצי ה־PDF. „מתן ל…” מוסיף ספר לספרים של תלמיד/ה, עם ה־PDF כבר מצורף.", "No books in your library yet.":"עדיין אין ספרים בספרייה.", "Add book to library":"הוספת ספר לספרייה", "Edit library book":"עריכת ספר בספרייה", "No PDF yet":"עדיין אין PDF", "Replace PDF":"החלפת ה־PDF", "Give to…":"מתן ל…", "Delete from library":"מחיקה מהספרייה", "Removed from the library":"הוסר מהספרייה", "Added to the library — attach its PDF next":"נוסף לספרייה — עכשיו אפשר לצרף את ה־PDF", "PDF saved in the library":"ה־PDF נשמר בספרייה", "From your library":"מהספרייה שלך", "— Another book —":"— ספר אחר —", "Give book":"מתן הספר", "The PDF comes with it.":"ה־PDF מגיע איתו.", "This book has no PDF yet — attach one in the library first if you want it to come with the book.":"לספר הזה עדיין אין PDF — אפשר לצרף אותו בספרייה קודם, כדי שיגיע עם הספר.", "Given to students with the book":"ניתן לתלמידים יחד עם הספר", "e.g. Read chapters 1–3 first":"למשל: לקרוא קודם את פרקים 1–3", "Book added with its PDF":"הספר נוסף עם ה־PDF", "Students who already have this book keep it, with their own copy of the PDF.":"תלמידים שכבר קיבלו את הספר שומרים אותו, עם עותק משלהם של ה־PDF.", "They already have this book.":"כבר יש להם את הספר הזה.", "Everyone in that group already has this book.":"לכל מי שבקבוצה כבר יש את הספר הזה.", "The book was added, but its PDF couldn’t be copied. Try “Attach PDF” on the book.":"הספר נוסף, אבל לא ניתן היה להעתיק את ה־PDF. אפשר לנסות „צירוף PDF” על הספר.", "Attach PDF":"צירוף PDF", "Open PDF":"פתיחת ה־PDF", "Remove the PDF?":"להסיר את ה־PDF?", "PDF removed":"ה־PDF הוסר", "Choose a PDF file.":"יש לבחור קובץ PDF.", "That file is over 50 MB. Choose a smaller PDF.":"הקובץ גדול מ־50 MB. יש לבחור PDF קטן יותר.", "PDF storage isn’t set up yet.":"אחסון ה־PDF עוד לא הוגדר.", "The PDF couldn’t be uploaded. Check your connection and try again.":"לא ניתן היה להעלות את ה־PDF. כדאי לבדוק את החיבור ולנסות שוב.", "The PDF couldn’t be opened. Try again in a moment.":"לא ניתן היה לפתוח את ה־PDF. כדאי לנסות שוב עוד רגע.", "Account:":"חשבון:", "This code was already used.":"הקוד הזה כבר נוצל.", "Already using Rank Up on another device? Sign out here and sign in with the same email you used there. Otherwise, ask your coach for a new code.":"כבר משתמש/ת ב„עולים בדרגה” במכשיר אחר? יש להתנתק כאן ולהתחבר עם אותו אימייל שבו התחברת שם. אחרת, אפשר לבקש מהמאמן קוד חדש.", "Show less":"הצג פחות", "Hide":"הסתרה", "Hide this bubble":"הסתרת הבועה", "Show":"הצגה", "Show this bubble":"הצגת הבועה",  "Where":"איפה", "Not set (students choose in person or online)":"לא נקבע (התלמידים בוחרים פרונטלי או אונליין)", "At home":"בבית", "Another place…":"מקום אחר…", "Write the place, or choose one from the list.":"יש לכתוב את המקום, או לבחור אחד מהרשימה.", "e.g. At the community centre":"למשל: במתנ״ס", "Place (optional)":"מקום (לא חובה)", "e.g. At the club":"למשל: במועדון", "Students see it under the time. At the club: times you're there anyway, for students who live far.":"התלמידים רואים את זה מתחת לשעה. במועדון: זמנים שבהם את/ה שם בכל מקרה, לתלמידים שגרים רחוק.", "Every night":"כל לילה", "A copy of all your records is saved every night and kept for 30 days.":"בכל לילה נשמר עותק של כל הנתונים שלך, למשך 30 יום.", "Nightly backups aren’t turned on yet.":"הגיבוי הלילי עדיין לא הופעל.", "No nightly backup yet — the first one is made tonight.":"עדיין אין גיבוי לילי — הראשון ייעשה הלילה.", "Download":"הורדה", "Folder on this computer":"תיקייה במחשב הזה", "To save a backup into a folder automatically, open the app in Chrome or Edge on a computer.":"כדי לשמור גיבוי בתיקייה באופן אוטומטי, יש לפתוח את האפליקציה ב־Chrome או ב־Edge במחשב.", "Choose a folder and the app saves a backup into it once a day, when you open the app on this computer.":"בוחרים תיקייה, והאפליקציה שומרת בה גיבוי פעם ביום, כשפותחים אותה במחשב הזה.", "Choose a folder":"בחירת תיקייה", "Folder:":"תיקייה:", "Not saved yet.":"עוד לא נשמר.", "Save now":"שמירה עכשיו", "Change folder":"החלפת תיקייה", "Stop":"הפסקה", "Save today’s backup to your folder on this computer.":"שמירת הגיבוי של היום בתיקייה שלך במחשב הזה.", "Save backup":"שמירת גיבוי", "Couldn’t load that backup.":"לא ניתן היה לטעון את הגיבוי הזה.", "The backup couldn’t be saved in that folder.":"לא ניתן היה לשמור את הגיבוי בתיקייה הזו.", "That folder can’t be used.":"אי אפשר להשתמש בתיקייה הזו.", "Backup saved to your folder":"הגיבוי נשמר בתיקייה שלך", "Backups to the folder stopped":"הגיבויים לתיקייה הופסקו", "Loading…":"טוען…", "Choose a time":"בחירת שעה", "Change order":"שינוי סדר", "Put the sites you use most at the top.":"שימו למעלה את האתרים שאתם משתמשים בהם הכי הרבה.", "Username:":"שם משתמש:", "Username":"שם משתמש", "Change":"שינוי", "Add your username":"הוספת שם המשתמש שלך", "Add username":"הוספת שם משתמש", "Username saved":"שם המשתמש נשמר", "Username removed":"שם המשתמש הוסר", "Leave empty to remove it":"להסרה — להשאיר ריק", "Shown to students and parents on their Practice page.":"מוצגים לתלמידים ולהורים בדף התרגול.", "Add link":"הוספת קישור", "Edit link":"עריכת קישור",
   "Restore the suggested list":"שחזור הרשימה המומלצת", "No links yet.":"עדיין אין קישורים.", "Address":"כתובת", "What it's for (optional)":"למה זה טוב (לא חובה)", "Link saved":"הקישור נשמר", "Link added":"הקישור נוסף", "Link removed":"הקישור הוסר",
   "Students and parents won't see this link any more.":"תלמידים והורים לא יראו יותר את הקישור הזה.", "Restore the suggested list?":"לשחזר את הרשימה המומלצת?", "Your own links and changes will be replaced by the suggested list.":"הקישורים והשינויים שלך יוחלפו ברשימה המומלצת.",
   "Restore":"שחזור", "Suggested list restored":"הרשימה המומלצת שוחזרה", "Enter the site's address, e.g. lichess.org.":"יש להזין את כתובת האתר, למשל lichess.org.",
