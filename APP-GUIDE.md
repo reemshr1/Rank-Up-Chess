@@ -204,7 +204,9 @@ time.
   Students see these hours, minus what's already booked.
   Each slot can have a **Where**: not set (students choose in person or online),
   **At home**, **Online**, **At \<club\>** (from the club classes' places; "At the
-  club" when there are none) or another place typed in. The place is written
+  club" when there are none) or another place typed in. A slot can also have a second
+  place (**Also**), e.g. at the club and online: one green band shows both, and
+  students choose which one when they ask; a booked lesson takes the time at both. The place is written
   under the time on the calendar (same green), and on the student's start times.
   Club class hours are left out of free time. An Online slot books an online
   lesson, any other place an in-person one, and the lesson keeps the place
