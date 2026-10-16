@@ -194,6 +194,11 @@ The week, or the next 4 weeks as a list. On a phone it shows a few days at a
 time.
 - Lessons, club classes, tournaments, assignment due dates and students' own
   training, with clashes flagged.
+- A lesson on a day the student plays a tournament is flagged. If it's already
+  taken care of (e.g. the lesson is before the game), **Mark as handled** (in the
+  lesson's popup, or **Mark tournament as handled** in the clash list) stops
+  flagging it; the popup then shows "✓ Handled" with **Undo**. Moving the lesson
+  to another date clears it.
 - **Past sessions still marked as planned**, to mark done.
 - **Free time for lessons:** the hours when students may ask for a lesson.
   Students see these hours, minus what's already booked.
