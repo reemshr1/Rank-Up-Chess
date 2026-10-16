@@ -482,7 +482,11 @@ dialog.wide{width:min(960px,calc(100vw - 24px))}
 .wk-free{position:absolute;left:0;right:0;background:color-mix(in srgb,var(--ok) 13%,transparent);border-top:1px solid color-mix(in srgb,var(--ok) 45%,transparent);border-bottom:1px solid color-mix(in srgb,var(--ok) 45%,transparent);pointer-events:none}
 .wk-taken{position:absolute;left:0;right:0;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--muted) 16%,transparent) 0 6px,transparent 6px 12px);border-top:1px solid var(--line);border-bottom:1px solid var(--line);pointer-events:none}
 .wk-taken span{position:absolute;inset-inline-end:4px;top:2px;font-size:.66rem;color:var(--muted);font-weight:600;white-space:nowrap}
-.wk-free span{position:absolute;inset-inline-end:4px;top:2px;font-size:.66rem;color:var(--ok);font-weight:600;white-space:nowrap}
+.wk-free{display:flex;flex-direction:column;align-items:flex-end;padding:2px 4px;box-sizing:border-box;overflow:hidden}
+.wk-free span{font-size:.66rem;line-height:1.25;color:var(--ok);font-weight:600;white-space:nowrap;text-align:end;max-width:100%}
+.wk-free span+span{white-space:normal;overflow-wrap:anywhere;font-weight:500}
+.wk-free .fw{font-weight:inherit}
+@media (max-width:700px){ .wk-free .fw{display:none} }
 .ev.club{background:var(--tint-yellow,#FFF4CC);color:var(--ink);border:1px solid var(--yellow,#FFD54F);border-inline-start:4px solid #B8860B;box-shadow:none}
 .ev.club span{color:var(--muted)}
 .att-chips{display:flex;flex-wrap:wrap;gap:6px}
@@ -589,7 +593,7 @@ dialog{border:2px solid var(--side);border-radius:14px}
 .wk-dh span{color:#DCE7FA}.wk-dh b{color:#fff}
 .wk-dh.today{background:var(--wk-today)}.wk-dh.today span{color:var(--accent)}.wk-dh.today b{background:transparent;color:var(--ink);padding:0}
 .wk-free{background:repeating-linear-gradient(135deg,var(--free-a) 0 8px,var(--free-b) 8px 16px);border:0}
-.wk-free span+span{top:16px;font-weight:500}
+.wk-free span+span{font-weight:500}
 
 .ev{background:var(--ev-bg);color:#fff;border:0;border-radius:8px;padding:5px 8px;box-shadow:0 1px 3px rgba(22,36,63,.2)}
 .ev span{color:var(--ev-sub)}
@@ -7426,7 +7430,7 @@ function weekGrid(ws, items, n=7){
     evs.forEach(e=>{ if (e.a>=clEnd && cluster.length) flush(); cluster.push(e); clEnd = Math.max(clEnd, e.b); }); if (cluster.length) flush();
     const now = d===t ? (()=>{ const n = new Date(); const mm = n.getHours()*60+n.getMinutes(); return mm>=h0*60 && mm<=h1*60 ? '<div class="wk-now" style="top:'+((mm-h0*60)/60*HOUR_PX)+'px"></div>' : ""; })() : "";
     return '<div class="wk-day'+(d===t?" today":"")+'" data-date="'+d+'" data-h0="'+h0+'" style="height:'+(H*HOUR_PX)+'px" title="'+(STUDENT()?"Click an empty spot to request a lesson":"Click an empty spot to plan a session")+'">'+now+
-      freeBands(d).map(([a,b,pl])=>'<div class="wk-free" style="top:'+((a-h0*60)/60*HOUR_PX)+'px;height:'+((b-a)/60*HOUR_PX)+'px"><span>Free '+fmtMin(a)+'–'+fmtMin(b)+'</span>'+(pl?'<span>'+esc(pl)+'</span>':'')+'</div>').join("")+
+      freeBands(d).map(([a,b,pl,pls])=>'<div class="wk-free" style="top:'+((a-h0*60)/60*HOUR_PX)+'px;height:'+((b-a)/60*HOUR_PX)+'px"><span><b class="fw">'+(lang()==="he"?"פנוי":"Free")+' </b><bdi dir="ltr">'+fmtMin(a)+'–'+fmtMin(b)+'</bdi></span>'+(pls||[pl]).filter(Boolean).map(p=>'<span>'+esc(p)+'</span>').join("")+'</div>').join("")+
       takenBands(d).map(([a,b])=>'<div class="wk-taken" style="top:'+((a-h0*60)/60*HOUR_PX)+'px;height:'+((b-a)/60*HOUR_PX)+'px"><span>Taken '+fmtMin(a)+'–'+fmtMin(b)+'</span></div>').join("")+placed.map(e=>{
       const x = e.i.x, top = (e.a-h0*60)/60*HOUR_PX, ht = Math.max(22, (e.b-e.a)/60*HOUR_PX-2), cl = e.i.clash||[];
       return '<button type="button" class="ev '+evCls(e.i)+(cl.length?" clash":"")+'" '+evAct(e.i)+' style="top:'+top+'px;height:'+ht+'px;inset-inline-start:calc('+(e.lane/e.n*100)+'% + 2px);width:calc('+(100/e.n)+'% - 4px)">'+
