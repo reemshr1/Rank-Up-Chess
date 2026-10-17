@@ -3318,7 +3318,7 @@ function applyLoaded(data){
 // and keeps the same documents in one table, so the rest of the app doesn't change.
 const SUPABASE = {url:"https://gzcwvnynkcepvqkzwvkb.supabase.co", key:"sb_publishable_0on-hzzXoXPdk8dOFM3RNQ_9pEMALHx"};
 const WEB = !(window.claude && typeof window.claude.use==="function") && (/^https?:$/.test(location.protocol) || !!window.__supaFake);
-let sb = null, webUser = null;
+let sb = null, webUser = null, webAdmin = false; // webAdmin: this coach makes the coach codes for new coaches
 const loadScript = src=>new Promise((ok, fail)=>{ const el = document.createElement("script"); el.src = src; el.onload = ok; el.onerror = fail; document.head.appendChild(el); });
 // The same small document API the artifact storage offers (collection/doc, get/set/delete, live snapshots).
 function makeSupaDb(client){
@@ -3525,18 +3525,9 @@ async function webStart(){
     // If the sign-in is lost later (it expired or was cancelled), go back to the sign-in screen
     // rather than staying on a page that can no longer load anything.
     sb.auth.onAuthStateChange(ev=>{ if (ev==="SIGNED_OUT" && !window.__signingOut) location.reload(); });
-    // A fresh install has no coach yet: the first person to sign in decides whether they are the coach.
-    let c = await sb.from("coach").select("user_id").maybeSingle(); if (c.error) throw c.error;
-    if (!c.data){
-      const choice = await new Promise(done=>{
-        gate('<h1>Welcome to Rank Up</h1><p class="sub">This app doesn\'t have a coach yet.</p><p class="small muted">Signed in as <bdi dir="ltr">'+esc(user.email||"")+'</bdi></p>'+
-          '<div class="gate-choices"><button class="btn primary" id="gCoach">I\'m the coach — set up my board</button><button class="btn" id="gStudent">I\'m a student or parent</button></div>'+
-          '<p class="small muted">Only one account can be the coach, and it can\'t be changed later from the app.</p><div class="gate-links"><button type="button" class="linkish" data-signout>Sign out</button></div>');
-        $("#gCoach").onclick = ()=>done("coach"); $("#gStudent").onclick = ()=>done("student"); });
-      if (choice==="coach"){ const r = await sb.from("coach").insert({user_id:user.id}); if (r.error && r.error.code!=="23505") throw r.error;
-        c = await sb.from("coach").select("user_id").maybeSingle(); if (c.error) throw c.error; }
-    }
-    const isCoach = !!(c.data && c.data.user_id===user.id);
+    // Coaches are listed in "coaches"; everyone else is a student or parent. A new coach joins with a coach code (linkPage).
+    const c = await sb.from("coaches").select("user_id,is_admin").eq("user_id", user.id).maybeSingle(); if (c.error) throw c.error;
+    const isCoach = !!c.data; webAdmin = !!(c.data && c.data.is_admin);
     document.body.classList.add("web"); ungate();
     if ("serviceWorker" in navigator && location.protocol==="https:") navigator.serviceWorker.register("sw.js").catch(()=>{});
     return {db:makeSupaDb(sb), uid:user.id, user:{id:async()=>user.id, isOwner:async()=>isCoach}};
@@ -3665,6 +3656,36 @@ function backupFromDocs(docs, exportedAt){
   return out;
 }
 let nightlyAll = false;
+/* ---------- coach codes (the admin only): one code lets one new coach join ---------- */
+const coachInvite = code=>lang()==="he"
+  ? "הוזמנת להשתמש ב„עולים בדרגה” כמאמן.\n1. נכנסים ל־"+APP_LINK()+"\n2. יוצרים חשבון עם אימייל\n3. לוחצים על „אני מאמן ויש לי קוד מאמן” ומזינים: "+code
+  : "You're invited to use Rank Up as a coach.\n1. Open "+APP_LINK()+"\n2. Create an account with your email\n3. Tap “I'm a coach and have a coach code” and enter: "+code;
+async function fillCoachCodes(el){
+  if (!el) return;
+  let r; try { r = await sb.from("coach_codes").select("code,note,made_at,used_email,used_at").order("made_at", {ascending:false}); } catch(e){ r = {error:e}; }
+  if (!el.isConnected) return;
+  if (r.error){ el.innerHTML = '<p class="small muted" style="margin:0">Couldn’t load the coach codes.</p>'; return; }
+  const rows = r.data||[];
+  el.innerHTML = (rows.length ? '<ul class="list">'+rows.map(x=>'<li><div class="main"><div class="title"><bdi dir="ltr" style="letter-spacing:.08em">'+esc(x.code)+'</bdi>'+(x.note?' · '+esc(x.note):'')+'</div><div class="small muted">'+
+      (x.used_at ? 'Used by <bdi dir="ltr">'+esc(x.used_email||"")+'</bdi> · '+esc(fmtDate(String(x.used_at).slice(0,10))) : 'Not used yet')+'</div></div>'+
+      (x.used_at ? '' : '<div class="row-actions"><button type="button" class="btn small ghost" data-cc="copy" data-code="'+esc(x.code)+'">Copy message</button><button type="button" class="btn small ghost" data-cc="del" data-code="'+esc(x.code)+'">Remove</button></div>')+'</li>').join("")+'</ul>'
+    : '<p class="empty">No coach codes yet.</p>')+
+    '<div class="row-actions" style="margin-top:10px;justify-content:flex-start"><button type="button" class="btn small primary" data-cc="new">Make a coach code</button></div>';
+  el.onclick = e=>{ const b = e.target.closest("[data-cc]"); if (!b) return; const k = b.dataset.cc, code = b.dataset.code;
+    if (k==="copy") return copyCoachInvite(code);
+    if (k==="del") return confirmBox("Remove this coach code?", "Nobody will be able to join with it.", "Remove", async ()=>{
+      const x = await sb.from("coach_codes").delete().eq("code", code); if (x.error) toast("Couldn’t remove the code."); else toast("Code removed"); fillCoachCodes(el); });
+    if (k==="new") openForm({title:"Make a coach code", submit:"Make code", fields:[{name:"note", label:"Who is it for? (optional)", value:"", full:true, placeholder:"e.g. Dan, chess club Haifa"}],
+      onSubmit:d=>{ const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let c = ""; crypto.getRandomValues(new Uint32Array(8)).forEach(n=>{ c += A[n % A.length]; });
+        sb.from("coach_codes").insert({code:c, note:d.note.trim().slice(0,80)}).then(x=>{ if (x.error) return toast("Couldn’t make the code. Check your connection.");
+          fillCoachCodes(el); copyCoachInvite(c); }, ()=>toast("Couldn’t make the code. Check your connection.")); }});
+  };
+}
+function copyCoachInvite(code){
+  const txt = coachInvite(code);
+  openForm({title:"Send this to the new coach", submit:"Copy", fields:[{name:"msg", label:"Message", type:"textarea", value:txt, full:true}],
+    onSubmit:d=>{ (navigator.clipboard ? navigator.clipboard.writeText(d.msg) : Promise.reject()).then(()=>toast("Copied"), ()=>toast("Couldn't copy — select the text and copy it yourself.")); }});
+}
 async function fillNightly(el){
   if (!el) return;
   let r; try { r = await sb.from("backups").select("day").order("day", {ascending:false}); } catch(e){ r = {error:e}; }
@@ -3961,13 +3982,27 @@ function linkPage(me){
       (used?'<div class="link-help"><p class="small" style="color:var(--flag);margin:0 0 6px"><b>This code was already used.</b></p><p class="small" style="margin:0">Already using Rank Up on another device? Sign out here and sign in with the same email you used there. Otherwise, ask your coach for a new code.</p></div>'
         : bad?'<p class="small" style="color:var(--flag)">That code wasn\'t recognised. Check it with your coach and try again.</p>':'')+
       (waiting?'<p class="small">Code sent. You\'ll be connected as soon as your coach opens Rank Up.</p>':'')+
-      '<form id="linkF" class="row-actions"><input id="linkCode" class="search" dir="ltr" placeholder="ABC123" autocomplete="off" value="'+esc(code)+'" style="text-transform:uppercase;min-width:170px;letter-spacing:.1em" aria-label="Code from your coach"><button class="btn primary" type="submit">Connect</button></form>')+'</div>';
+      '<form id="linkF" class="row-actions"><input id="linkCode" class="search" dir="ltr" placeholder="ABC123" autocomplete="off" value="'+esc(code)+'" style="text-transform:uppercase;min-width:170px;letter-spacing:.1em" aria-label="Code from your coach"><button class="btn primary" type="submit">Connect</button></form>'+
+      (WEB && sb ? '<p class="small" style="margin:22px 0 0"><button type="button" class="linkish" id="beCoach">I\'m a coach and have a coach code</button></p>' : ''))+'</div>';
 }
 function bindLink(){
   const f = $("#linkF"); if (!f) return;
   f.onsubmit = e=>{ e.preventDefault(); const c = $("#linkCode").value.replace(/\s/g,"");
     if (c.length<4) return toast("Enter the code from your coach.");
     store.link(c).then(()=>{ toast("Code sent"); render(); }, ()=>toast("Couldn't send the code. Check your connection.")); };
+  const bc = $("#beCoach"); if (bc) bc.onclick = coachCodeForm;
+}
+// A new coach types the coach code they were given; their account then gets its own, empty board.
+function coachCodeForm(){
+  openForm({title:"Join as a coach", submit:"Open my board", parentOk:true, fields:[{name:"code", label:"Coach code", value:"", full:true, placeholder:"ABCD2345", hint:"You get a coach code from the person who runs Rank Up. Students and parents use the code from their coach instead."}],
+    onSubmit:d=>{ const code = d.code.replace(/\s/g,"").toUpperCase(), form = $("#modal form"), er = form.querySelector(".form-err"), btn = form.querySelector("[type=submit]");
+      const say = t=>{ er.textContent = t; er.hidden = false; if (btn) btn.disabled = false; };
+      if (code.length<6) return "Enter the coach code.";
+      if (btn) btn.disabled = true;
+      sb.rpc("become_coach", {code}).then(r=>{ if (r.error) return say("Couldn't check the code. Check your connection.");
+        if (!r.data) return say("That coach code isn't valid or was already used.");
+        toast("Welcome! Opening your board…"); setTimeout(()=>location.reload(), 600); }, ()=>say("Couldn't check the code. Check your connection."));
+      return false; }});
 }
 // "Updated by your coach 2 hours ago", and changes still waiting for the coach's app.
 function freshness(s){
@@ -7550,6 +7585,7 @@ function pSettings(v){
         '<div class="row-actions"><button type="button" class="btn small ghost" data-ln="edit" data-id="'+esc(l.id)+'">Edit</button><button type="button" class="btn small ghost" data-ln="del" data-id="'+esc(l.id)+'">Remove</button></div></li>').join("")+'</ul>' : '<p class="empty">No links yet.</p>')+
       '<div class="row-actions" style="margin-top:10px;justify-content:flex-start"><button type="button" class="btn small primary" data-ln="add">Add link</button>'+(Array.isArray(st.links)?'<button type="button" class="btn small ghost" data-ln="reset">Restore the suggested list</button>':'')+'</div>')+
     (WEB && webUser ? panel("Phone alerts", '<p class="small muted" style="margin-top:0">Students and parents get an alert on their phone for new notifications, lesson changes and, for students, the practice check-in. Each of them turns alerts on from the 🔔 window in their app.</p><div id="pushBox"></div>') : '')+
+    (WEB && webAdmin ? panel("Coaches", '<p class="small muted" style="margin-top:0">Another coach can use Rank Up with their own students. Make a coach code and send it to them: they create an account and enter it. Each coach sees only their own students, payments and backups.</p><div id="coachCodes"></div>') : '')+
     (WEB && webUser ? panel("Account", '<p style="margin-top:0">Signed in as <bdi dir="ltr">'+esc(webUser.email||"")+'</bdi></p><button class="btn" data-signout>Sign out</button>') : '')+
     panel("Backup", '<p class="small muted" style="margin-top:0">'+(WEB?"Your data is saved to your account online. Students and parents only see what you share with them.":store&&store.kind==="db"?"Your data is saved to your account and is private to you, even if you share this page.":"Your data is saved in this browser only. Download a backup regularly.")+'</p><p class="small" style="margin-top:0">'+(st.lastBackup?"Last backup: "+esc(fmtDate(st.lastBackup)):"No backup downloaded yet.")+'</p><div class="row-actions"><button class="btn" id="exp">Download backup</button><label class="btn" for="imp">Restore from backup</label><input id="imp" type="file" accept="application/json,.json" hidden></div>'+(WEB ? backupMore() : ''))+
   '</div>';
@@ -7573,6 +7609,7 @@ function pSettings(v){
     put("overdueDays", Math.max(1,+f.overdueDays.value||30)); put("lang", f.lang.value); put("payInfo", f.payInfo.value.trim()); if (f.appLink.value.trim()!==APP_LINK()) put("appLink", f.appLink.value.trim());
     saveSettings(); render(); toast("Settings saved"); };
   $("#exp").onclick = downloadBackup;
+  if (WEB && webAdmin) fillCoachCodes($("#coachCodes"));
   if (WEB){ fillNightly($("#nightly"));
     document.querySelectorAll("[data-bf]").forEach(b=>b.onclick = async ()=>{ const k = b.dataset.bf;
       if (k==="choose") chooseFolder(); else if (k==="stop") stopFolder();
@@ -7998,6 +8035,15 @@ const HE = {
   "Payment":"תשלום", "Session":"שיעור"
 };
 Object.assign(HE, {
+  "I'm a coach and have a coach code":"אני מאמן ויש לי קוד מאמן", "Join as a coach":"הצטרפות כמאמן", "Open my board":"פתיחת הלוח שלי", "Coach code":"קוד מאמן",
+  "You get a coach code from the person who runs Rank Up. Students and parents use the code from their coach instead.":"את קוד המאמן מקבלים ממי שמפעיל את „עולים בדרגה”. תלמידים והורים משתמשים בקוד שקיבלו מהמאמן.",
+  "Enter the coach code.":"יש להזין את קוד המאמן.", "Couldn't check the code. Check your connection.":"לא ניתן לבדוק את הקוד. כדאי לבדוק את החיבור.",
+  "That coach code isn't valid or was already used.":"קוד המאמן לא תקין או שכבר השתמשו בו.", "Welcome! Opening your board…":"ברוכים הבאים! הלוח שלך נפתח…",
+  "Coaches":"מאמנים", "Another coach can use Rank Up with their own students. Make a coach code and send it to them: they create an account and enter it. Each coach sees only their own students, payments and backups.":"מאמן נוסף יכול להשתמש ב„עולים בדרגה” עם התלמידים שלו. יוצרים קוד מאמן ושולחים לו: הוא יוצר חשבון ומזין את הקוד. כל מאמן רואה רק את התלמידים, התשלומים והגיבויים שלו.",
+  "Couldn’t load the coach codes.":"לא ניתן לטעון את קודי המאמן.", "Used by":"נוצל על ידי", "Not used yet":"עדיין לא נוצל", "Copy message":"העתקת ההודעה",
+  "No coach codes yet.":"עדיין אין קודי מאמן.", "Make a coach code":"יצירת קוד מאמן", "Remove this coach code?":"להסיר את קוד המאמן?", "Nobody will be able to join with it.":"אי אפשר יהיה להצטרף איתו.",
+  "Couldn’t remove the code.":"לא ניתן להסיר את הקוד.", "Code removed":"הקוד הוסר", "Make code":"יצירת קוד", "Who is it for? (optional)":"בשביל מי? (לא חובה)", "e.g. Dan, chess club Haifa":"למשל: דן, מועדון שחמט חיפה",
+  "Couldn’t make the code. Check your connection.":"לא ניתן ליצור את הקוד. כדאי לבדוק את החיבור.", "Send this to the new coach":"שליחה למאמן החדש", "Copied":"הועתק",
   "With White":"עם לבן", "With Black":"עם שחור", "by coach":"ע״י המאמן", "by student":"ע״י התלמיד", "auto":"אוטומטית", "Reading history":"היסטוריית קריאה", "Showing":"מוצגים",
   "event":"אירוע", "events":"אירועים", "on average":"בממוצע", "point vs. expectation":"נקודות ביחס לצפי", "points vs. expectation":"נקודות ביחס לצפי",
   "This assignment is full — split the rest into another assignment":"המשימה מלאה — את השאר אפשר לפצל למשימה נוספת", "Edit the message, then send it.":"אפשר לערוך את ההודעה ואז לשלוח.",

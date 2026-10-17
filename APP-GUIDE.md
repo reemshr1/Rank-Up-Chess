@@ -280,15 +280,20 @@ All the money in one place.
 - **Phone alerts:** turn alerts on for this device and **Send a test alert**
   (see Phone alerts below).
 - **Account:** which email is signed in, Sign out.
+- **Coaches** (the admin only — the first coach): lets another coach use Rank Up with their own students.
+  **Make a coach code** (with an optional note of who it's for) shows a ready message to send them: open the
+  app, create an account, tap **I'm a coach and have a coach code** and enter the code. Each code works once.
+  The list shows each code as **Not used yet** (with **Copy message** and **Remove**) or **Used by** the
+  account's email and date. See "Several coaches" below.
 - **Useful links:** the sites shown to students and parents on their Practice
   page (suggested: Chess.com, Lichess, Lichess puzzles, ChessTempo, Chessable,
   Chess-Results, Israel Chess Federation). Add, edit, remove, or restore the
   suggested list.
 - **Backup:** download all records as a file, or restore from one.
-  - **Every night:** Supabase saves a copy of all the coach's records at 00:00 UTC and keeps 30 days
+  - **Every night:** Supabase saves a copy of each coach's records at 00:00 UTC and keeps 30 days
     (table `backups`, set up by `supabase/schema.sql` with pg_cron). Settings lists the copies, newest first
     (5, then "Show all"), each with **Download**. A downloaded copy is the same kind of file as
-    "Download backup", so "Restore from backup" reads it. Only the coach can read the copies.
+    "Download backup", so "Restore from backup" reads it. Each coach can read only their own copies.
   - **Folder on this computer** (Chrome or Edge on a computer): **Choose a folder**, and the app saves
     `rank-up-backup-<date>.json` into it once a day, when the app is opened on that computer. The folder is
     remembered by that browser only. **Save now**, **Change folder**, **Stop**. Other browsers and phones
@@ -321,6 +326,19 @@ used" and explains to sign in with the email used on the other device, or ask fo
 new code (a wrong code still says it wasn't recognised). The coach's Student app /
 Parent app box shows the account's email ("Account: …"); for accounts connected
 earlier it fills in the next time they open the app.
+
+### Several coaches
+Each coach has their own board: students, families, payments, settings, assignments, games, library, book
+PDFs and nightly backups. No coach can see or change another coach's.
+- A new account starts on the "Enter the code your coach gave you" screen. A coach taps **I'm a coach and
+  have a coach code** under it and enters the coach code from the admin; their account then opens an empty
+  coach board. A wrong or already-used coach code says so.
+- Students and parents connect exactly as before, with the invite code from their own coach. The database
+  works out which coach a code belongs to and gives the account to that coach only; a code no coach has is
+  answered "not recognised" right away.
+- Phone alerts: a coach can only send alerts to their own students and parents.
+- The first coach (the admin) is the coach from before there were several; all their students and backups
+  stayed theirs.
 
 ### Book PDFs
 On a student's Books tab the coach can **Attach PDF** to a book (up to 50 MB). The
@@ -514,7 +532,8 @@ change them directly.
 - The whole app is `index.html`. Data is in Supabase (one `docs` table with
   access rules, see `supabase/schema.sql`).
 - Coach records: `data/users/<coach>/…`. Each student or parent account:
-  `portal/<account>` (link status, language, read marks), `…/view/*` (the copy
+  `portal/<account>` (link status, language, read marks, and `coach` — whose account it is, set by the
+  database from the invite code, never by the app), `…/view/*` (the copy
   of the board), `…/inbox/*` (changes waiting for the coach's app).
 - Student changes are applied by `applyOp`; the lists a student may edit are
   `PORTAL_KEYS`, and a parent's allowed changes are `PARENT_OPS`. What a
@@ -525,5 +544,8 @@ change them directly.
   the app itself can't read. The coach's app decides what to send
   (`boardAlerts`, comparing each board before and after it's written, and
   `checkinAlerts`). `sw.js` shows the alert and opens the app when tapped.
+- Coaches: table `coaches` (`is_admin` marks the first coach), coach codes in `coach_codes`, joining
+  through `become_coach(code)`. The access rules give each coach only `data/users/<their id>/…` and the
+  portal accounts marked with their id.
 - Publishing: work happens on a branch; merging into the `live` branch
   publishes to GitHub Pages.

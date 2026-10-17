@@ -8,7 +8,7 @@
 //   {action:"key"}                      → {key}  the public key a browser needs to turn alerts on
 //   {action:"subscribe", sub}           → {ok}   remember this device for the signed-in account
 //   {action:"unsubscribe", endpoint}    → {ok}   forget this device
-//   {action:"send", messages:[{to, title, body, tag?, url?}]}   coach only
+//   {action:"send", messages:[{to, title, body, tag?, url?}]}   coaches only, to their own students and parents (or themselves)
 //                                       → {sent, failed, devices, errors}  `to` is an account id; errors: the first few, for checking
 import webpush from "npm:web-push@3.6.7";
 
@@ -33,8 +33,15 @@ async function caller(req: Request) {
   return u && u.id ? String(u.id) : null;
 }
 async function isCoach(uid: string) {
-  const r = await rest("coach?select=user_id&user_id=eq." + encodeURIComponent(uid));
+  const r = await rest("coaches?select=user_id&user_id=eq." + encodeURIComponent(uid));
   return r.ok && (await r.json()).length > 0;
+}
+// The accounts a coach may alert: their own devices, and their own students and parents.
+async function mine(coach: string, ids: string[]) {
+  if (!ids.length) return new Set<string>();
+  const r = await rest("docs?select=id&col=eq.portal&data->>coach=eq." + encodeURIComponent(coach) + "&id=in.(" + ids.join(",") + ")");
+  const rows: any[] = r.ok ? await r.json() : [];
+  return new Set<string>([coach, ...rows.map(x => String(x.id))]);
 }
 // The signing keys: made once, then reused, so devices that turned alerts on keep working.
 async function keys() {
@@ -80,7 +87,8 @@ Deno.serve(async (req) => {
       const subject = /^https:\/\//.test(req.headers.get("Origin") || "") ? req.headers.get("Origin")! : "https://reemshr1.github.io";
       webpush.setVapidDetails(subject, k.pub, k.priv);
       // every device of every account in the list, fetched at once
-      const ids = [...new Set(list.map((m: any) => String(m && m.to || "")).filter((x: string) => /^[0-9a-f-]{36}$/i.test(x)))];
+      const asked = [...new Set(list.map((m: any) => String(m && m.to || "")).filter((x: string) => /^[0-9a-f-]{36}$/i.test(x)))];
+      const allowed = await mine(me, asked), ids = asked.filter(x => allowed.has(x));
       if (!ids.length) return json({ sent: 0, failed: 0, devices: 0 });
       const r = await rest("push_subs?select=endpoint,user_id,sub&user_id=in.(" + ids.join(",") + ")");
       const subs: any[] = r.ok ? await r.json() : [];
