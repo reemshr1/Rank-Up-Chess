@@ -27,6 +27,7 @@ create or replace function public.is_coach() returns boolean
 
 -- the records' access rules as before
 drop trigger if exists portal_coach on public.docs;
+drop trigger if exists claim_waiting_links on public.docs;
 drop policy if exists "a coach keeps their own records" on public.docs;
 drop policy if exists "a coach sees and answers their students' links" on public.docs;
 drop policy if exists "a coach writes their students' pages and reads their messages" on public.docs;

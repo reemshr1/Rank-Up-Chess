@@ -144,6 +144,26 @@ drop trigger if exists portal_coach on public.docs;
 create trigger portal_coach before insert or update on public.docs
   for each row execute function public.portal_coach();
 
+-- A student who typed the code a moment before the coach's app saved the invite is picked up when it is saved.
+create or replace function public.claim_waiting_links() returns trigger
+  language plpgsql security definer set search_path = public
+  as $$
+declare who text := substr(new.col, 12); codes text[];
+begin
+  if new.col not like 'data/users/%' or position('/' in who) > 0 then return new; end if;
+  codes := array_remove(array[new.data->'invite'->>'code'], null)
+        || coalesce((select array_agg(f->'invite'->>'code') from jsonb_array_elements(case when jsonb_typeof(new.data->'families') = 'array' then new.data->'families' else '[]'::jsonb end) f
+                     where f->'invite'->>'code' is not null), '{}');
+  if cardinality(codes) = 0 then return new; end if;
+  update public.docs set data = (data - 'error' - 'errorKind') || jsonb_build_object('coach', who)
+   where col = 'portal' and not (data ? 'coach') and coalesce(data->>'linked', '') <> 'true'
+     and upper(trim(coalesce(data->>'code', ''))) = any (codes);
+  return new;
+end $$;
+drop trigger if exists claim_waiting_links on public.docs;
+create trigger claim_waiting_links after insert or update on public.docs
+  for each row when (new.col like 'data/users/%') execute function public.claim_waiting_links();
+
 -- The portal account a collection belongs to (portal/<id>/view, portal/<id>/inbox) is one of the signed-in coach's.
 create or replace function public.my_portal(c text) returns boolean
   language sql stable security definer set search_path = public
