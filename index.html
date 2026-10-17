@@ -3418,7 +3418,7 @@ function authForm(mode, note){
       (newpass?'':'<label for="aEmail">Email</label><input id="aEmail" type="email" dir="ltr" autocomplete="email" required>')+
       (forgot?'':'<label for="aPass">'+(newpass?"New password":"Password")+'</label><input id="aPass" type="password" dir="ltr" autocomplete="'+(signup||newpass?"new-password":"current-password")+'" required minlength="8">')+
       '<p class="form-err" role="alert" hidden></p><button class="btn primary" type="submit">'+(signup?"Create account":forgot?"Send the link":newpass?"Save password":"Sign in")+'</button></form>'+
-      '<div class="gate-links">'+(mode==="signin"?'<button type="button" class="linkish" data-m="signup">New here? Create an account</button><button type="button" class="linkish" data-m="forgot">Forgot your password?</button>':
+      '<div class="gate-links">'+(mode==="signin"?'<button type="button" class="linkish" data-m="signup">New here? Create an account</button><button type="button" class="linkish" data-m="forgot">Forgot your password?</button><a class="linkish" href="welcome/'+(lang()==="he"?"":"?lang=en")+'">What is Rank Up?</a>':
         newpass?'':'<button type="button" class="linkish" data-m="signin">Back to sign in</button>')+'</div>');
     g.querySelectorAll("[data-m]").forEach(b=>b.onclick = ()=>done({mode:b.dataset.m}));
     const f = $("#authF"), err = f.querySelector(".form-err"), btn = f.querySelector("button[type=submit]");
@@ -3680,6 +3680,24 @@ async function fillCoachCodes(el){
         sb.from("coach_codes").insert({code:c, note:d.note.trim().slice(0,80)}).then(x=>{ if (x.error) return toast("Couldn’t make the code. Check your connection.");
           fillCoachCodes(el); copyCoachInvite(c); }, ()=>toast("Couldn’t make the code. Check your connection.")); }});
   };
+}
+// Coaches who left their details on the website (welcome/): the admin calls them back and sends a coach code.
+const LEAD_KIND = {private:"Private lessons", club:"Club classes", both:"Private and club"};
+async function fillLeads(el){
+  if (!el) return;
+  let r; try { r = await sb.from("leads").select("id,created_at,name,phone,email,city,students,kind,note").order("created_at", {ascending:false}); } catch(e){ r = {error:e}; }
+  if (!el.isConnected) return;
+  if (r.error){ el.innerHTML = '<p class="small muted" style="margin:0">Couldn’t load the list.</p>'; return; }
+  const rows = r.data||[];
+  el.innerHTML = rows.length ? '<ul class="list">'+rows.map(x=>'<li><div class="main"><div class="title">'+esc(x.name)+(x.city?' · '+esc(x.city):'')+'</div>'+
+      '<div class="small"><bdi dir="ltr">'+esc(x.phone)+'</bdi> · <bdi dir="ltr">'+esc(x.email)+'</bdi></div>'+
+      '<div class="small muted">'+esc(fmtDate(String(x.created_at).slice(0,10)))+(x.kind?' · '+esc(LEAD_KIND[x.kind]||x.kind):'')+(x.students?' · '+esc(x.students)+(lang()==="he"?" תלמידים":" students"):'')+'</div>'+
+      (x.note?'<div class="small">'+esc(x.note)+'</div>':'')+'</div>'+
+      '<div class="row-actions"><a class="btn small ghost" href="https://wa.me/'+esc(contactParts(x.phone).phone)+'" target="_blank" rel="noopener">WhatsApp</a><button type="button" class="btn small ghost" data-ld="'+esc(x.id)+'">Remove</button></div></li>').join("")+'</ul>'
+    : '<p class="empty">Nobody yet.</p>';
+  el.onclick = e=>{ const b = e.target.closest("[data-ld]"); if (!b) return;
+    confirmBox("Remove from the list?", "Their details are deleted.", "Remove", async ()=>{
+      const x = await sb.from("leads").delete().eq("id", b.dataset.ld); if (x.error) toast("Couldn’t remove it."); else toast("Removed"); fillLeads(el); }); };
 }
 function copyCoachInvite(code){
   const txt = coachInvite(code);
@@ -7585,7 +7603,7 @@ function pSettings(v){
         '<div class="row-actions"><button type="button" class="btn small ghost" data-ln="edit" data-id="'+esc(l.id)+'">Edit</button><button type="button" class="btn small ghost" data-ln="del" data-id="'+esc(l.id)+'">Remove</button></div></li>').join("")+'</ul>' : '<p class="empty">No links yet.</p>')+
       '<div class="row-actions" style="margin-top:10px;justify-content:flex-start"><button type="button" class="btn small primary" data-ln="add">Add link</button>'+(Array.isArray(st.links)?'<button type="button" class="btn small ghost" data-ln="reset">Restore the suggested list</button>':'')+'</div>')+
     (WEB && webUser ? panel("Phone alerts", '<p class="small muted" style="margin-top:0">Students and parents get an alert on their phone for new notifications, lesson changes and, for students, the practice check-in. Each of them turns alerts on from the 🔔 window in their app.</p><div id="pushBox"></div>') : '')+
-    (WEB && webAdmin ? panel("Coaches", '<p class="small muted" style="margin-top:0">Another coach can use Rank Up with their own students. Make a coach code and send it to them: they create an account and enter it. Each coach sees only their own students, payments and backups.</p><div id="coachCodes"></div>') : '')+
+    (WEB && webAdmin ? panel("Coaches", '<p class="small muted" style="margin-top:0">Another coach can use Rank Up with their own students. Make a coach code and send it to them: they create an account and enter it. Each coach sees only their own students, payments and backups.</p><div id="coachCodes"></div><h3 style="margin:22px 0 4px;font-size:1rem">Left their details on the website</h3><div id="leadsList"></div>') : '')+
     (WEB && webUser ? panel("Account", '<p style="margin-top:0">Signed in as <bdi dir="ltr">'+esc(webUser.email||"")+'</bdi></p><button class="btn" data-signout>Sign out</button>') : '')+
     panel("Backup", '<p class="small muted" style="margin-top:0">'+(WEB?"Your data is saved to your account online. Students and parents only see what you share with them.":store&&store.kind==="db"?"Your data is saved to your account and is private to you, even if you share this page.":"Your data is saved in this browser only. Download a backup regularly.")+'</p><p class="small" style="margin-top:0">'+(st.lastBackup?"Last backup: "+esc(fmtDate(st.lastBackup)):"No backup downloaded yet.")+'</p><div class="row-actions"><button class="btn" id="exp">Download backup</button><label class="btn" for="imp">Restore from backup</label><input id="imp" type="file" accept="application/json,.json" hidden></div>'+(WEB ? backupMore() : ''))+
   '</div>';
@@ -7609,7 +7627,7 @@ function pSettings(v){
     put("overdueDays", Math.max(1,+f.overdueDays.value||30)); put("lang", f.lang.value); put("payInfo", f.payInfo.value.trim()); if (f.appLink.value.trim()!==APP_LINK()) put("appLink", f.appLink.value.trim());
     saveSettings(); render(); toast("Settings saved"); };
   $("#exp").onclick = downloadBackup;
-  if (WEB && webAdmin) fillCoachCodes($("#coachCodes"));
+  if (WEB && webAdmin){ fillCoachCodes($("#coachCodes")); fillLeads($("#leadsList")); }
   if (WEB){ fillNightly($("#nightly"));
     document.querySelectorAll("[data-bf]").forEach(b=>b.onclick = async ()=>{ const k = b.dataset.bf;
       if (k==="choose") chooseFolder(); else if (k==="stop") stopFolder();
@@ -8035,6 +8053,9 @@ const HE = {
   "Payment":"תשלום", "Session":"שיעור"
 };
 Object.assign(HE, {
+  "What is Rank Up?":"מה זה „עולים בדרגה”?", "Left their details on the website":"השאירו פרטים באתר", "Couldn’t load the list.":"לא ניתן לטעון את הרשימה.",
+  "Private and club":"פרטיים ומועדון", "Nobody yet.":"עדיין אין.",
+  "Remove from the list?":"להסיר מהרשימה?", "Their details are deleted.":"הפרטים יימחקו.", "Couldn’t remove it.":"לא ניתן להסיר.", "Removed":"הוסר",
   "I'm a coach and have a coach code":"אני מאמן ויש לי קוד מאמן", "Join as a coach":"הצטרפות כמאמן", "Open my board":"פתיחת הלוח שלי", "Coach code":"קוד מאמן",
   "You get a coach code from the person who runs Rank Up. Students and parents use the code from their coach instead.":"את קוד המאמן מקבלים ממי שמפעיל את „עולים בדרגה”. תלמידים והורים משתמשים בקוד שקיבלו מהמאמן.",
   "Enter the coach code.":"יש להזין את קוד המאמן.", "Couldn't check the code. Check your connection.":"לא ניתן לבדוק את הקוד. כדאי לבדוק את החיבור.",
