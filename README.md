@@ -23,6 +23,9 @@ The whole app lives in `index.html` and runs in two places:
   coach's records goes into the `backups` table, kept 30 days, scheduled with
   pg_cron. Settings → Backup lists and downloads them. It also creates the
   private "books" storage folder for book PDFs and who may open them.
+  It also sets up several coaches (tables `coaches` and `coach_codes`); run on
+  a database from before that, it moves it over, and that coach becomes the
+  first coach and the admin. `supabase/rollback-multi-coach.sql` undoes the move.
 - `supabase/functions/ratings` — fetches official FIDE and ICF ratings.
 - `supabase/functions/push` — sends phone alerts (push notifications). To set
   it up: run `supabase/schema.sql` again in the SQL Editor; then in Supabase →
