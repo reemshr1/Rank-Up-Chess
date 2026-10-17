@@ -1,0 +1,481 @@
+<title>Rank Up Landing Page</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Public+Sans:wght@400;500;600&family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:light;
+  --paper:#F7FAF5; --surface:#FFFFFF; --ink:#16243F; --muted:#5E6B7E; --line:#DFE7DA;
+  --blue:#1E4E9C; --blue-ink:#DCE7FA; --green:#7CC36A; --green-l:#DDF2D5; --yellow:#FFD54F; --yellow-l:#FFF1B8; --blue-l:#E3ECFA;
+  --display:"Sora","Heebo",system-ui,sans-serif; --body:"Public Sans","Heebo",system-ui,sans-serif;
+}
+[lang="he"]{ --display:"Heebo","Sora",system-ui,sans-serif; --body:"Heebo","Public Sans",system-ui,sans-serif; }
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+html,body{overflow-x:clip}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+h1,h2,h3{text-wrap:balance;font-family:var(--display);line-height:1.15;margin:0;letter-spacing:-.01em}
+a{color:inherit}
+.wrap{max-width:1160px;margin:0 auto;padding-left:max(24px, env(safe-area-inset-left, 0px));padding-right:max(24px, env(safe-area-inset-right, 0px))}
+/* header */
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top, 0px);z-index:10;background:var(--paper)}
+header{position:sticky;top:env(safe-area-inset-top, 0px);z-index:5;background:rgba(247,250,245,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;gap:28px;height:68px}
+.brand{white-space:nowrap;display:flex;align-items:center;gap:10px;text-decoration:none;font-family:var(--display);font-weight:700;font-size:1.15rem}
+.logo{width:36px;height:36px;border-radius:9px;background:#fff;border:1px solid var(--line);display:grid;place-items:center}
+.links{display:flex;gap:24px;margin-inline-start:12px}
+.links a{text-decoration:none;color:var(--muted);font-weight:500;font-size:.95rem}
+.links a:hover{color:var(--ink)}
+.nav .end{margin-inline-start:auto;display:flex;align-items:center;gap:10px}
+.lang{background:none;border:0;font:inherit;color:var(--muted);cursor:pointer;font-size:.95rem;padding:6px 8px}
+.btn:focus-visible,.lang:focus-visible,summary:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:10px;padding:11px 20px;font:600 1rem var(--body);text-decoration:none;border:1px solid transparent;cursor:pointer;white-space:nowrap}
+.btn.primary{background:var(--blue);color:#fff}
+.btn.primary:hover{background:#173f80}
+.btn.ghost{background:#fff;border-color:var(--line);color:var(--ink)}
+.btn.big{padding:15px 28px;font-size:1.08rem;border-radius:12px}
+/* hero */
+.hero{padding:72px 0 40px;position:relative;overflow:hidden}
+.hero .grid{display:grid;grid-template-columns:1.05fr 1fr;gap:48px;align-items:center}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;background:var(--green-l);color:#2E7D4F;font-weight:600;font-size:.88rem;padding:6px 12px;border-radius:999px;margin-bottom:18px}
+.hero h1{font-size:clamp(2.1rem,4.2vw,3.4rem);font-weight:800}
+[lang="en"] .hero h1{font-size:clamp(2rem,3.6vw,2.9rem)}
+.hero h1 em{font-style:normal;color:var(--blue);position:relative;white-space:nowrap}
+.hero h1 em::after{content:"";position:absolute;inset-inline:0;bottom:.06em;height:.22em;background:var(--yellow);z-index:-1;border-radius:3px}
+.hero p.lead{font-size:1.18rem;color:var(--muted);margin:20px 0 28px;max-width:34em}
+.cta{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.cta small{color:var(--muted);font-size:.9rem;width:100%}
+.shots{position:relative;min-height:420px}
+.desk{border-radius:14px;overflow:hidden;box-shadow:0 30px 60px -20px rgba(22,36,63,.35),0 0 0 1px rgba(22,36,63,.08);background:#fff}
+.desk .bar{height:30px;background:#EEF2EC;display:flex;align-items:center;gap:6px;padding:0 12px}
+.desk .bar i{width:10px;height:10px;border-radius:50%;background:#D5DCD2}
+.desk img{display:block;width:100%}
+.phone{position:absolute;bottom:-34px;inset-inline-start:-34px;width:31%;border-radius:26px;overflow:hidden;border:7px solid #16243F;box-shadow:0 24px 40px -12px rgba(22,36,63,.45);background:#fff}
+.phone img{display:block;width:100%}
+.board{position:absolute;width:240px;height:240px;inset-inline-end:-60px;top:-50px;background:conic-gradient(var(--green-l) 25%,transparent 0 50%,var(--green-l) 0 75%,transparent 0) 0 0/60px 60px;opacity:.7;z-index:-1;border-radius:18px}
+/* trust strip */
+.strip{display:grid;grid-template-columns:repeat(3,1fr);gap:16px 32px;padding-block:44px 8px;color:var(--muted);font-size:.95rem;text-align:center}
+.strip div{display:grid;gap:2px;min-width:0}
+.strip b{color:var(--ink);font-family:var(--display);font-size:1.05rem}
+@media (max-width:640px){.strip{grid-template-columns:1fr}}
+/* sections */
+section{padding:84px 0}
+.head{text-align:center;max-width:640px;margin:0 auto 44px}
+.head h2{font-size:clamp(1.7rem,3vw,2.4rem);font-weight:800}
+.head p{color:var(--muted);margin:12px 0 0;font-size:1.08rem}
+/* who */
+.who{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:28px}
+.card .ic{width:48px;height:48px;border-radius:12px;display:grid;place-items:center;font-size:1.5rem;margin-bottom:16px}
+.card h3{font-size:1.25rem;margin-bottom:8px}
+.card p{margin:0;color:var(--muted)}
+.card ul{margin:14px 0 0;padding:0;list-style:none;display:grid;gap:8px}
+.card li{display:flex;gap:8px;align-items:flex-start}
+.card li::before{content:"✓";color:#2E7D4F;font-weight:700}
+.c-blue .ic{background:var(--blue-l)} .c-green .ic{background:var(--green-l)} .c-yellow .ic{background:var(--yellow-l)}
+.who .card{border-top:4px solid var(--blue)}
+.who .c-green{border-top-color:var(--green)}
+.who .c-yellow{border-top-color:var(--yellow)}
+/* features */
+.feat{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.f{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px}
+.f b{display:block;font-family:var(--display);margin:8px 0 4px;font-size:1.02rem}
+.f span{color:var(--muted);font-size:.93rem}
+.f .e{display:grid;place-items:center;width:38px;height:38px;border-radius:9px;font-size:1.3rem;color:var(--blue)}
+/* showcase */
+.show{display:grid;grid-template-columns:1.2fr 1fr;gap:48px;align-items:center}
+.show + .show{margin-top:72px}
+.show.flip .media{order:2}
+.show h3{font-size:1.7rem;font-weight:800;margin-bottom:12px}
+.show p{color:var(--muted);margin:0 0 14px}
+.media{border-radius:14px;overflow:hidden;box-shadow:0 20px 50px -20px rgba(22,36,63,.3),0 0 0 1px rgba(22,36,63,.08)}
+.media img{display:block;width:100%}
+/* steps */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;counter-reset:s}
+.step{background:#fff;border:1px solid var(--line);border-radius:16px;padding:26px;position:relative}
+.step::before{counter-increment:s;content:counter(s);width:40px;height:40px;border-radius:10px;background:var(--blue);color:#fff;display:grid;place-items:center;font:700 1.1rem var(--display);margin-bottom:14px}
+.step h3{font-size:1.15rem;margin-bottom:6px}
+.step p{margin:0;color:var(--muted)}
+/* price */
+.price{max-width:560px;margin:0 auto;background:#fff;border:2px solid var(--blue);border-radius:22px;padding:36px;text-align:center;position:relative;overflow:hidden}
+.price .tag{display:inline-block;background:var(--yellow);font-weight:700;padding:5px 14px;border-radius:999px;font-size:.9rem;margin-bottom:14px}
+.tiers{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:4px 0 0}
+.tier{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:16px 12px;display:grid;gap:2px;align-content:start}
+.tier .tl{font-weight:700;font-size:.95rem}
+.price .num{font:800 2.6rem/1.15 var(--display)}
+.tier small{color:var(--muted);font-size:.88rem;line-height:1.4}
+@media (max-width:420px){.tiers{grid-template-columns:1fr}}
+.price ul{list-style:none;padding:0;margin:22px 0 26px;display:grid;gap:8px;text-align:start}
+.price li::before{content:"✓ ";color:#2E7D4F;font-weight:700}
+.price .after{color:var(--muted);margin:6px 0 0;font-size:.95rem}
+.tbd{display:inline-block;margin-top:10px;font-size:.82rem;color:#7A5A00;background:var(--yellow-l);padding:3px 10px;border-radius:6px}
+[hidden]{display:none!important}
+/* demo */
+.demo-sec{padding-top:56px}
+.demo{display:grid;grid-template-columns:.8fr 1.2fr;gap:40px;align-items:center}
+.demo-steps{list-style:none;margin:0;padding:0;display:grid;gap:10px;counter-reset:d}
+.demo-steps button{width:100%;text-align:start;font:inherit;color:inherit;background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 18px 16px 18px;cursor:pointer;display:grid;gap:2px;position:relative;padding-inline-start:58px}
+.demo-steps li{counter-increment:d}
+.demo-steps button::before{content:counter(d);position:absolute;inset-inline-start:16px;top:16px;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:var(--green-l);color:#2E7D4F;font:700 .95rem var(--display)}
+.demo-steps button[aria-pressed="true"]{border-color:var(--blue);box-shadow:0 8px 24px -14px rgba(30,78,156,.6)}
+.demo-steps button[aria-pressed="true"]::before{background:var(--blue);color:#fff}
+.demo-steps b{font-family:var(--display);font-size:1.05rem}
+.demo-steps span{color:var(--muted);font-size:.93rem}
+.demo-stage{position:relative;height:460px;border-radius:20px;background:linear-gradient(135deg,var(--blue-l),var(--green-l));overflow:hidden}
+.demo-frame{position:absolute;opacity:0;transform:translateY(14px) scale(.98);transition:opacity .45s ease,transform .45s ease;pointer-events:none}
+.demo-frame.on{opacity:1;transform:none}
+.demo-frame img{display:block;width:100%}
+.phone-f{width:186px;left:50%;top:18px;margin-left:-93px;border-radius:24px;overflow:hidden;border:7px solid var(--ink);box-shadow:0 24px 40px -14px rgba(22,36,63,.5);background:#fff}
+.desk-f{inset-inline:28px;top:40px;border-radius:12px;overflow:hidden;box-shadow:0 24px 50px -18px rgba(22,36,63,.45),0 0 0 1px rgba(22,36,63,.08);background:#fff}
+.demo-bar{position:absolute;inset-inline:24px;bottom:16px;height:4px;border-radius:2px;background:rgba(22,36,63,.12);overflow:hidden}
+.demo-bar i{display:block;height:100%;width:0;background:var(--blue)}
+@media (prefers-reduced-motion:reduce){.demo-frame{transition:none}.demo-bar{display:none}}
+/* about the coach */
+.about-sec{padding-top:20px}
+.about{display:grid;grid-template-columns:260px 1fr;gap:48px;align-items:center;max-width:960px;margin:0 auto}
+.portrait{position:relative;aspect-ratio:1;max-width:100%;border-radius:28px;overflow:hidden;background:conic-gradient(var(--green-l) 25%,#fff 0 50%,var(--green-l) 0 75%,#fff 0) 0 0/65px 65px;border:1px solid var(--line);display:grid;place-items:center}
+.mono{width:62%;aspect-ratio:1;border-radius:50%;background:var(--blue);color:#fff;display:grid;place-items:center;font:800 3.2rem var(--display);box-shadow:0 18px 36px -14px rgba(30,78,156,.6)}
+.title-chip{position:absolute;inset-inline-end:14px;top:14px;background:var(--yellow);color:var(--ink);font:800 .95rem var(--display);padding:4px 10px;border-radius:8px}
+.about-text .eyebrow{margin-bottom:10px}
+.about-text h2{font-size:clamp(1.9rem,3.4vw,2.6rem);font-weight:800}
+.about-text .im{color:var(--blue)}
+.about .role{color:var(--muted);margin:6px 0 22px;font-size:1.08rem}
+.facts{display:grid;grid-template-columns:repeat(2,auto);justify-content:start;gap:12px 32px;margin:0 0 24px}
+.facts div{border-inline-start:3px solid var(--green);padding-inline-start:12px}
+.facts dt{font:800 1.25rem var(--display)}
+.facts dd{margin:0;color:var(--muted);font-size:.93rem}
+.why{margin:0;font-size:1.12rem;line-height:1.7;max-width:36em;color:var(--ink)}
+.why::before{content:"“";color:var(--green);font:800 2rem/0 var(--display);margin-inline-end:4px;vertical-align:-.35em}
+/* reviews */
+.reviews{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.rv{margin:0;background:#fff;border:1px solid var(--line);border-radius:18px;padding:26px;display:grid;gap:16px;align-content:space-between}
+.rv blockquote{margin:0;font-size:1.05rem;line-height:1.6}
+.rv blockquote::before{content:"“";display:block;font:800 2.6rem/1 var(--display);color:var(--green);height:.6em}
+.rv figcaption{display:flex;align-items:center;gap:12px;font-size:.93rem}
+.rv .av{width:40px;height:40px;border-radius:50%;background:var(--blue-l);color:var(--blue);display:grid;place-items:center;font:700 1rem var(--display);flex:none}
+.rv figcaption b{display:block}
+.rv figcaption span{color:var(--muted)}
+.rv.ph{border-style:dashed}
+.rv-note{text-align:center;color:#7A5A00;background:var(--yellow-l);border-radius:8px;padding:6px 12px;font-size:.88rem;width:max-content;max-width:100%;margin:18px auto 0}
+/* WhatsApp */
+.wa{display:inline-flex;align-items:center;gap:10px;background:#25D366;color:#073B1C;font-weight:700;text-decoration:none;border-radius:12px;padding:12px 18px}
+.wa:hover{filter:brightness(.96)}
+.wa svg{flex:none}
+.wa-float{position:fixed;z-index:6;bottom:calc(18px + env(safe-area-inset-bottom, 0px));inset-inline-end:calc(18px + env(safe-area-inset-right, 0px));width:56px;height:56px;border-radius:50%;background:#25D366;display:grid;place-items:center;box-shadow:0 10px 24px -8px rgba(7,59,28,.6)}
+.join-wa{margin-top:22px;padding-top:20px;border-top:1px solid var(--line);display:grid;gap:10px;justify-items:start}
+.join-wa span{color:var(--muted);font-size:.93rem}
+/* join form */
+.join{display:grid;grid-template-columns:1fr 1.15fr;gap:44px;align-items:start;background:#fff;border:1px solid var(--line);border-radius:22px;padding:40px}
+.join-text h2{font-size:clamp(1.6rem,2.8vw,2.2rem);font-weight:800;margin-bottom:12px}
+.join-text p{color:var(--muted);margin:0 0 18px}
+.join-list{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+.join-list li::before{content:"✓ ";color:#2E7D4F;font-weight:700}
+.lead{display:grid;gap:14px;min-width:0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.fld{display:grid;gap:6px;min-width:0;border:0;padding:0;margin:0}
+.fld>span,.fld legend{font-weight:600;font-size:.92rem;padding:0}
+.fld input,.fld select,.fld textarea{font:inherit;font-size:1rem;width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink)}
+.fld input:focus,.fld select:focus,.fld textarea:focus{outline:2px solid var(--blue);outline-offset:0;background:#fff}
+.fld input[aria-invalid="true"]{border-color:#C2412D;background:#FCE5E1}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{white-space:nowrap;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--line);border-radius:999px;cursor:pointer;background:var(--paper)}
+.chip:has(input:checked){background:var(--blue-l);border-color:var(--blue);color:var(--blue);font-weight:600}
+.chip input{accent-color:var(--blue);margin:0}
+.agree{display:flex;gap:10px;align-items:flex-start;font-size:.93rem;color:var(--muted)}
+.agree input{margin-top:5px;accent-color:var(--blue)}
+.err{margin:0;color:#C2412D;background:#FCE5E1;border-radius:8px;padding:8px 12px;font-size:.93rem}
+.done{display:grid;gap:2px;background:var(--green-l);color:#2E7D4F;border-radius:12px;padding:14px 16px}
+.tablewrap{overflow-x:auto}
+/* privacy */
+.privacy{background:var(--blue);color:#fff;border-radius:24px;padding:48px;display:grid;grid-template-columns:auto 1fr;gap:28px;align-items:center}
+.privacy .ic{font-size:3rem}
+.privacy h2{font-size:1.8rem;margin-bottom:10px}
+.privacy p{margin:0;color:var(--blue-ink)}
+/* faq */
+.faq{max-width:760px;margin:0 auto;display:grid;gap:10px}
+details{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 20px}
+summary{cursor:pointer;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:12px}
+summary::after{content:"+";color:var(--blue);font-weight:700}
+details[open] summary::after{content:"−"}
+details p{margin:10px 0 0;color:var(--muted)}
+/* final */
+.final{text-align:center;padding:90px 0;background:linear-gradient(var(--paper),#EAF4E4)}
+.final h2{font-size:clamp(1.8rem,3.4vw,2.6rem);font-weight:800;margin-bottom:12px}
+.final p{color:var(--muted);margin:0 0 28px}
+footer{padding:28px 0;color:var(--muted);font-size:.9rem;border-top:1px solid var(--line)}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+/* phones */
+@media (max-width:900px){
+  .links{display:none}
+  .hero{padding-top:40px}
+  .hero .grid,.show{grid-template-columns:1fr}
+  .show.flip .media{order:0}
+  .who,.steps{grid-template-columns:1fr}
+  .feat{grid-template-columns:1fr 1fr}
+  .phone{width:36%;inset-inline-start:-6px;bottom:-24px}
+  .shots{min-height:0;margin-bottom:30px}
+  .board{display:none}
+  .privacy{grid-template-columns:1fr;padding:32px}
+  .join{grid-template-columns:1fr;padding:24px;gap:24px}
+  .demo{grid-template-columns:1fr;gap:20px}
+  .demo-stage{height:380px}
+  .phone-f{width:150px;margin-left:-75px}
+  .desk-f{inset-inline:12px;top:60px}
+  .reviews{grid-template-columns:1fr}
+  .about{grid-template-columns:1fr;gap:24px;justify-items:start}
+  .portrait{width:180px}
+  .facts{grid-template-columns:1fr 1fr}
+  .mono{font-size:2.3rem}
+  .row2{grid-template-columns:1fr}
+}
+@media (max-width:520px){
+  .wrap{padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+  .nav .end .btn.ghost{display:none}
+  .nav{gap:10px}
+  .nav .end .btn.primary{padding:9px 12px;font-size:.9rem}
+  .lang{padding:6px 4px}
+  .feat{grid-template-columns:1fr}
+  section{padding:60px 0}
+}
+.fine{font-size:.85rem;color:var(--muted);margin:2px 0 0}
+.fine a{color:var(--blue)}
+</style>
+<header><div class="wrap nav">
+  <a class="brand" href="#"><span class="logo"><svg width="22" height="22" viewBox="0 0 24 24"><circle cx="9" cy="7" r="3" fill="#1E4E9C"/><path d="M5 21l1.5-8h5L13 21z" fill="#1E4E9C"/><path d="M18 3v8M15 6l3-3 3 3" stroke="#3FA34D" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span data-t="brand">עולים בדרגה</span></a>
+  <nav class="links"><a href="#who" data-t="nWho">למי זה מתאים</a><a href="#features" data-t="nFeat">מה כלול?</a><a href="#how" data-t="nHow">איך מתחילים</a><a href="#price" data-t="nPrice">מחיר</a></nav>
+  <div class="end"><button class="lang" id="lang">English</button><a class="btn ghost" href="../" data-t="signin">התחברות</a><a class="btn primary" href="#join" data-t="start">חודש ראשון חינם</a></div>
+</div></header>
+
+<div class="hero"><div class="wrap grid">
+  <div>
+    <span class="eyebrow"><span aria-hidden="true">♞</span> <span data-t="eyebrow">נבנה על ידי מאמן שחמט - בשביל מאמני שחמט</span></span>
+    <h1 data-t="h1" data-html>כל מה שמאמן שחמט צריך — <em>במקום אחד</em></h1>
+    <p class="lead" data-t="lead">שיעורים, תלמידים, תשלומים, תרגול וטורנירים. ולתלמידים ולהורים — אפליקציה משלהם, שמחוברת אליך.</p>
+    <div class="cta"><a class="btn primary big" href="#join" data-t="start2">להתחיל חודש חינם</a><a class="btn ghost big" href="#features" data-t="see">לראות מה יש בפנים</a></div>
+  </div>
+  <div class="shots"><div class="board"></div>
+    <div class="desk"><div class="bar"><i></i><i></i><i></i></div><img data-src="app-today" alt=""></div>
+    <div class="phone"><img data-src="app-student" alt=""></div>
+  </div>
+</div></div>
+
+<div class="wrap strip">
+  <div><b data-t="s1a">לוח זמנים משותף</b><span data-t="s1b">המאמן מנהל, והתלמיד רואה ומבקש שיעור</span></div>
+  <div><b data-t="s2a">תשלומים ויתרות</b><span data-t="s2b">מעקב מסודר ותמיד מעודכן</span></div>
+  <div><b data-t="s3a">אפליקציה לתלמיד ולהורה</b><span data-t="s3b">גם בטלפון</span></div>
+</div>
+
+<section id="demo" class="demo-sec"><div class="wrap">
+  <div class="head"><h2 data-t="dmH">פחות הודעות, יותר שחמט</h2><p data-t="dmP">תלמידה מבקשת שיעור, המאמן מאשר, היא מתרגלת — והמאמן רואה הכל.</p></div>
+  <div class="demo">
+    <ol class="demo-steps" id="demoSteps">
+      <li><button type="button" data-i="0" aria-pressed="true"><b data-t="dm1h">נועה מבקשת שיעור</b><span data-t="dm1p">מהטלפון, רק בזמנים שבאמת פנויים אצל המאמן.</span></button></li>
+      <li><button type="button" data-i="1"><b data-t="dm2h">המאמן מאשר בלחיצה</b><span data-t="dm2p">הבקשה מחכה במסך הבית, עם התראה.</span></button></li>
+      <li><button type="button" data-i="2"><b data-t="dm3h">נועה רושמת תרגול</b><span data-t="dm3p">כמה דקות, על מה עבדה, מאיזה ספר.</span></button></li>
+      <li><button type="button" data-i="3"><b data-t="dm4h">המאמן רואה שהיא עבדה</b><span data-t="dm4p">"עודכן היום · תרגול" — בלי לשאול.</span></button></li>
+    </ol>
+    <div class="demo-stage" aria-live="polite">
+      <div class="demo-frame phone-f" data-k="0"><img data-src="demo1" alt=""></div>
+      <div class="demo-frame desk-f" data-k="1"><img data-src="demo2" alt=""></div>
+      <div class="demo-frame phone-f" data-k="2"><img data-src="demo3" alt=""></div>
+      <div class="demo-frame desk-f" data-k="3"><img data-src="demo4" alt=""></div>
+      <div class="demo-bar"><i id="demoFill"></i></div>
+    </div>
+  </div>
+</div></section>
+
+<section id="about" class="about-sec"><div class="wrap"><div class="about">
+  <div class="portrait" aria-hidden="true"><span class="mono" data-t="mono">ר״ש</span><span class="title-chip">IM</span></div>
+  <div class="about-text">
+    <span class="eyebrow" data-t="abE">מי עומד מאחורי עולים בדרגה</span>
+    <h2><span class="im">IM</span> <span data-t="abName">ראם שרמן</span></h2>
+    <p class="role" data-t="abRole">אמן בינלאומי ומאמן שחמט</p>
+    <dl class="facts">
+      <div><dt data-t="ab1v">7 שנים</dt><dd data-t="ab1l">שיעורים פרטיים</dd></div>
+      <div><dt data-t="ab2v">3 שנים</dt><dd data-t="ab2l">חוגים במועדון</dd></div>
+    </dl>
+    <blockquote class="why" data-t="abWhy">בניתי את עולים בדרגה כדי לעקוב טוב יותר אחרי ההתקדמות של כל תלמיד, ולהפוך את כל הקשר בין המאמן לתלמיד לנעים ומסודר יותר.</blockquote>
+  </div>
+</div></div></section>
+
+<section id="who"><div class="wrap">
+  <div class="head"><h2 data-t="whoH">אפליקציה אחת, שלושה מסכים</h2><p data-t="whoP">כל אחד רואה בדיוק את מה שהוא צריך — ולא יותר.</p></div>
+  <div class="who">
+    <div class="card c-blue feature"><div class="ic">♚</div><h3 data-t="w1h">למאמן</h3><p data-t="w1p">הלוח שמנהל את כל העבודה שלך.</p>
+      <ul><li data-t="w1a">שיעורים, זמן פנוי וחוגים במועדון</li><li data-t="w1b">תשלומים, יתרות ותזכורות</li><li data-t="w1c">משימות ומעקב אחרי ההתקדמות של כל תלמיד</li><li data-t="w1d">מסך אחד שמראה מה צריך לטפל בו היום</li></ul></div>
+    <div class="card c-green"><div class="ic">♞</div><h3 data-t="w2h">לתלמיד</h3><p data-t="w2p">כל מה שקשור לשחמט שלו, בטלפון.</p>
+      <ul><li data-t="w2a">השיעור הבא, משימות ומטרות</li><li data-t="w2b">רישום תרגול, כושר ומשחקים</li><li data-t="w2c">בקשת שיעור בזמן הפנוי שלך</li><li data-t="w2d">התקדמות ומדליות</li></ul></div>
+    <div class="card c-yellow"><div class="ic">♛</div><h3 data-t="w3h">להורה</h3><p data-t="w3p">שקיפות בלי טלפונים מיותרים.</p>
+      <ul><li data-t="w3d">משימות ותרגול — רואים מה הילד עשה השבוע</li><li data-t="w3a">השיעורים וההתקדמות של הילד</li><li data-t="w3c">כל הילדים במשפחה — בחשבון אחד</li><li data-t="w3b">יתרה, חשבון ואיך משלמים</li></ul></div>
+  </div>
+</div></section>
+
+<section id="features" style="background:#fff;border-block:1px solid var(--line)"><div class="wrap">
+  <div class="head"><h2 data-t="fH">כל מה שמאמן צריך</h2><p data-t="fP">שיעורים, תשלומים, תרגול ומשימות — הכל במקום אחד.</p></div>
+  <div class="show"><div class="media"><img data-src="app-week" alt=""></div><div>
+    <h3 data-t="sh1">לוח זמנים שעובד בשבילך</h3>
+    <p data-t="sp1">שיעורים קבועים, אימונים קבוצתיים ותחרויות של התלמידים — הכל בשבוע אחד. מגדירים זמן פנוי (בבית, במועדון או אונליין), והתלמידים מבקשים שיעור רק בזמנים הרלוונטיים.</p>
+    <p data-t="sp1b">התנגשויות מסומנות מראש, ושינוי של שיעור אחד לא נוגע בשאר.</p></div></div>
+  <div class="show flip"><div class="media"><img data-src="app-students" alt=""></div><div>
+    <h3 data-t="sh2">כל התלמידים, במבט אחד</h3>
+    <p data-t="sp2">דירוג, השיעור הבא, יתרה, ומתי התלמיד עדכן לאחרונה מהאפליקציה. תלמידים פרטיים וקבוצות מועדון — מסודרים לפי יום בשבוע.</p></div></div>
+  <div class="feat" style="margin-top:72px">
+    <div class="f"><span class="e" style="background:var(--blue-l)">♔</span><b data-t="f1">תשלומים ויתרות</b><span data-t="f1d">חיוב לפי שיעור, תזכורת מנומסת בוואטסאפ, והורים מדווחים "שילמתי".</span></div>
+    <div class="f"><span class="e" style="background:var(--green-l)">♖</span><b data-t="f2">חוגים במועדון</b><span data-t="f2d">נוכחות בלחיצה, שעות ותשלום מהמועדון לכל חודש.</span></div>
+    <div class="f"><span class="e" style="background:var(--yellow-l)">♕</span><b data-t="f3">טורנירים ומשחקים</b><span data-t="f3d">התלמידים רושמים משחקים, והמאמן רואה את התמונה המלאה.</span></div>
+    <div class="f"><span class="e" style="background:var(--blue-l)">♗</span><b data-t="f4">הספרייה שלך</b><span data-t="f4d">המאמן מעלה את הספרים שלו עם PDF, ונותן אותם לתלמיד או לקבוצה שלמה.</span></div>
+    <div class="f"><span class="e" style="background:var(--green-l)">♘</span><b data-t="f5">תרגול וכושר</b><span data-t="f5d">דקות תרגול, אימוני כושר, רצפים ומדליות.</span></div>
+    <div class="f"><span class="e" style="background:var(--yellow-l)">♙</span><b data-t="f6">משימות</b><span data-t="f6d">לתלמיד אחד או לקבוצה, עם בדיקה ומשוב.</span></div>
+    <div class="f"><span class="e" style="background:var(--blue-l)">♚</span><b data-t="f7">התראות</b><span data-t="f7d">לתלמידים ולהורים, גם לטלפון.</span></div>
+    <div class="f"><span class="e" style="background:var(--green-l)">♜</span><b data-t="f8">גיבוי כל לילה</b><span data-t="f8d">עותק של הכל נשמר אוטומטית, 30 יום אחורה.</span></div>
+  </div>
+</div></section>
+
+<section id="how"><div class="wrap">
+  <div class="head"><h2 data-t="hH">מתחילים בעשר דקות</h2></div>
+  <div class="steps">
+    <div class="step"><h3 data-t="h1h">נרשמים</h3><p data-t="h1p">עם אימייל וסיסמה. החודש הראשון עלינו.</p></div>
+    <div class="step"><h3 data-t="h2h">מוסיפים תלמידים</h3><p data-t="h2p">שם, דירוג ומחיר לשיעור. מספר פיד״ה מושך את הדירוג לבד.</p></div>
+    <div class="step"><h3 data-t="h3h">מזמינים בקוד</h3><p data-t="h3p">שולחים לתלמיד או להורה קוד בוואטסאפ — והם מחוברים.</p></div>
+  </div>
+</div></section>
+
+<section id="price" style="padding-top:20px"><div class="wrap">
+  <div class="head"><h2 data-t="pH">כמה זה עולה?</h2><p data-t="pP">משלמים רק על התלמידים והקבוצות שמלמדים.</p></div>
+  <div class="price"><span class="tag" data-t="pTag">חודש ראשון חינם</span>
+    <div class="tiers">
+      <div class="tier"><span class="tl" data-t="tPriv">תלמיד פרטי</span><div class="num">₪30</div><small data-t="pPer">לתלמיד בחודש</small></div>
+      <div class="tier"><span class="tl" data-t="tGrp">קבוצה במועדון</span><div class="num">₪50</div><small data-t="pPerG">לקבוצה בחודש, לא משנה כמה תלמידים יש בה</small></div>
+    </div><p class="after" data-t="pAfter">אחרי החודש הראשון. בחודש הראשון — חינם, לכל התלמידים והקבוצות.</p>
+    <ul><li data-t="p1">אפליקציה לתלמידים ולהורים — כלולה</li><li data-t="p2">גיבוי כל לילה</li><li data-t="p4">ביטול בכל זמן</li></ul>
+    <a class="btn primary big" href="#join" data-t="start3" style="width:100%">להתחיל חודש חינם</a></div>
+</div></section>
+
+<section id="join" style="padding-top:20px"><div class="wrap"><div class="join">
+  <div class="join-text">
+    <h2 data-t="jH">רוצים להיות מהראשונים?</h2>
+    <p data-t="jP">עולים בדרגה נפתח בקרוב למאמנים נוספים. השאירו פרטים, ונחזור אליכם כשהמקום שלכם מוכן — עם החודש הראשון חינם.</p>
+    <ul class="join-list"><li data-t="jL1">שיחה קצרה, בלי התחייבות</li><li data-t="jL2">עזרה בהעברת התלמידים שלכם</li><li data-t="jL3">הפרטים נשארים אצלנו בלבד</li></ul>
+    <div class="join-wa"><span data-t="waP">מעדיפים לדבר? שלחו הודעה:</span><a class="wa" href="https://wa.me/972587957020?text=%D7%A9%D7%9C%D7%95%D7%9D%2C%20%D7%90%D7%A0%D7%99%20%D7%9E%D7%90%D7%9E%D7%9F%20%D7%A9%D7%97%D7%9E%D7%98%20%D7%95%D7%A8%D7%95%D7%A6%D7%94%20%D7%9C%D7%A9%D7%9E%D7%95%D7%A2%20%D7%A2%D7%9C%20%D7%A2%D7%95%D7%9C%D7%99%D7%9D%20%D7%91%D7%93%D7%A8%D7%92%D7%94" target="_blank" rel="noopener"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6.5-.1 1.5-.6 1.7-1.2s.2-1.1.1-1.2-.2-.2-.4-.3z"/></svg><span data-t="waB">שיחה בוואטסאפ</span></a></div>
+  </div>
+  <form id="leadForm" class="lead" novalidate>
+    <div class="row2">
+      <label class="fld"><span data-t="lName">שם מלא</span><input id="lead_name" name="name" autocomplete="name" required></label>
+      <label class="fld"><span data-t="lPhone">טלפון</span><input id="lead_phone" name="phone" type="tel" autocomplete="tel" dir="ltr" placeholder="050-0000000" required></label>
+    </div>
+    <label class="fld"><span data-t="lEmail">אימייל</span><input id="lead_email" name="email" type="email" autocomplete="email" dir="ltr" placeholder="name@example.com" required></label>
+    <div class="row2">
+      <label class="fld"><span data-t="lCity">עיר / אזור</span><input id="lead_city" name="city" autocomplete="address-level2"></label>
+      <label class="fld"><span data-t="lCount">כמה תלמידים יש לכם?</span><select id="lead_count" name="count"><option value="1-5" data-t="c1">עד 5</option><option value="6-15" data-t="c2">6 עד 15</option><option value="16-30" data-t="c3">16 עד 30</option><option value="30+" data-t="c4">יותר מ־30</option></select></label>
+    </div>
+    <fieldset class="fld"><legend data-t="lKind">מה אתם מלמדים?</legend>
+      <div class="chips"><label class="chip"><input type="radio" name="kind" value="private" checked> <span data-t="k1">שיעורים פרטיים</span></label><label class="chip"><input type="radio" name="kind" value="club"> <span data-t="k2">חוגים במועדון</span></label><label class="chip"><input type="radio" name="kind" value="both"> <span data-t="k3">גם וגם</span></label></div>
+    </fieldset>
+    <label class="fld"><span data-t="lNote">משהו שחשוב לכם שנדע? (לא חובה)</span><textarea id="lead_note" name="note" rows="3"></textarea></label>
+    <label class="agree"><input type="checkbox" id="lead_ok" name="ok"> <span data-t="lOk">אני מסכים/ה שיחזרו אליי לגבי עולים בדרגה</span></label>
+    <p class="fine"><span data-t="lPriv">הפרטים משמשים רק כדי לחזור אליכם, ולא מועברים לאף אחד.</span> <a href="privacy.html" data-t="lPrivL">מדיניות הפרטיות</a></p>
+    <p class="err" id="leadErr" role="alert" hidden></p>
+    <button class="btn primary big" type="submit" id="leadBtn" data-t="lSend">שליחת הפרטים</button>
+    <div class="done" id="leadDone" hidden><b data-t="dH">תודה! הפרטים התקבלו.</b><span data-t="dP">נחזור אליכם בקרוב.</span></div>
+  </form>
+</div>
+</div></section>
+
+<section style="padding-top:0"><div class="wrap"><div class="privacy"><div class="ic"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div><div>
+  <h2 data-t="prH">המידע של הילדים — שמור</h2>
+  <p data-t="prP">כל מאמן רואה רק את התלמידים שלו. תלמיד רואה רק את הלוח שלו — לא תשלומים, לא הערות פרטיות ולא תלמידים אחרים. הורה רואה רק את הילדים שלו. המידע לא נמכר ולא מועבר לאף אחד.</p></div></div></div></section>
+
+<section style="padding-top:0"><div class="wrap">
+  <div class="head"><h2 data-t="qH">שאלות נפוצות</h2></div>
+  <div class="faq">
+    <details><summary data-t="q1">התלמידים צריכים להוריד אפליקציה?</summary><p data-t="a1">לא. זה אתר שנפתח בכל טלפון ומחשב, ואפשר להוסיף אותו למסך הבית כמו אפליקציה.</p></details>
+    <details><summary data-t="q2">מה אם התלמיד בלי טלפון?</summary><p data-t="a2">ההורה יכול להתחבר במקומו, ואת הכל אפשר גם לנהל רק מהלוח של המאמן.</p></details>
+    <details><summary data-t="q3">אפשר לעבוד גם עם מועדון?</summary><p data-t="a3">כן. חוגים במועדון, נוכחות, שעות ותשלום מהמועדון — בלשונית נפרדת.</p></details>
+    <details><summary data-t="q4">ומה קורה עם המידע אם אפסיק?</summary><p data-t="a4">אפשר להוריד גיבוי מלא בכל רגע, והוא שלך.</p></details>
+  </div>
+</div></section>
+
+<div class="final"><div class="wrap">
+  <h2 data-t="fnH">מוכנים לעלות בדרגה?</h2><p data-t="fnP">חודש ראשון חינם.</p>
+  <a class="btn primary big" href="#join" data-t="start4">להתחיל עכשיו</a>
+</div></div>
+
+<a class="wa-float" href="https://wa.me/972587957020" target="_blank" rel="noopener" aria-label="WhatsApp" data-t-aria="waA"><svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6.5-.1 1.5-.6 1.7-1.2s.2-1.1.1-1.2-.2-.2-.4-.3z"/></svg></a>
+<footer><div class="wrap"><span data-t="foot">© 2026 עולים בדרגה · Rank Up</span><span><a href="privacy.html" id="privLink" data-t="priv">פרטיות</a> · <a href="https://wa.me/972587957020" target="_blank" rel="noopener" data-t="contact">צור קשר</a> · <a href="../" data-t="signin2">כניסה לאפליקציה</a></span></div></footer>
+
+<script>
+const EN = {brand:"Rank Up", nWho:"Who it's for", nFeat:"What's included?", nHow:"How to start", nPrice:"Price", signin:"Sign in", start:"First month free",
+ eyebrow:"Built by a chess coach, for chess coaches", h1:"Everything a chess coach needs, <em>in one place</em>",
+ lead:"Lessons, students, payments, practice and tournaments. And for students and parents — an app of their own, connected to you.",
+ start2:"Start your free month", see:"See what's inside",
+ s1a:"A shared schedule", s1b:"The coach runs it, students see it and ask for lessons", s2a:"Payments and balances", s2b:"Tracked and always up to date", s3a:"An app for students and parents", s3b:"On their phone too",
+ whoH:"One app, three views", whoP:"Everyone sees exactly what they need — and nothing more.",
+ w1h:"For the coach", w1p:"The board that runs your work.", w1a:"Lessons, free time and club classes", w1b:"Payments, balances and reminders", w1c:"Assignments, and each student's progress at a glance", w1d:"One screen showing what needs handling today",
+ w2h:"For the student", w2p:"Everything about their chess, on their phone.", w2a:"Next lesson, assignments and goals", w2b:"Log practice, workouts and games", w2c:"Ask for a lesson in your free time", w2d:"Progress and medals",
+ w3h:"For the parent", w3p:"The full picture, without extra phone calls.", w3a:"Their child's lessons and progress", w3b:"Balance, statement and how to pay", w3c:"All the children in the family — in one account", w3d:"Assignments and practice — see what your child did this week",
+ fH:"Everything a coach needs", fP:"Lessons, payments, practice and assignments — all in one place.",
+ sh1:"A schedule that works for you", sp1:"Weekly lessons, group training and your students' competitions — all in one week. Set your free time (at home, at the club or online), and students can only ask for lessons at the times that fit.", sp1b:"Clashes are flagged ahead of time, and changing one lesson leaves the others alone.",
+ sh2:"All your students, at a glance", sp2:"Rating, next lesson, balance, and when each student last updated from the app. Private students and club groups — sorted by day of the week.",
+ f1:"Payments and balances", f1d:"Charge per lesson, a polite WhatsApp reminder, and parents report \"I've paid\".", f2:"Club classes", f2d:"One-tap attendance, plus the club's hours and pay each month.", f3:"Tournaments and games", f3d:"Students log their games, and the coach sees the full picture.", f4:"Your own library", f4d:"The coach uploads their own books with the PDF, and gives them to a student or a whole group.", f5:"Practice and fitness", f5d:"Practice minutes, workouts, streaks and medals.", f6:"Assignments", f6d:"For one student or a group, with review and feedback.", f7:"Notifications", f7d:"To students and parents, on their phones too.", f8:"Nightly backup", f8d:"A copy of everything, kept for 30 days.",
+ hH:"Up and running in ten minutes", h1h:"Sign up", h1p:"With an email and password. The first month is on us.", h2h:"Add your students", h2p:"Name, rating and price per lesson. A FIDE id fills in the rating.", h3h:"Invite with a code", h3p:"Send a student or parent a code on WhatsApp — and they're connected.",
+ pH:"How much does it cost?", pP:"You only pay for the students and groups you teach.", pTag:"First month free", pPer:"per student a month", pAfter:"After the first month. The first month is free, for all your students and groups.", tPriv:"Private student", tGrp:"Club group", pPerG:"per group a month, however many students are in it", p1:"Student and parent app included", p2:"Nightly backup", p4:"Cancel any time", start3:"Start your free month",
+ prH:"Children's data stays safe", prP:"Each coach sees only their own students. A student sees only their own board — no payments, private notes or other students. A parent sees only their own children. The data is never sold or passed on to anyone.",
+ qH:"Questions", q1:"Do students need to download an app?", a1:"No. It's a website that opens on any phone or computer, and it can be added to the home screen like an app.", q2:"What if a student has no phone?", a2:"A parent can sign in for them, and everything can also be run from the coach's board alone.", q3:"Does it work with a club?", a3:"Yes. Club classes, attendance, hours and the club's pay — on their own tab.", q4:"What happens to my data if I stop?", a4:"You can download a full backup at any time. It's yours.",
+ jH:"Want to be one of the first?", jP:"Rank Up is opening to more coaches soon. Leave your details and we'll get back to you when your place is ready — with your first month free.", jL1:"A short call, no commitment", jL2:"Help moving your students over", jL3:"Your details stay with us only",
+ lName:"Full name", lPhone:"Phone", lEmail:"Email", lCity:"City / area", lCount:"How many students do you have?", c1:"1–5", c2:"6–15", c3:"16–30", c4:"More than 30", lKind:"What do you teach?", k1:"Private lessons", k2:"Club classes", k3:"Both", lNote:"Anything you'd like us to know? (optional)", lOk:"I agree to be contacted about Rank Up", lSend:"Send my details", dH:"Thank you! We got your details.", dP:"We'll get back to you soon.",
+ dmH:"Fewer messages, more chess", dmP:"A student asks for a lesson, the coach approves it, she practises — and the coach sees it all.", dm1h:"Noa asks for a lesson", dm1p:"From her phone, only at times the coach is really free.", dm2h:"The coach approves with one tap", dm2p:"The request waits on the home screen, with an alert.", dm3h:"Noa logs her practice", dm3p:"How many minutes, what she worked on, from which book.", dm4h:"The coach sees she practised", dm4p:"\"Updated today · practice\" — without asking.",
+
+ waP:"Rather talk? Send a message:", waB:"Chat on WhatsApp",
+ mono:"RS", abE:"Who's behind Rank Up", abName:"Raem Sherman", abRole:"International Master and chess coach", ab1v:"7 years", ab1l:"private lessons", ab2v:"3 years", ab2l:"club classes",
+ abWhy:"I built Rank Up to keep better track of each student's progress, and to make the whole coach–student relationship more pleasant and organized.",
+ fnH:"Ready to rank up?", fnP:"First month free.", start4:"Start now", foot:"© 2026 Rank Up · עולים בדרגה", priv:"Privacy", contact:"Contact", signin2:"Open the app", lPriv:"Your details are used only to get back to you, and are never passed on.", lPrivL:"Privacy policy"};
+const HE = {}; document.querySelectorAll("[data-t]").forEach(e=>{ HE[e.dataset.t] = e.hasAttribute("data-html") ? e.innerHTML : e.textContent; });
+function setLang(l){
+  document.documentElement.lang = l; document.documentElement.dir = l==="he" ? "rtl" : "ltr";
+  document.querySelectorAll("[data-t]").forEach(e=>{ const v = (l==="he" ? HE : EN)[e.dataset.t]; if (v==null) return; if (e.hasAttribute("data-html")) e.innerHTML = v; else e.textContent = v; });
+  document.querySelectorAll("img[data-src]").forEach(i=>{ i.src = i.dataset.src+"-"+l+".png"; });
+  document.getElementById("lang").textContent = l==="he" ? "English" : "עברית";
+  document.querySelectorAll('a[href^="privacy.html"]').forEach(x=>{ x.setAttribute("href", "privacy.html"+(l==="en" ? "?lang=en" : "")); });
+}
+document.getElementById("lang").onclick = ()=>setLang(document.documentElement.lang==="he" ? "en" : "he");
+setLang(new URLSearchParams(location.search).get("lang")==="en" ? "en" : "he");
+
+/* the day-in-the-life demo: steps advance every 4.5s; clicking a step jumps to it and pauses */
+(()=>{
+  const steps = [...document.querySelectorAll("#demoSteps button")], frames = [...document.querySelectorAll(".demo-frame")], fill = document.getElementById("demoFill");
+  const still = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches, DUR = 4500;
+  let i = 0, t0 = performance.now(), paused = still;
+  const show = k=>{ i = k; steps.forEach((b,j)=>b.setAttribute("aria-pressed", String(j===k))); frames.forEach((f,j)=>f.classList.toggle("on", j===k)); t0 = performance.now(); };
+  steps.forEach((b,j)=>b.addEventListener("click", ()=>{ paused = true; fill.style.width = "100%"; show(j); }));
+  show(0);
+  const tick = now=>{ if (!paused){ const p = (now-t0)/DUR; fill.style.width = Math.min(100, p*100)+"%"; if (p>=1) show((i+1)%steps.length); } requestAnimationFrame(tick); };
+  if (!still) requestAnimationFrame(tick);
+})();
+
+/* "Leave your details": saved to the "leads" table in Supabase. Anyone can add a row; only the admin coach can read them (Settings → Coaches). */
+const SUPABASE = {url:"https://gzcwvnynkcepvqkzwvkb.supabase.co", key:"sb_publishable_0on-hzzXoXPdk8dOFM3RNQ_9pEMALHx"};
+const ERR = {he:{name:"נא לכתוב שם.", phone:"נא לכתוב מספר טלפון.", email:"נא לכתוב אימייל תקין.", ok:"נא לאשר שנוכל לחזור אליכם.", save:"לא הצלחנו לשמור את הפרטים. נסו שוב בעוד רגע, או שלחו הודעה בוואטסאפ."},
+             en:{name:"Please write your name.", phone:"Please write a phone number.", email:"Please write a valid email.", ok:"Please agree that we can contact you.", save:"Your details couldn't be saved. Try again in a moment, or send a WhatsApp message."}};
+const L = ()=>document.documentElement.lang==="he" ? "he" : "en";
+const form = document.getElementById("leadForm"), err = document.getElementById("leadErr"), btn = document.getElementById("leadBtn");
+const showErr = m=>{ err.textContent = m; err.hidden = !m; };
+form.addEventListener("submit", async e=>{
+  e.preventDefault(); showErr("");
+  const v = Object.fromEntries(new FormData(form)); ["name","phone","email"].forEach(k=>form.elements[k].removeAttribute("aria-invalid"));
+  const bad = k=>{ form.elements[k] && form.elements[k].setAttribute("aria-invalid","true"); showErr(ERR[L()][k]); };
+  if (!String(v.name||"").trim()) return bad("name");
+  if (String(v.phone||"").replace(/\D/g,"").length<9) return bad("phone");
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v.email||"").trim())) return bad("email");
+  if (!v.ok) return showErr(ERR[L()].ok);
+  btn.disabled = true;
+  try {
+    const row = {name:String(v.name).trim().slice(0,80), phone:String(v.phone).trim().slice(0,30), email:String(v.email).trim().slice(0,120), city:String(v.city||"").trim().slice(0,60),
+      students:v.count||"", kind:v.kind||"", note:String(v.note||"").trim().slice(0,500), lang:L()};
+    const r = await fetch(SUPABASE.url+"/rest/v1/leads", {method:"POST", headers:{apikey:SUPABASE.key, "Content-Type":"application/json", Prefer:"return=minimal"}, body:JSON.stringify(row)});
+    if (!r.ok) throw new Error(r.status);
+    form.querySelectorAll(".row2,.fld,.agree,.fine,#leadBtn").forEach(x=>x.hidden = true); document.getElementById("leadDone").hidden = false;
+  } catch(x){ showErr(ERR[L()].save); } finally { btn.disabled = false; }
+});
+</script>

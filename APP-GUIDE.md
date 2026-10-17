@@ -280,11 +280,15 @@ All the money in one place.
 - **Phone alerts:** turn alerts on for this device and **Send a test alert**
   (see Phone alerts below).
 - **Account:** which email is signed in, Sign out.
+- The sign-in screen has a **What is Rank Up?** link to the public page.
 - **Coaches** (the admin only — the first coach): lets another coach use Rank Up with their own students.
   **Make a coach code** (with an optional note of who it's for) shows a ready message to send them: open the
   app, create an account, tap **I'm a coach and have a coach code** and enter the code. Each code works once.
   The list shows each code as **Not used yet** (with **Copy message** and **Remove**) or **Used by** the
   account's email and date. See "Several coaches" below.
+  Under it, **Left their details on the website**: coaches who sent the form on the public page
+  (`welcome/`), newest first, with phone, email, city, what they teach and how many students, a
+  **WhatsApp** button and **Remove**.
 - **Useful links:** the sites shown to students and parents on their Practice
   page (suggested: Chess.com, Lichess, Lichess puzzles, ChessTempo, Chessable,
   Chess-Results, Israel Chess Federation). Add, edit, remove, or restore the

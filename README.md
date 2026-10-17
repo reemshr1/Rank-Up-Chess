@@ -32,6 +32,9 @@ The whole app lives in `index.html` and runs in two places:
   Edge Functions, create a function named `push`, paste in `index.ts`, Deploy,
   and switch **Verify JWT** off (the function checks sign-in itself, like
   `ratings`). It makes its own keys the first time it runs.
+- `welcome/` — the public page about Rank Up (`index.html`, `privacy.html` and the pictures), at
+  `…/Rank-Up-Chess/welcome/`. Its "leave your details" form saves to the `leads` table
+  (set up by `supabase/schema.sql`); the admin sees the list in Settings → Coaches.
 - `vendor/supabase.js` — the Supabase browser library (supabase-js 2.117.2, MIT).
 - `manifest.webmanifest`, `sw.js`, `icons/` — let phones install the app from
   the browser ("Add to Home Screen").

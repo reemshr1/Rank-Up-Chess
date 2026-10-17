@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>פרטיות · עולים בדרגה</title>
+<link rel="icon" href="../icons/icon-192.png">
+<style>
+:root{--ink:#14213D;--muted:#5B6478;--blue:#1E4E9C;--line:#E4E7EE;--bg:#F7F8F5}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 1.02rem/1.7 Heebo,"Public Sans",system-ui,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:28px 20px 60px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:22px}
+header a{color:var(--blue);font-weight:600;text-decoration:none}
+button{font:inherit;background:none;border:1px solid var(--line);border-radius:999px;padding:4px 14px;cursor:pointer;color:var(--ink)}
+article{background:#fff;border:1px solid var(--line);border-radius:18px;padding:28px}
+h1{margin:0 0 4px;font-size:1.7rem} h2{font-size:1.1rem;margin:24px 0 4px}
+p,li{margin:6px 0} ul{padding-inline-start:22px}
+.muted{color:var(--muted);font-size:.92rem}
+a{color:var(--blue)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><a href="./" id="back">→ עולים בדרגה</a><button id="lang">English</button></header>
+<article id="he">
+  <h1>פרטיות</h1>
+  <p class="muted">עודכן באוקטובר 2026</p>
+  <p>עולים בדרגה (Rank Up) היא אפליקציה למאמני שחמט, לתלמידים שלהם ולהורים. מפעיל אותה ראם שרמן.</p>
+  <h2>הטופס "השאירו פרטים"</h2>
+  <p>כשמשאירים פרטים באתר אנחנו שומרים את מה שנכתב בטופס: שם, טלפון, אימייל, עיר או אזור, מספר התלמידים, מה מלמדים והערה. הפרטים משמשים רק כדי לחזור אליכם לגבי עולים בדרגה. הם לא נמכרים, לא מועברים לאף אחד ולא משמשים לפרסום.</p>
+  <h2>באפליקציה</h2>
+  <ul>
+    <li>כל מאמן רואה רק את התלמידים, ההורים והתשלומים שלו.</li>
+    <li>תלמיד רואה רק את הלוח שלו: לא תשלומים, לא הערות פרטיות של המאמן ולא תלמידים אחרים.</li>
+    <li>הורה רואה רק את הילדים שלו.</li>
+    <li>המאמן יכול להוריד גיבוי מלא של הנתונים שלו בכל זמן.</li>
+  </ul>
+  <h2>איפה המידע נשמר</h2>
+  <p>המידע נשמר אצל Supabase, שירות האחסון שהאפליקציה בנויה עליו, מאחורי חוקי גישה שמאפשרים לכל אחד לראות רק את מה ששייך לו.</p>
+  <h2>לראות, לתקן או למחוק</h2>
+  <p>אפשר לבקש לראות את המידע שלכם, לתקן אותו או למחוק אותו. שלחו הודעה בוואטסאפ: <a href="https://wa.me/972587957020" dir="ltr">058-7957020</a>.</p>
+</article>
+<article id="en" hidden dir="ltr" lang="en">
+  <h1>Privacy</h1>
+  <p class="muted">Updated October 2026</p>
+  <p>Rank Up (עולים בדרגה) is an app for chess coaches, their students and parents. It is run by Raem Sherman.</p>
+  <h2>The "leave your details" form</h2>
+  <p>When you leave your details on the site we keep what you wrote in the form: name, phone, email, city or area, number of students, what you teach and a note. They are used only to get back to you about Rank Up. They are never sold, passed on to anyone or used for advertising.</p>
+  <h2>In the app</h2>
+  <ul>
+    <li>Each coach sees only their own students, parents and payments.</li>
+    <li>A student sees only their own board: no payments, no coach's private notes and no other students.</li>
+    <li>A parent sees only their own children.</li>
+    <li>A coach can download a full backup of their data at any time.</li>
+  </ul>
+  <h2>Where the data is kept</h2>
+  <p>The data is kept with Supabase, the storage service the app is built on, behind access rules that let each person see only what belongs to them.</p>
+  <h2>See, correct or delete</h2>
+  <p>You can ask to see your data, correct it or delete it. Send a WhatsApp message: <a href="https://wa.me/972587957020">+972 58-795-7020</a>.</p>
+</article>
+</div>
+<script>
+const set = l=>{ document.getElementById("he").hidden = l!=="he"; document.getElementById("en").hidden = l==="he";
+  document.documentElement.lang = l; document.documentElement.dir = l==="he" ? "rtl" : "ltr";
+  document.getElementById("lang").textContent = l==="he" ? "English" : "עברית";
+  document.getElementById("back").textContent = l==="he" ? "→ עולים בדרגה" : "← Rank Up"; document.getElementById("back").href = l==="he" ? "./" : "./?lang=en"; };
+document.getElementById("lang").onclick = ()=>set(document.documentElement.lang==="he" ? "en" : "he");
+set(new URLSearchParams(location.search).get("lang")==="en" ? "en" : "he");
+</script>
+</body>
+</html>

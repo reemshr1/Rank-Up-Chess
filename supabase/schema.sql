@@ -303,3 +303,29 @@ create policy "rank-up: students and parents open their book files" on storage.o
     where d.col = 'portal/' || auth.uid()::text || '/view'
       and ((d.id = 'student' and d.data->>'id' = (storage.foldername(name))[1])
         or d.id = 'ch-' || (storage.foldername(name))[1])));
+
+-- Coaches who left their details on the website (welcome/). Anyone can send the form; only the admin can read
+-- the list (Settings → Coaches) and remove rows. Nothing else can be read or changed from outside.
+create table if not exists public.leads (
+  id bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  name text not null check (char_length(trim(name)) between 1 and 80),
+  phone text not null check (char_length(phone) between 9 and 30),
+  email text not null check (char_length(email) <= 120 and email ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$'),
+  city text not null default '' check (char_length(city) <= 60),
+  students text not null default '' check (students in ('', '1-5', '6-15', '16-30', '30+')),
+  kind text not null default '' check (kind in ('', 'private', 'club', 'both')),
+  note text not null default '' check (char_length(note) <= 500),
+  lang text not null default 'he' check (lang in ('he', 'en'))
+);
+alter table public.leads enable row level security;
+grant insert on public.leads to anon, authenticated;
+drop policy if exists "anyone can leave their details" on public.leads;
+create policy "anyone can leave their details" on public.leads
+  for insert to anon, authenticated with check (true);
+drop policy if exists "the admin reads the details left" on public.leads;
+create policy "the admin reads the details left" on public.leads
+  for select to authenticated using (public.is_admin());
+drop policy if exists "the admin removes details left" on public.leads;
+create policy "the admin removes details left" on public.leads
+  for delete to authenticated using (public.is_admin());
