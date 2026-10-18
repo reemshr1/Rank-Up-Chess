@@ -88,7 +88,8 @@ page also says when FIDE and Israeli Chess Federation ratings were last
 checked: they are fetched automatically once a month, or on demand.
 
 **Student profile form:** full name, first name in Hebrew, boy or girl,
-FIDE and ICF ids, main rating, level, birth year, phone or email, parent or
+FIDE and ICF ids, main rating, level (and level in Hebrew, shown instead when
+the app is in Hebrew), birth year, phone or email, parent or
 guardian, lessons (private or club only) and club groups (tick every class
 the student is in; a private student can be in several), fee per
 session, active or archived, goals, and coach notes (and whether the student

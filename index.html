@@ -2924,7 +2924,7 @@ function familyDocs(f){
   return out;
 }
 function studentView(s){
-  return JSON.parse(JSON.stringify({id:s.id, name:s.name, nameHe:s.nameHe||"", fullHe:s.fullHe||"", level:s.level, rating:s.rating, ratingType:s.ratingType, fideId:s.fideId, icfId:s.icfId, fide:s.fide, icf:s.icf, noId:s.noId,
+  return JSON.parse(JSON.stringify({id:s.id, name:s.name, nameHe:s.nameHe||"", fullHe:s.fullHe||"", level:s.level, levelHe:s.levelHe||"", rating:s.rating, ratingType:s.ratingType, fideId:s.fideId, icfId:s.icfId, fide:s.fide, icf:s.icf, noId:s.noId,
     goals:s.goals, notes:s.notesShared ? s.notes : "", notesShared:!!s.notesShared, active:s.active, createdAt:s.createdAt,
     sessions:s.sessions.map(x=>({id:x.id, date:x.date, time:x.time, duration:x.duration, format:x.format, place:x.place||"", status:x.status, topics:x.topics, added:x.added, notes:isShared(x.shareNotes)?x.notes:"", slotId:x.slotId, slotDate:x.slotDate})),
     worklog:s.worklog, repertoire:s.repertoire, tournaments:s.tournaments.map(({assist, assistDays, assistFee, assistReason, ...x})=>x), books:s.books, ratings:s.ratings, training:s.training||[], requests:s.requests||[], checkins:s.checkins||[], notices:(s.notices||[]).filter(n=>(n.to||[]).includes("student") && liveNotice(n)), noticeReads:(s.noticeReads||[]), appSince:(s.portal && s.portal.linkedAt)||"", fitness:s.fitness||[], fitnessGoal:+s.fitnessGoal||0, fitnessMinGoal:+s.fitnessMinGoal||0, sleep:s.sleep||[],
@@ -4725,8 +4725,8 @@ function searchAll(q){
   const hit = (...parts)=>{ const h = foldText(parts.join(" ")); return words.every(w=>h.includes(w)); };
   const add = (key, label, items)=>{ if (items.length) groups.push({key, label, items}); };
   const ss = sortBy(state.students,"name");
-  add("students","Students", ss.filter(s=>hit(s.name,s.fullHe,s.level,s.contact,s.guardian,s.goals,s.notes,s.fideId,s.icfId))
-    .map(s=>({title:s.name, sub:[s.level, s.active?"":"Archived"].filter(Boolean).join(" · "), href:"#/student/"+s.id})));
+  add("students","Students", ss.filter(s=>hit(s.name,s.fullHe,s.level,s.levelHe,s.contact,s.guardian,s.goals,s.notes,s.fideId,s.icfId))
+    .map(s=>({title:s.name, sub:[levelOf(s), s.active?"":"Archived"].filter(Boolean).join(" · "), href:"#/student/"+s.id})));
   const ses = []; ss.forEach(s=>s.sessions.forEach(x=>{ if ((x.topics||x.notes) && hit(x.topics,x.notes)) ses.push({s,x}); }));
   add("sessions","Lessons", ses.sort((a,b)=>a.x.date<b.x.date?1:-1).map(({s,x})=>({title:x.topics||"Lesson notes", sub:fullName(s)+" · "+fmtDate(x.date)+(x.notes&&!hit(x.topics)?" · "+x.notes.slice(0,80):""), href:"#/student/"+s.id+"/sessions"})));
   const own = [], studied = [];
@@ -4958,7 +4958,7 @@ function pStudents(v){
     const row = s=>{
       const l = ledger(s); const next = sortBy(s.sessions.filter(x=>x.status==="planned"&&x.date>=t),"date")[0];
       const r = sortBy(s.ratings.filter(x=>(x.source||mainSource(s))===mainSource(s)),"date"); const delta = r.length>1 ? r[r.length-1].value - r[r.length-2].value : null;
-      return '<a class="student-row" href="#/student/'+s.id+'"><div class="who"><span class="avatar">'+esc(initials(fullName(s)))+'</span><div style="min-width:0"><div class="name">'+esc(fullName(s))+(s.self?' <span class="tag ok">Me</span>':'')+'</div><div class="small muted">'+esc(s.level||"")+(s.active?"":" · Archived")+'</div></div></div>'+
+      return '<a class="student-row" href="#/student/'+s.id+'"><div class="who"><span class="avatar">'+esc(initials(fullName(s)))+'</span><div style="min-width:0"><div class="name">'+esc(fullName(s))+(s.self?' <span class="tag ok">Me</span>':'')+'</div><div class="small muted">'+esc(levelOf(s))+(s.active?"":" · Archived")+'</div></div></div>'+
         '<div class="num"><span class="card-l small muted">Rating</span><div style="font-weight:600">'+esc(s.rating||"—")+'</div>'+(delta!==null?'<div class="small" style="color:'+(delta>=0?"var(--ok)":"var(--flag)")+'">'+(delta>=0?"+":"")+delta+'</div>':"")+'</div>'+
         '<div class="small hide-m">'+(next?"Next: "+esc(fmtDate(next.date,{weekday:"short",day:"numeric",month:"short"}))+(next.time?" "+esc(next.time):""):'<span class="muted">No session planned</span>')+
           updateMark(s)+(!s.clubOnly && clubsOf(s).length ? '<div class="club-also"><span class="tag">Club</span> Also in '+esc(clubsOf(s).map(clubName).join(", "))+'</div>' : '')+'</div>'+
@@ -5002,6 +5002,7 @@ function editStudent(s){
       {name:"ratingType",label:"Main rating",type:"select",options:[["FIDE","FIDE"],["ICF","ICF (Israel)"],["Online","Online"],["Unrated","Unrated"]],value:x.ratingType==="National"?"ICF":x.ratingType},
       {name:"rating",label:"Current main rating",type:"number",value:x.rating,hint:"Filled in automatically when ratings are updated"},
       {name:"level",label:"Level",value:x.level,placeholder:"e.g. Club player, U14 champion"},
+      {name:"levelHe",label:"Level in Hebrew (optional)",value:x.levelHe||"",placeholder:"למשל: דרגה שנייה",hint:"Shown when the app is in Hebrew"},
       {name:"birthYear",label:"Birth year",type:"number",value:x.birthYear},
       {name:"contact",label:"Phone or email",value:x.contact},
       {name:"guardian",label:"Parent / guardian",value:x.guardian},
@@ -5040,7 +5041,7 @@ function editStudent(s){
       if (!isNew && (+x.rate||0)!==oldRate){ const t = today(), onOld = v=>v!==""&&v!=null&&+v===oldRate;
         (x.slots||[]).forEach(sl=>{ if (onOld(sl.fee)) sl.fee = x.rate; });
         x.sessions.forEach(ss=>{ if (ss.status==="planned" && ss.date>=t && onOld(ss.fee)){ ss.fee = x.rate; repriced++; } }); }
-      x.fullHe = (d.fullHe||"").trim().replace(/\s+/g," "); x.nameHe = x.fullHe.split(" ")[0]; x.gender = d.gender||"";
+      x.levelHe = (d.levelHe||"").trim(); x.fullHe = (d.fullHe||"").trim().replace(/\s+/g," "); x.nameHe = x.fullHe.split(" ")[0]; x.gender = d.gender||"";
       if ("lessons" in d){ x.clubOnly = d.lessons==="club"; x.clubIds = (d.clubIds||"").split(",").filter(Boolean); }
       if (isNew){ state.students.push(x); location.hash = "#/student/"+x.id; }
       saveStudent(x); render(); toast(isNew?"Student added":repriced?"Changes saved — new fee applied to "+repriced+" planned session"+(repriced===1?"":"s"):"Changes saved");
@@ -5065,7 +5066,7 @@ function pStudent(v, r){
   const s = byId(r.id);
   if (!s){ v.innerHTML = '<p class="empty">This student no longer exists. <a href="#/students">Back to students</a></p>'; return; }
   const l = ledger(s);
-  v.innerHTML = '<a class="crumb" href="#/students">‹ Students</a><div class="s-head"><span class="avatar">'+esc(initials(fullName(s)))+'</span><div style="flex:1;min-width:200px"><h1>'+esc(fullName(s))+'</h1><p class="sub">'+[s.fide&&s.fide.title?esc(s.fide.title):"", s.rating?esc(s.rating)+" "+esc(s.ratingType):"", esc(s.level), s.active?"":"Archived"].filter(Boolean).join(" · ")+'</p>'+updateMark(s)+'</div>'+
+  v.innerHTML = '<a class="crumb" href="#/students">‹ Students</a><div class="s-head"><span class="avatar">'+esc(initials(fullName(s)))+'</span><div style="flex:1;min-width:200px"><h1>'+esc(fullName(s))+'</h1><p class="sub">'+[s.fide&&s.fide.title?esc(s.fide.title):"", s.rating?esc(s.rating)+" "+esc(s.ratingType):"", esc(levelOf(s)), s.active?"":"Archived"].filter(Boolean).join(" · ")+'</p>'+updateMark(s)+'</div>'+
     (l.balance>0.009?'<span class="tag '+(l.overdue?"flag":"warn")+'" style="font-size:.85rem;padding:4px 10px">Owes '+money(l.balance)+'</span>':'')+
     (s.fideId?'<a class="btn small" href="'+fideUrl(s.fideId)+'" target="_blank" rel="noopener">FIDE '+esc(s.fideId)+' ↗</a>':'')+
     (s.icfId?'<a class="btn small" href="'+icfUrl(s.icfId)+'" target="_blank" rel="noopener">ICF '+esc(s.icfId)+' ↗</a>':'')+
@@ -6900,6 +6901,8 @@ function freeRules(){ return state.settings.free||[]; }
 // They are only the coach's: they block the coach's time and count club hours, students never see them.
 // A student's name in the app's language: the Hebrew full name (and its first word) when there is one.
 const fullName = s=>(lang()==="he" && (s.fullHe||"").trim()) || s.name;
+// The level as the coach wrote it, or its Hebrew version when the app is in Hebrew.
+const levelOf = s=>(lang()==="he" && (s.levelHe||"").trim()) || s.level || "";
 const firstName = s=>(lang()==="he" && (((s.fullHe||"").trim().split(/\s+/)[0]) || (s.nameHe||"").trim())) || s.name.split(" ")[0];
 const clubRules = ()=>state.settings.club||[];
 // A class's name in the app's language: the Hebrew name when there is one.
@@ -7880,7 +7883,7 @@ const HE = {
   // student form
   "Full name":"שם מלא", "FIDE ID":"מספר פיד״ה", "Israeli Chess Federation ID":"מספר באיגוד הישראלי לשחמט", "Player ID":"מספר שחקן", "Has a FIDE or ICF ID":"יש מספר פיד״ה או איגוד",
   "No ID yet (new player)":"עדיין אין מספר (שחקן חדש)", "Main rating":"דירוג ראשי", "ICF (Israel)":"איגוד (ישראל)", "Unrated":"ללא דירוג", "Current main rating":"דירוג ראשי נוכחי",
-  "Filled in automatically when ratings are updated":"מתעדכן אוטומטית כשהדירוגים מתעדכנים", "Level":"רמה", "Birth year":"שנת לידה", "Phone or email":"טלפון או אימייל",
+  "Filled in automatically when ratings are updated":"מתעדכן אוטומטית כשהדירוגים מתעדכנים", "Level":"דרגה", "Birth year":"שנת לידה", "Phone or email":"טלפון או אימייל",
   "Parent / guardian":"הורה / אפוטרופוס", "Status":"סטטוס", "Goals":"מטרות", "Coach notes":"הערות המאמן", "Delete student":"מחיקת תלמיד", "Delete permanently":"מחיקה לצמיתות",
   "The number on the player's ratings.fide.com profile":"המספר בפרופיל השחקן ב־ratings.fide.com", "The Id= number on chess.org.il":"המספר שאחרי Id= באתר chess.org.il",
   "e.g. Club player, U14 champion":"למשל: שחקן מועדון, אלוף עד גיל 14",
@@ -8053,6 +8056,7 @@ const HE = {
   "Payment":"תשלום", "Session":"שיעור"
 };
 Object.assign(HE, {
+  "Level in Hebrew (optional)":"דרגה בעברית (לא חובה)",
   "What is Rank Up?":"מה זה „עולים בדרגה”?", "Left their details on the website":"השאירו פרטים באתר", "Couldn’t load the list.":"לא ניתן לטעון את הרשימה.",
   "Private and club":"פרטיים ומועדון", "Nobody yet.":"עדיין אין.",
   "Remove from the list?":"להסיר מהרשימה?", "Their details are deleted.":"הפרטים יימחקו.", "Couldn’t remove it.":"לא ניתן להסיר.", "Removed":"הוסר",
