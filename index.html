@@ -6972,7 +6972,7 @@ function openSlots(from, to, sid){
 function freeLabel(r){
   const wd = n=>new Date(2024,0,7+(+n)).toLocaleDateString(LOCALE(),{weekday:"long"});
   if (r.kind==="off") return fmtDate(r.date,{weekday:"short",day:"numeric",month:"short"})+" · Day off";
-  return (r.kind==="weekly" ? "Every "+wd(r.weekday) : fmtDate(r.date,{weekday:"short",day:"numeric",month:"short"}))+" · "+r.from+"–"+r.to+(r.place ? " · "+r.place+(r.place2 && r.place2!==r.place ? " · "+r.place2 : "") : "");
+  return (r.kind==="weekly" ? (lang()==="he" ? "כל " : "Every ")+wd(r.weekday) : fmtDate(r.date,{weekday:"short",day:"numeric",month:"short"}))+" · "+r.from+"–"+r.to+(r.place ? " · "+r.place+(r.place2 && r.place2!==r.place ? " · "+r.place2 : "") : "");
 }
 function editFree(r){
   const isNew = !r, x = r || {id:uid(), kind:"weekly", date:today(), from:"16:00", to:"20:00", end:""};
