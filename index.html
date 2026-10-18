@@ -6141,7 +6141,7 @@ function tGames(el, s){
     clearO:()=>{ gameFilter.op = ""; render(); },
     addGame:()=>editGame(s, null, gameFilter.tid?{tournamentId:gameFilter.tid}:null),
     editGame:id=>editGame(s, state.games.find(g=>g.id===id)),
-    board:id=>{ const g = state.games.find(x=>x.id===id); openViewer(null, {pgn:g.pgn, note:g.notes}, s, g.color==="Black"); },
+    board:id=>{ const g = state.games.find(x=>x.id===id); openViewer(null, Object.assign({}, g, {note:g.notes}), s, g.color==="Black"); },
     analyse:id=>{ const g = state.games.find(x=>x.id===id); openPractice(s, null, {what:"Game analysis", gameId:id, minutes:30, gStatus:(g.analysis&&g.analysis!=="Not analysed")?g.analysis:"In progress"}); }
   });
 }
@@ -6839,6 +6839,14 @@ function openViewer(a, g, s, forceFlip){
   const m = $("#modal"); m.classList.add("wide");
   const c = new Chess(); let ok = false; try { ok = c.load_pgn(g.pgn, {sloppy:true}); } catch(e){}
   const h = Object.assign(pgnHeaders(g.pgn), ok ? c.header() : {});
+  // a game typed in without PGN headers: the names, rating, round and result come from the game's own fields
+  const has = k=>h[k] && h[k]!=="?", me = s ? fullName(s) : "", blackMe = g.color==="Black";
+  if (!has("White")) h.White = (blackMe ? g.opponent : me) || "?";
+  if (!has("Black")) h.Black = (blackMe ? me : g.opponent) || "?";
+  if (g.opponentRating && !h.WhiteElo && !h.BlackElo) h[blackMe ? "WhiteElo" : "BlackElo"] = String(g.opponentRating);
+  if (!has("Event") && (g.event || g.tournamentId)){ const x = s && (s.tournaments||[]).find(y=>y.id===g.tournamentId); h.Event = (x && x.name) || g.event || ""; }
+  if (!has("Round") && g.round) h.Round = String(g.round);
+  if ((!h.Result || h.Result==="*") && g.result && g.result!=="*") h.Result = g.result;
   const title = esc(h.White||"?")+(h.WhiteElo?' <span class="muted small">'+esc(h.WhiteElo)+'</span>':"")+' – '+esc(h.Black||"?")+(h.BlackElo?' <span class="muted small">'+esc(h.BlackElo)+'</span>':"");
   const sub = [h.Event&&h.Event!=="?"?h.Event:"", h.Round&&h.Round!=="?"?"Round "+h.Round:"", (h.Date||"").replace(/\?\?/g,"").replace(/\.+$/,""), h.ECO||"", h.Result||""].filter(Boolean).map(esc).join(" · ");
   const close = ()=>m.close();
