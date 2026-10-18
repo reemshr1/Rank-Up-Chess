@@ -183,7 +183,6 @@ section{padding:84px 0}
 .facts dt{font:800 1.25rem var(--display)}
 .facts dd{margin:0;color:var(--muted);font-size:.93rem}
 .why{margin:0;font-size:1.12rem;line-height:1.7;max-width:36em;color:var(--ink)}
-.why::before{content:"“";color:var(--green);font:800 2rem/0 var(--display);margin-inline-end:4px;vertical-align:-.35em}
 /* reviews */
 .reviews{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
 .rv{margin:0;background:#fff;border:1px solid var(--line);border-radius:18px;padding:26px;display:grid;gap:16px;align-content:space-between}
@@ -332,7 +331,7 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
       <div><dt data-t="ab1v">7 שנים</dt><dd data-t="ab1l">שיעורים פרטיים</dd></div>
       <div><dt data-t="ab2v">3 שנים</dt><dd data-t="ab2l">חוגים במועדון</dd></div>
     </dl>
-    <blockquote class="why" data-t="abWhy">בניתי את עולים בדרגה כדי לעקוב טוב יותר אחרי ההתקדמות של כל תלמיד, ולהפוך את כל הקשר בין המאמן לתלמיד לנעים ומסודר יותר.</blockquote>
+    <blockquote class="why" data-t="abWhy">"בניתי את עולים בדרגה כדי לעקוב טוב יותר אחרי ההתקדמות של כל תלמיד, ולהפוך את כל הקשר בין המאמן לתלמיד לנעים ומסודר יותר."</blockquote>
   </div>
 </div></div></section>
 
@@ -347,21 +346,14 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
 
 <section id="features" style="background:#fff;border-block:1px solid var(--line)"><div class="wrap">
   <div class="head"><h2 data-t="fH">כל מה שמאמן צריך</h2><p data-t="fP">שיעורים, תשלומים, תרגול ומשימות — הכל במקום אחד.</p></div>
-  <div class="show"><div class="media"><img data-src="app-week" alt=""></div><div>
-    <h3 data-t="sh1">לוח זמנים שעובד בשבילך</h3>
-    <p data-t="sp1">שיעורים קבועים, אימונים קבוצתיים ותחרויות של התלמידים — הכל בשבוע אחד. מגדירים זמן פנוי (בבית, במועדון או אונליין), והתלמידים מבקשים שיעור רק בזמנים הרלוונטיים.</p>
-    <p data-t="sp1b">התנגשויות מסומנות מראש, ושינוי של שיעור אחד לא נוגע בשאר.</p></div></div>
-  <div class="show flip"><div class="media"><img data-src="app-students" alt=""></div><div>
-    <h3 data-t="sh2">כל התלמידים, במבט אחד</h3>
-    <p data-t="sp2">דירוג, השיעור הבא, יתרה, ומתי התלמיד עדכן לאחרונה מהאפליקציה. תלמידים פרטיים וקבוצות מועדון — מסודרים לפי יום בשבוע.</p></div></div>
-  <div class="feat" style="margin-top:72px">
-    <div class="f"><span class="e" style="background:var(--blue-l)">♔</span><b data-t="f1">תשלומים ויתרות</b><span data-t="f1d">חיוב לפי שיעור, תזכורת מנומסת בוואטסאפ, והורים מדווחים "שילמתי".</span></div>
-    <div class="f"><span class="e" style="background:var(--green-l)">♖</span><b data-t="f2">חוגים במועדון</b><span data-t="f2d">נוכחות בלחיצה, שעות ותשלום מהמועדון לכל חודש.</span></div>
-    <div class="f"><span class="e" style="background:var(--yellow-l)">♕</span><b data-t="f3">טורנירים ומשחקים</b><span data-t="f3d">התלמידים רושמים משחקים, והמאמן רואה את התמונה המלאה.</span></div>
-    <div class="f"><span class="e" style="background:var(--blue-l)">♗</span><b data-t="f4">הספרייה שלך</b><span data-t="f4d">המאמן מעלה את הספרים שלו עם PDF, ונותן אותם לתלמיד או לקבוצה שלמה.</span></div>
-    <div class="f"><span class="e" style="background:var(--green-l)">♘</span><b data-t="f5">תרגול וכושר</b><span data-t="f5d">דקות תרגול, אימוני כושר, רצפים ומדליות.</span></div>
+  <div class="feat">
+    <div class="f"><span class="e" style="background:var(--blue-l)">♘</span><b data-t="f5">תרגול וכושר</b><span data-t="f5d">דקות תרגול, אימוני כושר, רצפים ומדליות.</span></div>
+    <div class="f"><span class="e" style="background:var(--green-l)">♕</span><b data-t="f3">טורנירים ומשחקים</b><span data-t="f3d">התלמידים רושמים משחקים, והמאמן רואה את התמונה המלאה.</span></div>
     <div class="f"><span class="e" style="background:var(--yellow-l)">♙</span><b data-t="f6">משימות</b><span data-t="f6d">לתלמיד אחד או לקבוצה, עם בדיקה ומשוב.</span></div>
-    <div class="f"><span class="e" style="background:var(--blue-l)">♚</span><b data-t="f7">התראות</b><span data-t="f7d">לתלמידים ולהורים, גם לטלפון.</span></div>
+    <div class="f"><span class="e" style="background:var(--blue-l)">♖</span><b data-t="f2">חוגים במועדון</b><span data-t="f2d">נוכחות בלחיצה, שעות ותשלום מהמועדון לכל חודש.</span></div>
+    <div class="f"><span class="e" style="background:var(--green-l)">♗</span><b data-t="f4">הספרייה שלך</b><span data-t="f4d">המאמן מעלה את הספרים שלו עם PDF, ונותן אותם לתלמיד או לקבוצה שלמה.</span></div>
+    <div class="f"><span class="e" style="background:var(--yellow-l)">♚</span><b data-t="f7">התראות</b><span data-t="f7d">לתלמידים ולהורים, גם לטלפון.</span></div>
+    <div class="f"><span class="e" style="background:var(--blue-l)">♔</span><b data-t="f1">תשלומים ויתרות</b><span data-t="f1d">חיוב לפי שיעור, תזכורת מנומסת בוואטסאפ, והורים מדווחים "שילמתי".</span></div>
     <div class="f"><span class="e" style="background:var(--green-l)">♜</span><b data-t="f8">גיבוי כל לילה</b><span data-t="f8d">עותק של הכל נשמר אוטומטית, 30 יום אחורה.</span></div>
   </div>
 </div></section>
@@ -462,7 +454,7 @@ const EN = {brand:"Rank Up", nWho:"Who it's for", nFeat:"What's included?", nHow
 
  vHint:"Click a line to see the screen", waP:"Rather talk? Send a message:", waB:"Chat on WhatsApp",
  mono:"RS", abE:"Who's behind Rank Up", abName:"Raem Sherman", abRole:"International Master and chess coach", ab1v:"7 years", ab1l:"private lessons", ab2v:"3 years", ab2l:"club classes",
- abWhy:"I built Rank Up to keep better track of each student's progress, and to make the whole coach–student relationship more pleasant and organized.",
+ abWhy:"“I built Rank Up to keep better track of each student's progress, and to make the whole coach–student relationship more pleasant and organized.”",
  fnH:"Ready to rank up?", fnP:"First month free.", start4:"Start now", foot:"© 2026 Rank Up · עולים בדרגה", priv:"Privacy", contact:"Contact", signin2:"Open the app", lPriv:"Your details are used only to get back to you, and are never passed on.", lPrivL:"Privacy policy"};
 const HE = {}; document.querySelectorAll("[data-t]").forEach(e=>{ HE[e.dataset.t] = e.hasAttribute("data-html") ? e.innerHTML : e.textContent; });
 function setLang(l){
