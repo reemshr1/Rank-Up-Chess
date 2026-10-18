@@ -78,6 +78,30 @@ section{padding:84px 0}
 .who .card{border-top:4px solid var(--blue)}
 .who .c-green{border-top-color:var(--green)}
 .who .c-yellow{border-top-color:var(--yellow)}
+/* one app, three views: a switch with a real screen for each */
+.vtabs{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:26px}
+.vtab{font:600 1.02rem var(--body);display:inline-flex;align-items:center;gap:8px;padding:10px 22px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer}
+.vtab:hover{border-color:var(--blue)}
+.vtab[aria-selected="true"].c-blue{background:var(--blue);border-color:var(--blue);color:#fff}
+.vtab[aria-selected="true"].c-green{background:#2E7D4F;border-color:#2E7D4F;color:#fff}
+.vtab[aria-selected="true"].c-yellow{background:var(--yellow);border-color:var(--yellow);color:var(--ink)}
+.vpanel{display:grid;grid-template-columns:1fr 1.3fr;gap:48px;align-items:center;background:#fff;border:1px solid var(--line);border-top:4px solid var(--blue);border-radius:22px;padding:40px 44px;animation:vin .35s ease}
+.vpanel.c-green{border-top-color:var(--green)} .vpanel.c-yellow{border-top-color:var(--yellow)}
+@keyframes vin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.vpanel{animation:none}}
+.vtext .ic{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:1.6rem;margin-bottom:14px}
+.c-blue .vtext .ic{background:var(--blue-l)} .c-green .vtext .ic{background:var(--green-l)} .c-yellow .vtext .ic{background:var(--yellow-l)}
+.vtext h3{font-size:1.6rem;margin-bottom:6px}
+.vtext p{margin:0;color:var(--muted);font-size:1.05rem}
+.vtext ul{margin:20px 0 0;padding:0;list-style:none;display:grid;gap:12px}
+.vtext li{display:flex;gap:10px;align-items:flex-start}
+.vtext li::before{content:"✓";color:#2E7D4F;font-weight:700}
+.vdesk{border-radius:14px;overflow:hidden;box-shadow:0 24px 50px -20px rgba(22,36,63,.35),0 0 0 1px rgba(22,36,63,.08);background:#fff}
+.vdesk .bar{height:26px;background:#EEF2EC;display:flex;align-items:center;gap:6px;padding:0 12px}
+.vdesk .bar i{width:9px;height:9px;border-radius:50%;background:#D5DCD2}
+.vdesk img,.vphone img{display:block;width:100%}
+.vphone{width:250px;margin:0 auto;border-radius:30px;overflow:hidden;border:8px solid var(--ink);box-shadow:0 24px 40px -14px rgba(22,36,63,.45);background:#fff}
+@media (max-width:820px){.vpanel{grid-template-columns:1fr;gap:28px;padding:26px 22px}.vtext h3{font-size:1.35rem}.vphone{width:220px}.vtab{padding:9px 16px}}
 /* features */
 .feat{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
 .f{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px}
@@ -302,13 +326,10 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
 
 <section id="who"><div class="wrap">
   <div class="head"><h2 data-t="whoH">אפליקציה אחת - שלושה מסכים</h2><p data-t="whoP">כל אחד רואה בדיוק את מה שהוא צריך — ולא יותר.</p></div>
-  <div class="who">
-    <div class="card c-blue feature"><div class="ic">♚</div><h3 data-t="w1h">למאמן</h3><p data-t="w1p">הלוח שמנהל את כל העבודה שלך.</p>
-      <ul><li data-t="w1a">התקדמות התלמיד - משימות, תרגול וכושר</li><li data-t="w1b">לוח זמנים שבועי - שיעורים, חוגים ותחרויות במקום אחד</li><li data-t="w1c">מעקב אחרי התקדמות כלל התלמידים</li><li data-t="w1d">מעקב תשלומים ויתרות לכל תלמיד</li></ul></div>
-    <div class="card c-green"><div class="ic">♞</div><h3 data-t="w2h">לתלמיד</h3><p data-t="w2p">כל מה שקשור לשחמט שלו, בטלפון.</p>
-      <ul><li data-t="w2a">רישום תרגול, כושר, שינה ומשחקים</li><li data-t="w2b">התקדמות - דירוג ורצפי תרגול</li><li data-t="w2c">לוח זמנים - השיעור הבא, תחרויות ובקשת שיעור</li><li data-t="w2d">משימות מהמאמן</li></ul></div>
-    <div class="card c-yellow"><div class="ic">♛</div><h3 data-t="w3h">להורה</h3><p data-t="w3p">שקיפות בלי טלפונים מיותרים.</p>
-      <ul><li data-t="w3a">לוח זמנים - השיעור הבא, בקשת שיעור, ביטול או הזזה</li><li data-t="w3b">תרגול ומשימות - מה הילד עשה השבוע</li><li data-t="w3c">הערות המאמן אחרי שיעור</li><li data-t="w3d">תשלומים - יתרה, פירוט חשבון ודיווח "שילמתי"</li></ul></div>
+  <div class="views"><div class="vtabs" role="tablist"><button class="vtab c-blue" id="vt1" role="tab" aria-selected="true" aria-controls="vp1"><span>♚</span><span data-t="w1h">למאמן</span></button><button class="vtab c-green" id="vt2" role="tab" aria-selected="false" aria-controls="vp2"><span>♞</span><span data-t="w2h">לתלמיד</span></button><button class="vtab c-yellow" id="vt3" role="tab" aria-selected="false" aria-controls="vp3"><span>♛</span><span data-t="w3h">להורה</span></button></div>
+    <div class="vpanel c-blue" id="vp1" role="tabpanel" aria-labelledby="vt1"><div class="vtext"><div class="ic">♚</div><h3 data-t="w1h">למאמן</h3><p data-t="w1p">הלוח שמנהל את כל העבודה שלך.</p><ul><li data-t="w1a">התקדמות התלמיד - משימות, תרגול וכושר</li><li data-t="w1b">לוח זמנים שבועי - שיעורים, חוגים ותחרויות במקום אחד</li><li data-t="w1c">מעקב אחרי התקדמות כלל התלמידים</li><li data-t="w1d">מעקב תשלומים ויתרות לכל תלמיד</li></ul></div><div class="vshot"><div class="vdesk"><div class="bar"><i></i><i></i><i></i></div><img data-src="app-today" alt=""></div></div></div>
+    <div class="vpanel c-green" id="vp2" role="tabpanel" aria-labelledby="vt2" hidden><div class="vtext"><div class="ic">♞</div><h3 data-t="w2h">לתלמיד</h3><p data-t="w2p">כל מה שקשור לשחמט שלו, בטלפון.</p><ul><li data-t="w2a">רישום תרגול, כושר, שינה ומשחקים</li><li data-t="w2b">התקדמות - דירוג ורצפי תרגול</li><li data-t="w2c">לוח זמנים - השיעור הבא, תחרויות ובקשת שיעור</li><li data-t="w2d">משימות מהמאמן</li></ul></div><div class="vshot"><div class="vphone"><img data-src="app-student" alt=""></div></div></div>
+    <div class="vpanel c-yellow" id="vp3" role="tabpanel" aria-labelledby="vt3" hidden><div class="vtext"><div class="ic">♛</div><h3 data-t="w3h">להורה</h3><p data-t="w3p">שקיפות בלי טלפונים מיותרים.</p><ul><li data-t="w3a">לוח זמנים - השיעור הבא, בקשת שיעור, ביטול או הזזה</li><li data-t="w3b">תרגול ומשימות - מה הילד עשה השבוע</li><li data-t="w3c">הערות המאמן אחרי שיעור</li><li data-t="w3d">תשלומים - יתרה, פירוט חשבון ודיווח "שילמתי"</li></ul></div><div class="vshot"><div class="vphone"><img data-src="app-parent" alt=""></div></div></div>
   </div>
 </div></section>
 
@@ -441,6 +462,13 @@ function setLang(l){
 }
 document.getElementById("lang").onclick = ()=>setLang(document.documentElement.lang==="he" ? "en" : "he");
 setLang(new URLSearchParams(location.search).get("lang")==="en" ? "en" : "he");
+
+/* one app, three views */
+(()=>{ const tabs=[...document.querySelectorAll(".vtab")];
+  const pick=t=>{ tabs.forEach(x=>{ const on=x===t; x.setAttribute("aria-selected", String(on)); x.tabIndex=on?0:-1; document.getElementById(x.getAttribute("aria-controls")).hidden=!on; }); };
+  tabs.forEach((t,i)=>{ t.addEventListener("click", ()=>pick(t)); t.addEventListener("keydown", e=>{ const d={ArrowRight:-1,ArrowLeft:1}[e.key]*(document.dir==="rtl"?1:-1); if (!d) return;
+    const n=tabs[(i+d+tabs.length)%tabs.length]; pick(n); n.focus(); }); });
+  pick(tabs[0]); })();
 
 /* the day-in-the-life demo: steps advance every 4.5s; clicking a step jumps to it and pauses */
 (()=>{
