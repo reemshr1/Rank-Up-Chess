@@ -150,16 +150,19 @@ section{padding:84px 0}
 [hidden]{display:none!important}
 /* demo */
 .demo-sec{padding-top:56px}
-.demo{display:grid;grid-template-columns:.8fr 1.2fr;gap:40px;align-items:center}
+.demo-pair{display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:start}
+.demo-sub{text-align:center;font-size:1.3rem;margin:0 0 16px}
+.demo{display:grid;grid-template-columns:1fr;gap:16px}
+.demo .demo-stage{order:-1}
 .demo-steps{list-style:none;margin:0;padding:0;display:grid;gap:10px;counter-reset:d}
-.demo-steps button{width:100%;text-align:start;font:inherit;color:inherit;background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 18px 16px 18px;cursor:pointer;display:grid;gap:2px;position:relative;padding-inline-start:58px}
+.demo-steps button{width:100%;text-align:start;font:inherit;color:inherit;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 16px;cursor:pointer;display:grid;gap:2px;position:relative;padding-inline-start:58px}
 .demo-steps li{counter-increment:d}
-.demo-steps button::before{content:counter(d);position:absolute;inset-inline-start:16px;top:16px;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:var(--green-l);color:#2E7D4F;font:700 .95rem var(--display)}
+.demo-steps button::before{content:counter(d);position:absolute;inset-inline-start:16px;top:12px;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:var(--green-l);color:#2E7D4F;font:700 .95rem var(--display)}
 .demo-steps button[aria-pressed="true"]{border-color:var(--blue);box-shadow:0 8px 24px -14px rgba(30,78,156,.6)}
 .demo-steps button[aria-pressed="true"]::before{background:var(--blue);color:#fff}
 .demo-steps b{font-family:var(--display);font-size:1.05rem}
 .demo-steps span{color:var(--muted);font-size:.93rem}
-.demo-stage{position:relative;height:460px;border-radius:20px;background:linear-gradient(135deg,var(--blue-l),var(--green-l));overflow:hidden}
+.demo-stage{position:relative;height:420px;border-radius:20px;background:linear-gradient(135deg,var(--blue-l),var(--green-l));overflow:hidden}
 .demo-frame{position:absolute;opacity:0;transform:translateY(14px) scale(.98);transition:opacity .45s ease,transform .45s ease;pointer-events:none}
 .demo-frame.on{opacity:1;transform:none}
 .demo-frame img{display:block;width:100%}
@@ -254,7 +257,7 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
   .board{display:none}
   .privacy{grid-template-columns:1fr;padding:32px}
   .join{grid-template-columns:1fr;padding:24px;gap:24px}
-  .demo{grid-template-columns:1fr;gap:20px}
+  .demo-pair{grid-template-columns:1fr;gap:48px}
   .demo-stage{height:380px}
   .phone-f{width:150px;margin-left:-75px}
   .desk-f{inset-inline:12px;top:60px}
@@ -280,15 +283,15 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
 <header><div class="wrap nav">
   <a class="brand" href="#"><span class="logo"><svg width="22" height="22" viewBox="0 0 24 24"><circle cx="9" cy="7" r="3" fill="#1E4E9C"/><path d="M5 21l1.5-8h5L13 21z" fill="#1E4E9C"/><path d="M18 3v8M15 6l3-3 3 3" stroke="#3FA34D" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span data-t="brand">עולים בדרגה</span></a>
   <nav class="links"><a href="#who" data-t="nWho">למי זה מתאים</a><a href="#features" data-t="nFeat">מה כלול?</a><a href="#how" data-t="nHow">איך מתחילים</a></nav>
-  <div class="end"><button class="lang" id="lang">English</button><a class="btn ghost" href="../" data-t="signin">התחברות</a><a class="btn primary" href="#join" data-t="start">חודש ראשון חינם</a></div>
+  <div class="end"><button class="lang" id="lang">English</button><a class="btn ghost" href="../" data-t="signin">התחברות</a><a class="btn primary" href="#join" data-t="start">להרשמה</a></div>
 </div></header>
 
 <div class="hero"><div class="wrap grid">
   <div>
     <span class="eyebrow"><span aria-hidden="true">♞</span> <span data-t="eyebrow">נבנה על ידי מאמן שחמט - בשביל מאמני שחמט</span></span>
     <h1 data-t="h1" data-html>כל מה שמאמן שחמט צריך — <em>במקום אחד</em></h1>
-    <p class="lead" data-t="lead">שיעורים, תלמידים, תשלומים, תרגול וטורנירים. ולתלמידים ולהורים — אפליקציה משלהם, שמחוברת אליך.</p>
-    <div class="cta"><a class="btn primary big" href="#join" data-t="start2">להתחיל חודש חינם</a><a class="btn ghost big" href="#features" data-t="see">לראות מה יש בפנים</a></div>
+    <p class="lead" data-t="lead" data-html>לו״ז שיעורים, התקדמות התלמידים, תחרויות ותשלומים.<br>ולתלמידים ולהורים — אפליקציה משלהם, שמחוברת אליך.</p>
+    <div class="cta"><a class="btn primary big" href="#join" data-t="start2">להרשמה</a><a class="btn ghost big" href="#features" data-t="see">מה כלול?</a></div>
   </div>
   <div class="shots"><div class="board"></div>
     <div class="desk"><div class="bar"><i></i><i></i><i></i></div><img data-src="app-today" alt=""></div>
@@ -296,16 +299,13 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
   </div>
 </div></div>
 
-<div class="wrap strip">
-  <div><b data-t="s1a">לוח זמנים משותף</b><span data-t="s1b">המאמן מנהל, והתלמיד רואה ומבקש שיעור</span></div>
-  <div><b data-t="s2a">תשלומים ויתרות</b><span data-t="s2b">מעקב מסודר ותמיד מעודכן</span></div>
-  <div><b data-t="s3a">אפליקציה לתלמיד ולהורה</b><span data-t="s3b">גם בטלפון</span></div>
-</div>
-
 <section id="demo" class="demo-sec"><div class="wrap">
-  <div class="head"><h2 data-t="dmH">פחות הודעות, יותר שחמט</h2><p data-t="dmP">תלמידה מבקשת שיעור, המאמן מאשר, היא מתרגלת — והמאמן רואה הכל.</p></div>
+  <div class="head"><h2 data-t="dmH">פחות הודעות - יותר שחמט</h2></div>
+  <div class="demo-pair">
+  <div>
+  <h3 class="demo-sub" data-t="dmS1">תלמידה מבקשת שיעור</h3>
   <div class="demo">
-    <ol class="demo-steps" id="demoSteps">
+    <ol class="demo-steps">
       <li><button type="button" data-i="0" aria-pressed="true"><b data-t="dm1h">נועה מבקשת שיעור</b><span data-t="dm1p">מהטלפון, רק בזמנים שבאמת פנויים אצל המאמן.</span></button></li>
       <li><button type="button" data-i="1"><b data-t="dm2h">המאמן מאשר בלחיצה</b><span data-t="dm2p">הבקשה מחכה במסך הבית, עם התראה.</span></button></li>
       <li><button type="button" data-i="2"><b data-t="dm3h">נועה רושמת תרגול</b><span data-t="dm3p">כמה דקות, על מה עבדה, מאיזה ספר.</span></button></li>
@@ -316,8 +316,28 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
       <div class="demo-frame desk-f" data-k="1"><img data-src="demo2" alt=""></div>
       <div class="demo-frame phone-f" data-k="2"><img data-src="demo3" alt=""></div>
       <div class="demo-frame desk-f" data-k="3"><img data-src="demo4" alt=""></div>
-      <div class="demo-bar"><i id="demoFill"></i></div>
+      <div class="demo-bar"><i></i></div>
     </div>
+  </div>
+  </div>
+  <div>
+  <h3 class="demo-sub" data-t="dmS2">תלמיד מזין תחרות</h3>
+  <div class="demo">
+    <ol class="demo-steps">
+      <li><button type="button" data-i="0" aria-pressed="true"><b data-t="dm5h">איתי רושם תחרות</b><span data-t="dm5p">מהטלפון: שם, תאריכים, מקום ותוצאה.</span></button></li>
+      <li><button type="button" data-i="1"><b data-t="dm6h">איתי מוסיף משחק</b><span data-t="dm6p">יריב, תוצאה, פתיחה והמהלכים.</span></button></li>
+      <li><button type="button" data-i="2"><b data-t="dm7h">המאמן רואה את המשחק</b><span data-t="dm7p">"עודכן היום · משחק" — עם כל הפרטים.</span></button></li>
+      <li><button type="button" data-i="3"><b data-t="dm8h">המאמן פותח את המשחק על הלוח</b><span data-t="dm8p">ישר מהאפליקציה — עם כל המהלכים.</span></button></li>
+    </ol>
+    <div class="demo-stage" aria-live="polite">
+      <div class="demo-frame phone-f" data-k="0"><img data-src="demo5" alt=""></div>
+      <div class="demo-frame phone-f" data-k="1"><img data-src="demo6" alt=""></div>
+      <div class="demo-frame desk-f" data-k="2"><img data-src="demo7" alt=""></div>
+      <div class="demo-frame desk-f" data-k="3"><img data-src="demo8" alt=""></div>
+      <div class="demo-bar"><i></i></div>
+    </div>
+  </div>
+  </div>
   </div>
 </div></section>
 
@@ -361,7 +381,7 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
 <section id="how"><div class="wrap">
   <div class="head"><h2 data-t="hH">מתחילים בעשר דקות</h2></div>
   <div class="steps">
-    <div class="step"><h3 data-t="h1h">נרשמים</h3><p data-t="h1p">עם אימייל וסיסמה. החודש הראשון עלינו.</p></div>
+    <div class="step"><h3 data-t="h1h">נרשמים</h3><p data-t="h1p">עם אימייל וסיסמה.</p></div>
     <div class="step"><h3 data-t="h2h">מוסיפים תלמידים</h3><p data-t="h2p">שם, דירוג ומחיר לשיעור. מספר פיד״ה מושך את הדירוג לבד.</p></div>
     <div class="step"><h3 data-t="h3h">מזמינים בקוד</h3><p data-t="h3p">שולחים לתלמיד או להורה קוד בוואטסאפ — והם מחוברים.</p></div>
   </div>
@@ -370,7 +390,7 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
 <section id="join" style="padding-top:20px"><div class="wrap"><div class="join">
   <div class="join-text">
     <h2 data-t="jH">רוצים להיות מהראשונים?</h2>
-    <p data-t="jP">עולים בדרגה נפתח בקרוב למאמנים נוספים. השאירו פרטים, ונחזור אליכם כשהמקום שלכם מוכן — עם החודש הראשון חינם.</p>
+    <p data-t="jP">עולים בדרגה נפתח בקרוב למאמנים נוספים. השאירו פרטים, ונחזור אליכם כשהמקום שלכם מוכן.</p>
     <ul class="join-list"><li data-t="jL1">שיחה קצרה, בלי התחייבות</li><li data-t="jL2">עזרה בהעברת התלמידים שלכם</li><li data-t="jL3">הפרטים נשארים אצלנו בלבד</li></ul>
     <div class="join-wa"><span data-t="waP">מעדיפים לדבר? שלחו הודעה:</span><a class="wa" href="https://wa.me/972587957020?text=%D7%A9%D7%9C%D7%95%D7%9D%2C%20%D7%90%D7%A0%D7%99%20%D7%9E%D7%90%D7%9E%D7%9F%20%D7%A9%D7%97%D7%9E%D7%98%20%D7%95%D7%A8%D7%95%D7%A6%D7%94%20%D7%9C%D7%A9%D7%9E%D7%95%D7%A2%20%D7%A2%D7%9C%20%D7%A2%D7%95%D7%9C%D7%99%D7%9D%20%D7%91%D7%93%D7%A8%D7%92%D7%94" target="_blank" rel="noopener"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6.5-.1 1.5-.6 1.7-1.2s.2-1.1.1-1.2-.2-.2-.4-.3z"/></svg><span data-t="waB">שיחה בוואטסאפ</span></a></div>
   </div>
@@ -412,7 +432,7 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
 </div></section>
 
 <div class="final"><div class="wrap">
-  <h2 data-t="fnH">מוכנים לעלות בדרגה?</h2><p data-t="fnP">חודש ראשון חינם.</p>
+  <h2 data-t="fnH">מוכנים לעלות בדרגה?</h2>
   <a class="btn primary big" href="#join" data-t="start4">להתחיל עכשיו</a>
 </div></div>
 
@@ -420,10 +440,10 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
 <footer><div class="wrap"><span data-t="foot">© 2026 עולים בדרגה · Rank Up</span><span><a href="privacy.html" id="privLink" data-t="priv">פרטיות</a> · <a href="https://wa.me/972587957020" target="_blank" rel="noopener" data-t="contact">צור קשר</a> · <a href="../" data-t="signin2">כניסה לאפליקציה</a></span></div></footer>
 
 <script>
-const EN = {brand:"Rank Up", nWho:"Who it's for", nFeat:"What's included?", nHow:"How to start", nPrice:"Price", signin:"Sign in", start:"First month free",
+const EN = {brand:"Rank Up", nWho:"Who it's for", nFeat:"What's included?", nHow:"How to start", nPrice:"Price", signin:"Sign in", start:"Sign up",
  eyebrow:"Built by a chess coach, for chess coaches", h1:"Everything a chess coach needs, <em>in one place</em>",
- lead:"Lessons, students, payments, practice and tournaments. And for students and parents — an app of their own, connected to you.",
- start2:"Start your free month", see:"See what's inside",
+ lead:"Your lesson schedule, your students' progress, competitions and payments.<br>And for students and parents — an app of their own, connected to you.",
+ start2:"Sign up", see:"What's included?",
  s1a:"A shared schedule", s1b:"The coach runs it, students see it and ask for lessons", s2a:"Payments and balances", s2b:"Tracked and always up to date", s3a:"An app for students and parents", s3b:"On their phone too",
  whoH:"One app - three views", whoP:"Everyone sees exactly what they need — and nothing more.",
  w1h:"For the coach", w1p:"The board that runs your work.", w1a:"Student progress - assignments, practice and fitness", w1b:"Weekly schedule - lessons, classes and competitions in one place", w1c:"Track the progress of all your students", w1d:"Payments and balances for every student",
@@ -433,15 +453,15 @@ const EN = {brand:"Rank Up", nWho:"Who it's for", nFeat:"What's included?", nHow
  sh1:"A schedule that works for you", sp1:"Weekly lessons, group training and your students' competitions — all in one week. Set your free time (at home, at the club or online), and students can only ask for lessons at the times that fit.", sp1b:"Clashes are flagged ahead of time, and changing one lesson leaves the others alone.",
  sh2:"All your students, at a glance", sp2:"Rating, next lesson, balance, and when each student last updated from the app. Private students and club groups — sorted by day of the week.",
  f1:"Payments and balances", f1d:"Charge per lesson, a polite WhatsApp reminder, and parents report \"I've paid\".", f2:"Club classes", f2d:"One-tap attendance, plus the club's hours and pay each month.", f3:"Tournaments and games", f3d:"Students log their games, and the coach sees the full picture.", f4:"Your own library", f4d:"The coach uploads their own books with the PDF, and gives them to a student or a whole group.", f5:"Practice and fitness", f5d:"Practice minutes, workouts, streaks and medals.", f6:"Assignments", f6d:"For one student or a group, with review and feedback.", f7:"Notifications", f7d:"To students and parents, on their phones too.", f8:"Nightly backup", f8d:"A copy of everything, kept for 30 days.",
- hH:"Up and running in ten minutes", h1h:"Sign up", h1p:"With an email and password. The first month is on us.", h2h:"Add your students", h2p:"Name, rating and price per lesson. A FIDE id fills in the rating.", h3h:"Invite with a code", h3p:"Send a student or parent a code on WhatsApp — and they're connected.",
+ hH:"Up and running in ten minutes", h1h:"Sign up", h1p:"With an email and password.", h2h:"Add your students", h2p:"Name, rating and price per lesson. A FIDE id fills in the rating.", h3h:"Invite with a code", h3p:"Send a student or parent a code on WhatsApp — and they're connected.",
  pH:"How much does it cost?", pP:"You only pay for the students and groups you teach.", pTag:"First month free", pPer:"per student a month", pAfter:"After the first month. The first month is free, for all your students and groups.", tPriv:"Private student", tGrp:"Club group", pPerG:"per group a month, however many students are in it", p1:"Student and parent app included", p2:"Nightly backup", p4:"Cancel any time", start3:"Start your free month",
  prH:"The data stays safe", prP:"Each coach sees only their own students. A student sees only their own board — no payments, private notes or other students. A parent sees only their own children. The data is never sold or passed on to anyone.",
  qH:"Questions", q1:"Do students need to download an app?", a1:"No. It's a website that opens on any phone or computer, and it can be added to the home screen like an app.", q2:"What if a student has no phone?", a2:"A parent can sign in for them, and everything can also be run from the coach's board alone.", q3:"Does it work with a club?", a3:"Yes. Club classes, attendance, hours and the club's pay — on their own tab.", q4:"If I stop using the app, do I lose my data?", a4:"No. You can download a file with all of it at any time — students, lessons and payments — and it's yours.",
- jH:"Want to be one of the first?", jP:"Rank Up is opening to more coaches soon. Leave your details and we'll get back to you when your place is ready — with your first month free.", jL1:"A short call, no commitment", jL2:"Help moving your students over", jL3:"Your details stay with us only",
+ jH:"Want to be one of the first?", jP:"Rank Up is opening to more coaches soon. Leave your details and we'll get back to you when your place is ready.", jL1:"A short call, no commitment", jL2:"Help moving your students over", jL3:"Your details stay with us only",
  lName:"Full name", lPhone:"Phone", lEmail:"Email", lCity:"City / area", lCount:"How many students do you have?", c1:"1–5", c2:"6–15", c3:"16–30", c4:"More than 30", lKind:"What do you teach?", k1:"Private lessons", k2:"Club classes", k3:"Both", lNote:"Anything you'd like us to know? (optional)", lOk:"I agree to be contacted about Rank Up", lSend:"Send my details", dH:"Thank you! We got your details.", dP:"We'll get back to you soon.",
- dmH:"Fewer messages, more chess", dmP:"A student asks for a lesson, the coach approves it, she practises — and the coach sees it all.", dm1h:"Noa asks for a lesson", dm1p:"From her phone, only at times the coach is really free.", dm2h:"The coach approves with one tap", dm2p:"The request waits on the home screen, with an alert.", dm3h:"Noa logs her practice", dm3p:"How many minutes, what she worked on, from which book.", dm4h:"The coach sees she practised", dm4p:"\"Updated today · practice\" — without asking.",
+ dmH:"Fewer messages - more chess", dm1h:"Noa asks for a lesson", dm1p:"From her phone, only at times the coach is really free.", dm2h:"The coach approves with one tap", dm2p:"The request waits on the home screen, with an alert.", dm3h:"Noa logs her practice", dm3p:"How many minutes, what she worked on, from which book.", dm4h:"The coach sees she practised", dm4p:"\"Updated today · practice\" — without asking.",
 
- vHint:"Click a line to see the screen", waP:"Rather talk? Send a message:", waB:"Chat on WhatsApp",
+ vHint:"Click a line to see the screen", dmS1:"A student asks for a lesson", dmS2:"A student logs a competition", dm5h:"Itai logs a competition", dm5p:"From his phone: name, dates, place and result.", dm6h:"Itai adds a game", dm6p:"Opponent, result, opening and the moves.", dm7h:"The coach sees the game", dm7p:"\"Updated today · game\" — with all the details.", dm8h:"The coach opens the game on the board", dm8p:"Right in the app — with every move.", waP:"Rather talk? Send a message:", waB:"Chat on WhatsApp",
  mono:"RS", abE:"Who's behind Rank Up", abName:"Raem Sherman", abRole:"International Master and chess coach", ab1v:"7 years", ab1l:"private lessons", ab2v:"3 years", ab2l:"club classes",
  abWhy:"“I built Rank Up to keep better track of each student's progress, and to make the whole coach–student relationship more pleasant and organized.”",
  fnH:"Ready to rank up?", fnP:"First month free.", start4:"Start now", foot:"© 2026 Rank Up · עולים בדרגה", priv:"Privacy", contact:"Contact", signin2:"Open the app", lPriv:"Your details are used only to get back to you, and are never passed on.", lPrivL:"Privacy policy"};
@@ -470,9 +490,9 @@ document.querySelectorAll(".vpanel").forEach(panel=>{ const picks=[...panel.quer
   picks.forEach((p,i)=>{ p.addEventListener("click", ()=>go(i)); p.addEventListener("keydown", e=>{ if (e.key==="Enter"||e.key===" "){ e.preventDefault(); go(i); } }); });
   panel.querySelectorAll(".vstep").forEach(b=>b.addEventListener("click", ()=>go(cur + +b.dataset.d))); });
 
-/* the day-in-the-life demo: steps advance every 4.5s; clicking a step jumps to it and pauses */
-(()=>{
-  const steps = [...document.querySelectorAll("#demoSteps button")], frames = [...document.querySelectorAll(".demo-frame")], fill = document.getElementById("demoFill");
+/* the day-in-the-life demos: steps advance every 4.5s; clicking a step jumps to it and pauses (each demo on its own) */
+document.querySelectorAll(".demo").forEach(demo=>{
+  const steps = [...demo.querySelectorAll(".demo-steps button")], frames = [...demo.querySelectorAll(".demo-frame")], fill = demo.querySelector(".demo-bar i");
   const still = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches, DUR = 4500;
   let i = 0, t0 = performance.now(), paused = still;
   const show = k=>{ i = k; steps.forEach((b,j)=>b.setAttribute("aria-pressed", String(j===k))); frames.forEach((f,j)=>f.classList.toggle("on", j===k)); t0 = performance.now(); };
@@ -480,7 +500,7 @@ document.querySelectorAll(".vpanel").forEach(panel=>{ const picks=[...panel.quer
   show(0);
   const tick = now=>{ if (!paused){ const p = (now-t0)/DUR; fill.style.width = Math.min(100, p*100)+"%"; if (p>=1) show((i+1)%steps.length); } requestAnimationFrame(tick); };
   if (!still) requestAnimationFrame(tick);
-})();
+});
 
 /* "Leave your details": saved to the "leads" table in Supabase. Anyone can add a row; only the admin coach can read them (Settings → Coaches). */
 const SUPABASE = {url:"https://gzcwvnynkcepvqkzwvkb.supabase.co", key:"sb_publishable_0on-hzzXoXPdk8dOFM3RNQ_9pEMALHx"};
