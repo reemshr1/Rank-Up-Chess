@@ -4075,7 +4075,7 @@ function pProgress(v, s){
     panel("Rating", (sources.length>1?'<div class="seg" role="group" aria-label="Rating list">'+sources.map(x=>'<button type="button" class="'+(x===src?"on":"")+'" data-a="ps" data-id="'+esc(x)+'">'+esc(x)+'</button>').join("")+'</div>':"")+
       (pts.length ? ratingChart(pts)+'<p class="small muted" style="margin:8px 0 0">'+(lang()==="he"?"עכשיו":"Now")+' <b class="num">'+esc(now.value)+'</b>'+(diff!==null?' · '+(diff>=0?"+":"")+diff+(lang()==="he"?" מאז ":" since ")+esc(fmtShort(y1.date)):'')+'</p>' : '<p class="empty">No ratings yet.</p>'))+
     panel("Practice per week", '<div class="wbars" style="grid-template-columns:repeat(12,1fr)" role="img" aria-label="Practice minutes per week, last 12 weeks">'+weeks.map((w,i)=>'<div title="'+esc(fmtShort(w.a))+': '+w.m+' min">'+(w.m?'<span class="pct">'+w.m+'</span>':'')+'<span class="bar" style="height:'+Math.round(w.m/maxM*100)+'px;'+(i===11?'background:var(--green)':'')+'"></span><span class="wl">'+esc(new Date(w.a+"T00:00").toLocaleDateString(LOCALE(),{day:"numeric",month:"numeric"}))+'</span></div>').join("")+'</div>'+
-      '<p class="small muted" style="margin:10px 0 0">About <b class="num">'+avg+'</b> min a week'+(streak>1?' · <b class="num">'+streak+'</b>-day streak':'')+'</p>')+
+      '<p class="small muted" style="margin:10px 0 0">'+(lang()==="he" ? 'בערך <b class="num">'+avg+'</b> דק׳ בשבוע'+(streak>1?' · רצף של <b class="num">'+streak+'</b> ימים':'') : 'About <b class="num">'+avg+'</b> min a week'+(streak>1?' · <b class="num">'+streak+'</b>-day streak':''))+'</p>')+
     panel("What the practice went on", whatList.length ? '<div style="display:flex;height:14px;border-radius:7px;overflow:hidden;margin:4px 0 12px">'+whatList.map(([k,m],i)=>'<span title="'+esc(k)+'" style="width:'+(m/whatTot*100)+'%;background:'+COL[i%COL.length]+'"></span>').join("")+'</div><ul class="list">'+
       whatList.map(([k,m],i)=>'<li><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+COL[i%COL.length]+';margin-inline-end:8px"></i>'+esc(k)+'</span><span class="num">'+Math.round(m/whatTot*100)+'% · '+m+' min</span></li>').join("")+'</ul>' : '<p class="empty">No practice logged in this period.</p>')+
     panel("Assignments and reading", '<dl class="kv"><dt>Done in this period</dt><dd class="num">'+asDone+'</dd><dt>Still open</dt><dd class="num">'+asOpen+'</dd><dt>Books finished</dt><dd class="num">'+booksDone+'</dd>'+
@@ -4135,6 +4135,7 @@ function pFamilyPay(v, s){
     '<div class="stats"><div class="stat"><div class="v num'+(p.balance>0.009?" money-owed":"")+'">'+(p.balance>0.009?m(p.balance):p.balance<-0.009?m(-p.balance):"✓")+'</div><div class="l">'+(p.balance>0.009?(p.overdue?p.age+" days overdue":"To pay"):p.balance<-0.009?"In credit":"Paid up")+'</div></div>'+
       '<div class="stat"><div class="v num">'+m(p.charged)+'</div><div class="l">Charged in total</div></div><div class="stat"><div class="v num">'+m(p.paid)+'</div><div class="l">Paid in total</div></div>'+
       '<div class="stat"><div class="v num">'+(p.lastPay?esc(fmtShort(p.lastPay.date)):"—")+'</div><div class="l">'+(p.lastPay?"Last payment · "+m(p.lastPay.amount):"No payments yet")+'</div></div></div>'+
+    '<div class="grid">'+ // space between the boxes, as on the other pages
     (p.upcoming && p.upcoming.length ? panel("Coming up", '<ul class="list stmt">'+
       p.upcoming.map(r=>'<li><div class="main"><div class="title">'+esc(r.label)+'</div><div class="small muted">'+esc(fmtDate(r.date))+(r.end&&r.end!==r.date?' – '+esc(fmtDate(r.end)):'')+'</div></div><b class="num">'+m(r.amount)+'</b></li>').join("")+'</ul>'+
       '<p class="small muted" style="margin:8px 0 0">Not charged yet: these are added to the balance once the tournament is played.</p>') : '')+
@@ -4143,7 +4144,7 @@ function pFamilyPay(v, s){
     panel("Statement", p.rows.length ? '<ul class="list stmt">'+ // one small card per line, so it reads well on a phone
       p.rows.map(r=>'<li><div class="main"><div class="title">'+esc(r.label)+'</div><div class="small muted" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">'+esc(fmtDate(r.date))+(r.sessionId ? ' '+lessonPayTag(s, r) : '')+'</div></div>'+
         '<div style="text-align:end;white-space:nowrap">'+(r.charge?'<b class="num">'+m(r.charge)+'</b>':'')+(r.paid?'<div class="small" style="color:var(--ok)">Paid <b class="num">'+m(r.paid)+'</b></div>':'')+'</div></li>').join("")+'</ul>'+
-      '<p class="small muted" style="margin:8px 0 0">The last two years. Lessons are charged once they have taken place; cancelled lessons aren\'t charged.</p>' : '<p class="empty">No charges or payments yet.</p>');
+      '<p class="small muted" style="margin:8px 0 0">The last two years. Lessons are charged once they have taken place; cancelled lessons aren\'t charged.</p>' : '<p class="empty">No charges or payments yet.</p>')+'</div>';
 }
 function pHome(v, s){
   const t = today(), first = (lang()==="he" && (s.nameHe||"").trim()) || firstName(s); // the Hebrew name in Hebrew
