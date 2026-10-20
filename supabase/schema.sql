@@ -77,7 +77,7 @@ begin
   end if;
   update public.coach_codes set used_by = me, used_at = now(),
          used_email = (select email from auth.users where id = me)
-   where coach_codes.code = c and used_by is null;
+   where coach_codes.code = c and used_by is null and used_at is null; -- a code works once, even if that account is deleted later
   if not found then return false; end if;
   insert into public.coaches (user_id) values (me) on conflict do nothing;
   return true;
