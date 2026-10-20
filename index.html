@@ -3662,18 +3662,19 @@ const coachInvite = code=>lang()==="he"
   : "You're invited to use Rank Up as a coach.\n1. Open "+APP_LINK()+"\n2. Create an account with your email\n3. Tap “I'm a coach and have a coach code” and enter: "+code;
 async function fillCoachCodes(el){
   if (!el) return;
-  let r; try { r = await sb.from("coach_codes").select("code,note,made_at,used_email,used_at").order("made_at", {ascending:false}); } catch(e){ r = {error:e}; }
+  let r; try { r = await sb.from("coach_codes").select("code,note,made_at,used_by,used_email,used_at").order("made_at", {ascending:false}); } catch(e){ r = {error:e}; }
   if (!el.isConnected) return;
   if (r.error){ el.innerHTML = '<p class="small muted" style="margin:0">Couldn’t load the coach codes.</p>'; return; }
   const rows = r.data||[];
   el.innerHTML = (rows.length ? '<ul class="list">'+rows.map(x=>'<li><div class="main"><div class="title"><bdi dir="ltr" style="letter-spacing:.08em">'+esc(x.code)+'</bdi>'+(x.note?' · '+esc(x.note):'')+'</div><div class="small muted">'+
-      (x.used_at ? 'Used by <bdi dir="ltr">'+esc(x.used_email||"")+'</bdi> · '+esc(fmtDate(String(x.used_at).slice(0,10))) : 'Not used yet')+'</div></div>'+
-      (x.used_at ? '' : '<div class="row-actions"><button type="button" class="btn small ghost" data-cc="copy" data-code="'+esc(x.code)+'">Copy message</button><button type="button" class="btn small ghost" data-cc="del" data-code="'+esc(x.code)+'">Remove</button></div>')+'</li>').join("")+'</ul>'
+      (x.used_at ? 'Used by <bdi dir="ltr">'+esc(x.used_email||"")+'</bdi> · '+esc(fmtDate(String(x.used_at).slice(0,10)))+(x.used_by ? '' : ' · <span class="tag">account removed</span>') : 'Not used yet')+'</div></div>'+
+      (x.used_at && x.used_by ? '' : '<div class="row-actions">'+(x.used_at ? '' : '<button type="button" class="btn small ghost" data-cc="copy" data-code="'+esc(x.code)+'">Copy message</button>')+'<button type="button" class="btn small ghost" data-cc="del" data-code="'+esc(x.code)+'">Remove</button></div>')+'</li>').join("")+'</ul>'
     : '<p class="empty">No coach codes yet.</p>')+
     '<div class="row-actions" style="margin-top:10px;justify-content:flex-start"><button type="button" class="btn small primary" data-cc="new">Make a coach code</button></div>';
   el.onclick = e=>{ const b = e.target.closest("[data-cc]"); if (!b) return; const k = b.dataset.cc, code = b.dataset.code;
     if (k==="copy") return copyCoachInvite(code);
-    if (k==="del") return confirmBox("Remove this coach code?", "Nobody will be able to join with it.", "Remove", async ()=>{
+    const used = (rows.find(y=>y.code===code)||{}).used_at; // used by an account that was since deleted
+    if (k==="del") return confirmBox(used ? "Remove from the list?" : "Remove this coach code?", used ? "The account that used it was deleted." : "Nobody will be able to join with it.", "Remove", async ()=>{
       const x = await sb.from("coach_codes").delete().eq("code", code); if (x.error) toast("Couldn’t remove the code."); else toast("Code removed"); fillCoachCodes(el); });
     if (k==="new") openForm({title:"Make a coach code", submit:"Make code", fields:[{name:"note", label:"Who is it for? (optional)", value:"", full:true, placeholder:"e.g. Dan, chess club Haifa"}],
       onSubmit:d=>{ const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let c = ""; crypto.getRandomValues(new Uint32Array(8)).forEach(n=>{ c += A[n % A.length]; });
@@ -8101,7 +8102,7 @@ Object.assign(HE, {
   "That coach code isn't valid or was already used.":"קוד המאמן לא תקין או שכבר השתמשו בו.", "Welcome! Opening your board…":"ברוכים הבאים! הלוח שלך נפתח…",
   "Coaches":"מאמנים", "Another coach can use Rank Up with their own students. Make a coach code and send it to them: they create an account and enter it. Each coach sees only their own students, payments and backups.":"מאמן נוסף יכול להשתמש ב„עולים בדרגה” עם התלמידים שלו. יוצרים קוד מאמן ושולחים לו: הוא יוצר חשבון ומזין את הקוד. כל מאמן רואה רק את התלמידים, התשלומים והגיבויים שלו.",
   "Couldn’t load the coach codes.":"לא ניתן לטעון את קודי המאמן.", "Used by":"נוצל על ידי", "Not used yet":"עדיין לא נוצל", "Copy message":"העתקת ההודעה",
-  "No coach codes yet.":"עדיין אין קודי מאמן.", "Make a coach code":"יצירת קוד מאמן", "Remove this coach code?":"להסיר את קוד המאמן?", "Nobody will be able to join with it.":"אי אפשר יהיה להצטרף איתו.",
+  "No coach codes yet.":"עדיין אין קודי מאמן.", "Make a coach code":"יצירת קוד מאמן", "Remove this coach code?":"להסיר את קוד המאמן?", "account removed":"החשבון נמחק", "Remove from the list?":"להסיר מהרשימה?", "The account that used it was deleted.":"החשבון שהשתמש בו נמחק.", "Nobody will be able to join with it.":"אי אפשר יהיה להצטרף איתו.",
   "Couldn’t remove the code.":"לא ניתן להסיר את הקוד.", "Code removed":"הקוד הוסר", "Make code":"יצירת קוד", "Who is it for? (optional)":"בשביל מי? (לא חובה)", "e.g. Dan, chess club Haifa":"למשל: דן, מועדון שחמט חיפה",
   "Couldn’t make the code. Check your connection.":"לא ניתן ליצור את הקוד. כדאי לבדוק את החיבור.", "Send this to the new coach":"שליחה למאמן החדש", "Copied":"הועתק",
   "Coaches using Rank Up":"מאמנים שמשתמשים ב„עולים בדרגה”", "Couldn’t load the coaches.":"לא ניתן לטעון את רשימת המאמנים.", "Your account":"החשבון שלך", "No other coaches yet.":"עדיין אין מאמנים נוספים.",
