@@ -3681,6 +3681,32 @@ async function fillCoachCodes(el){
           fillCoachCodes(el); copyCoachInvite(c); }, ()=>toast("Couldn’t make the code. Check your connection.")); }});
   };
 }
+// The coaches who joined (the admin only). Removing one keeps their records (a new coach code brings them back)
+// or deletes their account and everything in it.
+async function fillCoachList(el){
+  if (!el) return;
+  let r; try { r = await sb.rpc("coach_list"); } catch(e){ r = {error:e}; }
+  if (!el.isConnected) return;
+  if (r.error){ el.innerHTML = '<p class="small muted" style="margin:0">Couldn’t load the coaches.</p>'; return; }
+  const he = lang()==="he", rows = r.data||[], others = rows.filter(x=>!x.is_admin);
+  const line = x=>esc(fmtDate(String(x.joined).slice(0,10)))+' · '+(he ? x.students+" תלמידים" : x.students+(x.students===1?" student":" students"));
+  el.innerHTML = '<ul class="list">'+rows.map(x=>'<li><div class="main"><div class="title">'+esc(x.name||x.email)+(x.is_admin?' <span class="tag">Your account</span>':'')+'</div>'+
+      (x.name ? '<div class="small"><bdi dir="ltr">'+esc(x.email)+'</bdi></div>' : '')+'<div class="small muted">'+(he?"הצטרף ":"Joined ")+line(x)+'</div></div>'+
+      (x.is_admin ? '' : '<div class="row-actions"><button type="button" class="btn small ghost danger" data-rc="'+esc(x.user_id)+'">Remove</button></div>')+'</li>').join("")+'</ul>'+
+    (others.length ? '' : '<p class="small muted" style="margin:8px 0 0">No other coaches yet.</p>');
+  el.onclick = e=>{ const b = e.target.closest("[data-rc]"); if (!b) return;
+    const x = rows.find(y=>y.user_id===b.dataset.rc); if (!x) return; const who = x.name||x.email;
+    const go = wipe=>sb.rpc("remove_coach", {target:x.user_id, wipe}).then(res=>{
+      if (res.error || res.data!==true) toast("Couldn’t remove the coach."); else toast("Coach removed"); fillCoachList(el); fillCoachCodes($("#coachCodes")); },
+      ()=>toast("Couldn’t remove the coach."));
+    openForm({title:he ? "להסיר את "+who+"?" : "Remove "+who+"?", submit:"Remove coach",
+      fields:[{name:"wipe", label:"What happens to their students and records?", type:"select", full:true, value:"keep",
+        options:[["keep","Keep them — a new coach code brings them back"],["wipe","Delete their account and everything in it"]]}],
+      onSubmit:d=>{ if (d.wipe!=="wipe") return go(false);
+        setTimeout(()=>confirmBox(he ? "למחוק את "+who+" ואת כל המידע?" : "Delete "+who+" and all their data?",
+          "Their account, students, lessons, payments and backups are deleted, and their students and parents are disconnected. This can’t be undone.", "Delete", ()=>go(true))); }}); // after the form has closed its dialog
+  };
+}
 // Coaches who left their details on the website (welcome/): the admin calls them back and sends a coach code.
 const LEAD_KIND = {private:"Private lessons", club:"Club classes", both:"Private and club"};
 async function fillLeads(el){
@@ -7615,7 +7641,7 @@ function pSettings(v){
         '<div class="row-actions"><button type="button" class="btn small ghost" data-ln="edit" data-id="'+esc(l.id)+'">Edit</button><button type="button" class="btn small ghost" data-ln="del" data-id="'+esc(l.id)+'">Remove</button></div></li>').join("")+'</ul>' : '<p class="empty">No links yet.</p>')+
       '<div class="row-actions" style="margin-top:10px;justify-content:flex-start"><button type="button" class="btn small primary" data-ln="add">Add link</button>'+(Array.isArray(st.links)?'<button type="button" class="btn small ghost" data-ln="reset">Restore the suggested list</button>':'')+'</div>')+
     (WEB && webUser ? panel("Phone alerts", '<p class="small muted" style="margin-top:0">Students and parents get an alert on their phone for new notifications, lesson changes and, for students, the practice check-in. Each of them turns alerts on from the 🔔 window in their app.</p><div id="pushBox"></div>') : '')+
-    (WEB && webAdmin ? panel("Coaches", '<p class="small muted" style="margin-top:0">Another coach can use Rank Up with their own students. Make a coach code and send it to them: they create an account and enter it. Each coach sees only their own students, payments and backups.</p><div id="coachCodes"></div><h3 style="margin:22px 0 4px;font-size:1rem">Left their details on the website</h3><div id="leadsList"></div>') : '')+
+    (WEB && webAdmin ? panel("Coaches", '<p class="small muted" style="margin-top:0">Another coach can use Rank Up with their own students. Make a coach code and send it to them: they create an account and enter it. Each coach sees only their own students, payments and backups.</p><div id="coachCodes"></div><h3 style="margin:22px 0 4px;font-size:1rem">Coaches using Rank Up</h3><div id="coachList"></div><h3 style="margin:22px 0 4px;font-size:1rem">Left their details on the website</h3><div id="leadsList"></div>') : '')+
     (WEB && webUser ? panel("Account", '<p style="margin-top:0">Signed in as <bdi dir="ltr">'+esc(webUser.email||"")+'</bdi></p><button class="btn" data-signout>Sign out</button>') : '')+
     panel("Backup", '<p class="small muted" style="margin-top:0">'+(WEB?"Your data is saved to your account online. Students and parents only see what you share with them.":store&&store.kind==="db"?"Your data is saved to your account and is private to you, even if you share this page.":"Your data is saved in this browser only. Download a backup regularly.")+'</p><p class="small" style="margin-top:0">'+(st.lastBackup?"Last backup: "+esc(fmtDate(st.lastBackup)):"No backup downloaded yet.")+'</p><div class="row-actions"><button class="btn" id="exp">Download backup</button><label class="btn" for="imp">Restore from backup</label><input id="imp" type="file" accept="application/json,.json" hidden></div>'+(WEB ? backupMore() : ''))+
   '</div>';
@@ -7639,7 +7665,7 @@ function pSettings(v){
     put("overdueDays", Math.max(1,+f.overdueDays.value||30)); put("lang", f.lang.value); put("payInfo", f.payInfo.value.trim()); if (f.appLink.value.trim()!==APP_LINK()) put("appLink", f.appLink.value.trim());
     saveSettings(); render(); toast("Settings saved"); };
   $("#exp").onclick = downloadBackup;
-  if (WEB && webAdmin){ fillCoachCodes($("#coachCodes")); fillLeads($("#leadsList")); }
+  if (WEB && webAdmin){ fillCoachCodes($("#coachCodes")); fillCoachList($("#coachList")); fillLeads($("#leadsList")); }
   if (WEB){ fillNightly($("#nightly"));
     document.querySelectorAll("[data-bf]").forEach(b=>b.onclick = async ()=>{ const k = b.dataset.bf;
       if (k==="choose") chooseFolder(); else if (k==="stop") stopFolder();
@@ -8078,6 +8104,10 @@ Object.assign(HE, {
   "No coach codes yet.":"עדיין אין קודי מאמן.", "Make a coach code":"יצירת קוד מאמן", "Remove this coach code?":"להסיר את קוד המאמן?", "Nobody will be able to join with it.":"אי אפשר יהיה להצטרף איתו.",
   "Couldn’t remove the code.":"לא ניתן להסיר את הקוד.", "Code removed":"הקוד הוסר", "Make code":"יצירת קוד", "Who is it for? (optional)":"בשביל מי? (לא חובה)", "e.g. Dan, chess club Haifa":"למשל: דן, מועדון שחמט חיפה",
   "Couldn’t make the code. Check your connection.":"לא ניתן ליצור את הקוד. כדאי לבדוק את החיבור.", "Send this to the new coach":"שליחה למאמן החדש", "Copied":"הועתק",
+  "Coaches using Rank Up":"מאמנים שמשתמשים ב„עולים בדרגה”", "Couldn’t load the coaches.":"לא ניתן לטעון את רשימת המאמנים.", "Your account":"החשבון שלך", "No other coaches yet.":"עדיין אין מאמנים נוספים.",
+  "Remove coach":"הסרת המאמן", "What happens to their students and records?":"מה קורה לתלמידים ולמידע שלו?", "Keep them — a new coach code brings them back":"נשמרים — קוד מאמן חדש מחזיר אותם",
+  "Delete their account and everything in it":"מחיקת החשבון וכל מה שבו", "Their account, students, lessons, payments and backups are deleted, and their students and parents are disconnected. This can’t be undone.":"החשבון, התלמידים, השיעורים, התשלומים והגיבויים שלו נמחקים, והתלמידים וההורים שלו מתנתקים. אי אפשר לבטל את זה.",
+  "Couldn’t remove the coach.":"לא ניתן להסיר את המאמן.", "Coach removed":"המאמן הוסר",
   "With White":"עם לבן", "With Black":"עם שחור", "by coach":"ע״י המאמן", "by student":"ע״י התלמיד", "auto":"אוטומטית", "Reading history":"היסטוריית קריאה", "Showing":"מוצגים",
   "event":"אירוע", "events":"אירועים", "on average":"בממוצע", "point vs. expectation":"נקודות ביחס לצפי", "points vs. expectation":"נקודות ביחס לצפי",
   "This assignment is full — split the rest into another assignment":"המשימה מלאה — את השאר אפשר לפצל למשימה נוספת", "Edit the message, then send it.":"אפשר לערוך את ההודעה ואז לשלוח.",

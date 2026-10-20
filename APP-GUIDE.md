@@ -287,6 +287,11 @@ All the money in one place.
   app, create an account, tap **I'm a coach and have a coach code** and enter the code. Each code works once.
   The list shows each code as **Not used yet** (with **Copy message** and **Remove**) or **Used by** the
   account's email and date. See "Several coaches" below.
+  **Coaches using Rank Up** lists every coach who joined: name, email, join date and number of students
+  (your own row is marked **Your account**). **Remove** on another coach asks what happens to their data:
+  **Keep them** takes away only their coach access (their students and records stay, and a new coach code
+  brings them back), or **Delete their account and everything in it** (after a second confirmation) deletes
+  their account, students, lessons, payments and backups and disconnects their students and parents.
   Under it, **Left their details on the website**: coaches who sent the form on the public page
   (`welcome/`), newest first, with phone, email, city, what they teach and how many students, a
   **WhatsApp** button and **Remove**.
@@ -550,7 +555,8 @@ change them directly.
   (`boardAlerts`, comparing each board before and after it's written, and
   `checkinAlerts`). `sw.js` shows the alert and opens the app when tapped.
 - Coaches: table `coaches` (`is_admin` marks the first coach), coach codes in `coach_codes`, joining
-  through `become_coach(code)`. The access rules give each coach only `data/users/<their id>/…` and the
+  through `become_coach(code)`. The admin lists them with `coach_list()` and removes one with
+  `remove_coach(id, wipe)` (run `supabase/remove-coach.sql` once to turn this on). The access rules give each coach only `data/users/<their id>/…` and the
   portal accounts marked with their id.
 - Publishing: work happens on a branch; merging into the `live` branch
   publishes to GitHub Pages.
