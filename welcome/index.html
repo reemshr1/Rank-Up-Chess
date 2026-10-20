@@ -287,7 +287,7 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
 </style>
 <header><div class="wrap nav">
   <a class="brand" href="#"><span class="logo"><svg width="22" height="22" viewBox="0 0 24 24"><circle cx="9" cy="7" r="3" fill="#1E4E9C"/><path d="M5 21l1.5-8h5L13 21z" fill="#1E4E9C"/><path d="M18 3v8M15 6l3-3 3 3" stroke="#3FA34D" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span data-t="brand">עולים בדרגה</span></a>
-  <nav class="links"><a href="#who" data-t="nWho">למי זה מתאים</a><a href="#features" data-t="nFeat">מה כלול?</a><a href="#how" data-t="nHow">איך מתחילים</a></nav>
+  <nav class="links"><a href="#who" data-t="nWho">למי זה מתאים</a><a href="#features" data-t="nFeat">מה כלול?</a></nav>
   <div class="end"><button class="lang" id="lang">English</button><a class="btn ghost" href="../" data-t="signin">התחברות</a><a class="btn primary" href="#join" data-t="start">להרשמה</a></div>
 </div></header>
 
@@ -383,15 +383,6 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
   </div>
 </div></section>
 
-<section id="how"><div class="wrap">
-  <div class="head"><h2 data-t="hH">מתחילים בעשר דקות</h2></div>
-  <div class="steps">
-    <div class="step"><h3 data-t="h1h">נרשמים</h3><p data-t="h1p">עם אימייל וסיסמה.</p></div>
-    <div class="step"><h3 data-t="h2h">מוסיפים תלמידים</h3><p data-t="h2p">שם, דירוג ומחיר לשיעור. מספר פיד״ה מושך את הדירוג לבד.</p></div>
-    <div class="step"><h3 data-t="h3h">מזמינים בקוד</h3><p data-t="h3p">שולחים לתלמיד או להורה קוד בוואטסאפ — והם מחוברים.</p></div>
-  </div>
-</div></section>
-
 <section id="join" style="padding-top:20px"><div class="wrap"><div class="join">
   <div class="join-text">
     <h2 data-t="jH">רוצים להיות מהראשונים?</h2>
@@ -445,7 +436,7 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
 <footer><div class="wrap"><span data-t="foot">© 2026 עולים בדרגה · Rank Up</span><span><a href="privacy.html" id="privLink" data-t="priv">פרטיות</a> · <a href="https://wa.me/972587957020" target="_blank" rel="noopener" data-t="contact">צור קשר</a> · <a href="../" data-t="signin2">כניסה לאפליקציה</a></span></div></footer>
 
 <script>
-const EN = {brand:"Rank Up", nWho:"Who it's for", nFeat:"What's included?", nHow:"How to start", nPrice:"Price", signin:"Sign in", start:"Sign up",
+const EN = {brand:"Rank Up", nWho:"Who it's for", nFeat:"What's included?", nPrice:"Price", signin:"Sign in", start:"Sign up",
  eyebrow:"Built by a chess coach, for chess coaches", h1:"Everything a chess coach needs, <em>in one place</em>",
  lead:"Your lesson schedule, your students' progress, competitions and payments.<br>And for students and parents — an app of their own, connected to you.",
  start2:"Sign up", see:"What's included?",
@@ -458,7 +449,7 @@ const EN = {brand:"Rank Up", nWho:"Who it's for", nFeat:"What's included?", nHow
  sh1:"A schedule that works for you", sp1:"Weekly lessons, group training and your students' competitions — all in one week. Set your free time (at home, at the club or online), and students can only ask for lessons at the times that fit.", sp1b:"Clashes are flagged ahead of time, and changing one lesson leaves the others alone.",
  sh2:"All your students, at a glance", sp2:"Rating, next lesson, balance, and when each student last updated from the app. Private students and club groups — sorted by day of the week.",
  f1:"Payments and balances", f1d:"Charge per lesson, a polite WhatsApp reminder, and parents report \"I've paid\".", f2:"Club classes", f2d:"One-tap attendance, plus the club's hours and pay each month.", f3:"Competitions and games", f3d:"Students log their games, and the coach sees the full picture.", f4:"Your own library", f4d:"Upload your books with their PDF and assign them to a student or a whole group.", f5:"Practice and fitness", f5d:"Track each student's practice, fitness and progress.", f6:"Assignments", f6d:"For one student or a group, with review and feedback.", f7:"Notifications", f7d:"To students and parents, on their phones too.", f8:"Nightly backup", f8d:"A copy of everything, kept for 30 days.",
- hH:"Up and running in ten minutes", h1h:"Sign up", h1p:"With an email and password.", h2h:"Add your students", h2p:"Name, rating and price per lesson. A FIDE id fills in the rating.", h3h:"Invite with a code", h3p:"Send a student or parent a code on WhatsApp — and they're connected.",
+
  pH:"How much does it cost?", pP:"You only pay for the students and groups you teach.", pTag:"First month free", pPer:"per student a month", pAfter:"After the first month. The first month is free, for all your students and groups.", tPriv:"Private student", tGrp:"Club group", pPerG:"per group a month, however many students are in it", p1:"Student and parent app included", p2:"Nightly backup", p4:"Cancel any time", start3:"Start your free month",
  prH:"The data stays safe", prP:"Each coach sees only their own students. A student sees only their own board — no payments, private notes or other students. A parent sees only their own children. The data is never sold or passed on to anyone.",
  qH:"Questions", q1:"Do students need to download an app?", a1:"No. It's a website that opens on any phone or computer, and it can be added to the home screen like an app.", q2:"What if a student has no phone?", a2:"A parent can sign in for them, and everything can also be run from the coach's board alone.", q3:"Does it work with a club?", a3:"Yes. Club classes, attendance, hours and the club's pay — on their own tab.", q4:"If I stop using the app, do I lose my data?", a4:"No. You can download a file with all of it at any time — students, lessons and payments — and it's yours.",
