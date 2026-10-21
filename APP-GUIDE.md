@@ -410,6 +410,11 @@ A player follows their own chess with no coach. They get a **player code** from 
   app with no coach parts (no Schedule, lesson requests, updates or coach names); their practice, games and
   tasks reach the parent's board when the parent's app is open, like a coach's. The parent sets the tasks; when
   the child marks one done it shows Done, and the parent's board finishes it.
+- **Tips:** Home has a **Tips** card (up to 3, the most pressing first), worked out from what they log, no AI:
+  a gap in practice, a tournament within a week, games not analysed yet, tasks past their date, an area left
+  alone for 2+ weeks (endgames, tactics, calculation), a month spent almost all on one topic, puzzle accuracy
+  (too low → easier puzzles, very high → harder ones) and practice streaks. The child and the parent both see it;
+  coach boards don't. On a parent's board they talk about the child by name ("Maya hasn't practiced for 5 days").
 
 ## 2. Student view
 

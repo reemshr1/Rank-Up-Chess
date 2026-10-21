@@ -200,6 +200,7 @@ summary .panel-hide{margin-inline-start:auto}
 .list{list-style:none;margin:0;padding:0}
 .list li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
 .list li:first-child{border-top:0}
+.list.tips li{justify-content:flex-start;align-items:flex-start;gap:10px}
 .list .main{min-width:0;flex:1}
 .list .title{font-weight:600}
 .tag{display:inline-block;font-size:.76rem;padding:2px 8px;border-radius:999px;background:var(--paper);border:1px solid var(--line);color:var(--muted);white-space:nowrap}
@@ -3639,10 +3640,77 @@ function playerProfile(first){
       if (ids && WEB) setTimeout(()=>syncRatings(false), 300);
     }});
 }
+/* ---------- tips for a player with no coach: worked out from what they log (no AI, nothing sent anywhere) ---------- */
+const TIP_CAT_HE = {Tactics:"טקטיקה", Endgames:"סיומים", Openings:"פתיחות", Calculation:"חישוב", Strategy:"אסטרטגיה", "Game analysis":"ניתוח משחקים", Reading:"קריאה", Other:"אחר"};
+// Up to 3, the most pressing first: [kind, English, Hebrew] — kind is "warn" (do something soon) or "ok" (encouragement).
+function playerTips(s){
+  // on a parent's board the tips talk about the child: (en, he) for the player, then (en, he) for the parent
+  const t = today(), he = lang()==="he", pa = PLAYER && s.setup==="parent", n = firstName(s), out = [];
+  const to = p=>/^[\u0590-\u05FF]/.test(n) ? p+n : p+"־"+n; // למאיה, but ל־Maya
+  const add = (kind, en, hb, pen, phb)=>out.push({kind, text:pa ? (he ? phb : pen) : (he ? hb : en)});
+  const cat = c=>he ? TIP_CAT_HE[c]||c : c.toLowerCase(), log = (s.worklog||[]).filter(w=>+w.minutes>0);
+  const gap = practiceGap(s), streak = (streaksOf(s).practice||{}).now||0, practicedToday = log.some(w=>w.date===t);
+  // practice: never, or not for a few days
+  if (!log.length) add("warn", "Log your first practice — even 15 minutes counts.", "כדאי לרשום את התרגול הראשון — גם 15 דקות נחשבות.",
+    "Nothing logged yet — ask "+n+" to log their first practice (even 15 minutes counts).", "עוד לא נרשם תרגול — אפשר לבקש "+to("מ")+" לרשום את התרגול הראשון (גם 15 דקות נחשבות).");
+  else if (gap && gap.days>=3) add("warn", "No practice for "+gap.days+" days. A short session today gets you back on track.", "אין תרגול כבר "+gap.days+" ימים. אימון קצר היום יחזיר אותך למסלול.",
+    n+" hasn't practiced for "+gap.days+" days. A short session today gets them back on track.", to("ל")+" אין תרגול כבר "+gap.days+" ימים. אימון קצר היום יחזיר למסלול.");
+  // a tournament this week
+  const tour = (s.tournaments||[]).filter(x=>tourAhead(x, t)).map(x=>({x, d:tourNext(x, t)})).filter(o=>o.d>=t && daysBetween(t, o.d)<=7).sort((a,b)=>a.d<b.d?-1:1)[0];
+  if (tour){ const k = daysBetween(t, tour.d), when = k===0 ? (he ? "היום" : "today") : k===1 ? (he ? "מחר" : "tomorrow") : (he ? "בעוד "+k+" ימים" : "in "+k+" days");
+    add("warn", "“"+tour.x.name+"” starts "+when+". Warm up with tactics, look over your openings, and sleep well the nights before.",
+      "„"+tour.x.name+"” מתחילה "+when+". כדאי להתחמם עם טקטיקה, לעבור על הפתיחות ולישון טוב בלילות שלפני.",
+      "“"+tour.x.name+"” starts "+when+". Help "+n+" warm up with tactics, look over their openings, and get to bed early the nights before.",
+      "„"+tour.x.name+"” מתחילה "+when+". כדאי לעזור "+to("ל")+" להתחמם עם טקטיקה, לעבור על הפתיחות וללכת לישון מוקדם בלילות שלפני."); }
+  // their own games, not gone over yet
+  const fresh = (state.games||[]).filter(g=>g.studentId===s.id && (g.analysis||"Not analysed")==="Not analysed" && (!g.date || daysBetween(g.date, t)<=60)), f = fresh.length;
+  if (f) add("warn", f===1 ? "1 game isn't analysed yet. Going over your own games is the fastest way to improve." : f+" games aren't analysed yet. Going over your own games is the fastest way to improve.",
+    f===1 ? "משחק אחד עוד לא נותח. מעבר על המשחקים שלך הוא הדרך המהירה ביותר להשתפר." : f+" משחקים עוד לא נותחו. מעבר על המשחקים שלך הוא הדרך המהירה ביותר להשתפר.",
+    (f===1 ? "1 of "+n+"’s games isn't analysed yet." : f+" of "+n+"’s games aren't analysed yet.")+" Going over their own games is the fastest way to improve.",
+    (f===1 ? "משחק אחד של "+n+" עוד לא נותח." : f+" משחקים של "+n+" עוד לא נותחו.")+" מעבר על המשחקים האישיים הוא הדרך המהירה ביותר להשתפר.");
+  // tasks past their date
+  const late = (state.assignments||[]).filter(a=>a.studentId===s.id && a.status==="Assigned" && a.due && a.due<t).length;
+  if (late) add("warn", late===1 ? "1 task is past its date." : late+" tasks are past their date.", late===1 ? "משימה אחת עברה את התאריך שלה." : late+" משימות עברו את התאריך שלהן.",
+    late===1 ? "1 of "+n+"’s tasks is past its date." : late+" of "+n+"’s tasks are past their date.", late===1 ? "משימה אחת של "+n+" עברה את התאריך שלה." : late+" משימות של "+n+" עברו את התאריך שלהן.");
+  if (log.length>=4){
+    // a core area left out for two weeks
+    const since = c=>{ const d = log.filter(w=>w.what===c).reduce((m,w)=>w.date>m?w.date:m, ""); return d ? daysBetween(d, t) : null; };
+    const gapCat = ["Endgames","Tactics","Calculation"].map(c=>({c, d:since(c)})).filter(o=>o.d===null || o.d>=14).sort((a,b)=>(b.d===null?999:b.d)-(a.d===null?999:a.d))[0];
+    if (gapCat){ const c = cat(gapCat.c), w = gapCat.d===null ? 0 : Math.floor(gapCat.d/7);
+      add("warn", w ? "No "+c+" for "+w+" weeks — add a short session this week." : "No "+c+" logged yet — add a short "+c+" session this week.",
+        w ? "אין תרגול "+c+" כבר "+w+" שבועות — כדאי להוסיף אימון קצר השבוע." : "עוד לא נרשם תרגול "+c+" — כדאי להוסיף אימון קצר השבוע.",
+        w ? "No "+c+" for "+n+" in "+w+" weeks — a short session this week would help." : n+" hasn't logged any "+c+" yet — a short "+c+" session this week would help.",
+        w ? to("ל")+" אין תרגול "+c+" כבר "+w+" שבועות — כדאי להוסיף אימון קצר השבוע." : "עוד לא נרשם "+to("ל")+" תרגול "+c+" — כדאי להוסיף אימון קצר השבוע."); }
+    // one topic taking over
+    const month = log.filter(w=>daysBetween(w.date, t)<=30), mins = {}; month.forEach(w=>{ mins[w.what] = (mins[w.what]||0) + (+w.minutes||0); });
+    const total = Object.values(mins).reduce((a,b)=>a+b, 0), top = Object.keys(mins).sort((a,b)=>mins[b]-mins[a])[0], pc = total ? Math.round(mins[top]/total*100) : 0;
+    if (month.length>=5 && total && mins[top]/total>0.7 && top!=="Other") add("warn", "Most of your practice this month is "+cat(top)+" ("+pc+"%). Mix in other areas for a rounder game.",
+      "רוב התרגול החודש הוא "+cat(top)+" ("+pc+"%). כדאי לשלב תחומים נוספים.",
+      "Most of "+n+"’s practice this month is "+cat(top)+" ("+pc+"%). Mixing in other areas makes for a rounder game.", "רוב התרגול של "+n+" החודש הוא "+cat(top)+" ("+pc+"%). כדאי לשלב תחומים נוספים.");
+  }
+  // puzzle accuracy over the last two weeks
+  const puz = log.filter(w=>w.what==="Tactics" && +w.attempted>0 && daysBetween(w.date, t)<=14), tried = puz.reduce((a,w)=>a+(+w.attempted||0), 0), right = puz.reduce((a,w)=>a+(+w.correct||0), 0);
+  if (tried>=20){ const acc = Math.round(right/tried*100);
+    if (acc<60) add("warn", "Puzzle accuracy "+acc+"% in the last two weeks. Slow down and check your opponent's replies before you move.", "דיוק בתרגילים "+acc+"% בשבועיים האחרונים. כדאי להאט ולבדוק את התשובות של היריב לפני שמזיזים.",
+      n+"’s puzzle accuracy is "+acc+"% over the last two weeks. Encourage them to slow down and check the opponent's replies before moving.", "הדיוק של "+n+" בתרגילים הוא "+acc+"% בשבועיים האחרונים. כדאי לעודד להאט ולבדוק את התשובות של היריב לפני שמזיזים.");
+    else if (acc>=85) add("ok", "Puzzle accuracy "+acc+"% — time for harder puzzles.", "דיוק בתרגילים "+acc+"% — הגיע הזמן לתרגילים קשים יותר.",
+      n+"’s puzzle accuracy is "+acc+"% — time for harder puzzles.", "הדיוק של "+n+" בתרגילים הוא "+acc+"% — הגיע הזמן לתרגילים קשים יותר."); }
+  // encouragement
+  if (streak>=3) add("ok", practicedToday ? streak+"-day practice streak — great work!" : streak+"-day practice streak — practice today to keep it going.", practicedToday ? "רצף תרגול של "+streak+" ימים — כל הכבוד!" : "רצף תרגול של "+streak+" ימים — תרגול היום ישמור עליו.",
+    practicedToday ? n+" is on a "+streak+"-day practice streak — worth a word of praise!" : n+" is on a "+streak+"-day practice streak — a session today keeps it going.",
+    practicedToday ? n+" ברצף תרגול של "+streak+" ימים — שווה מילה טובה!" : n+" ברצף תרגול של "+streak+" ימים — אימון היום ישמור עליו.");
+  if (!out.length && log.length) add("ok", "A good balance lately — keep it up.", "איזון טוב לאחרונה — כדאי להמשיך כך.", n+" has had a good balance lately.", to("ל")+" יש איזון טוב לאחרונה.");
+  return out.filter(x=>x.kind==="warn").concat(out.filter(x=>x.kind==="ok")).slice(0, 3);
+}
+function tipsPanel(s){
+  const tips = playerTips(s); if (!tips.length) return "";
+  return panel("Tips", '<ul class="list tips">'+tips.map(x=>'<li><span aria-hidden="true">'+(x.kind==="ok" ? "✨" : "💡")+'</span> <span class="tip-text">'+esc(x.text)+'</span></li>').join("")+'</ul>');
+}
 // A parent's board: the child gets their own sign-in with a code, and logs their practice and games themselves.
 function kidPanel(s){
   const first = esc(firstName(s));
-  const body = s.portal ? '<p style="margin:0">'+first+' is connected to the app since '+esc(fmtDate(s.portal.linkedAt))+'.</p>'+(s.portal.email ? '<p class="small" style="margin:4px 0 0"><span class="muted">Account:</span> <bdi dir="ltr">'+esc(s.portal.email)+'</bdi></p>' : '')
+  const c = lastCheckin(s), g = practiceGap(s), said = c && (!g || c.date>=g.last) ? '<p class="small" style="margin:8px 0 0"><span class="muted">'+first+' says:</span> <span class="tag warn">'+esc((CHECKIN_REASONS.find(r=>r[0]===c.reason)||[,"Answered"])[1])+'</span>'+(c.note ? ' “'+esc(c.note)+'”' : '')+' <span class="muted">'+esc(fmtShort(c.date))+'</span></p>' : '';
+  const body = s.portal ? '<p style="margin:0">'+first+' is connected to the app since '+esc(fmtDate(s.portal.linkedAt))+'.</p>'+said+(s.portal.email ? '<p class="small" style="margin:4px 0 0"><span class="muted">Account:</span> <bdi dir="ltr">'+esc(s.portal.email)+'</bdi></p>' : '')
     : s.invite ? '<ol class="steps"><li>Send '+first+' the link to the app: <bdi class="link-box" dir="ltr">'+esc(APP_LINK())+'</bdi></li><li>They create an account with their own email and a password.</li><li>They enter this code: <b class="num" style="letter-spacing:.08em"><bdi dir="ltr">'+esc(s.invite.code)+'</bdi></b></li></ol>'+
       '<div class="row-actions" style="margin-top:8px"><button class="btn small" data-a="kidMsg">Copy message</button></div>'
     : '<p class="small muted" style="margin:0 0 10px">Your child can sign in on their own phone and log practice, games and tournaments. Everything shows here too.</p><button class="btn small primary" data-a="kidInvite">Send an invite</button>';
@@ -4234,6 +4302,7 @@ function pHome(v, s){
         : (s.pay.balance>0.009 || (s.pay.open||[]).some(x=>!x.upcoming)) ? '<button type="button" class="btn small" id="iPaid">I\'ve paid</button>' : '')+'<a class="btn small" href="#/payments">Statement</a></div>') : '')+
     (NOCOACH() ? '' : updatesPanel(s))+ // updates are what a coach changed
     (PLAYER && s.setup==="parent" ? kidPanel(s) : '')+
+    (NOCOACH() ? tipsPanel(s) : '')+
     panel("Coming up", (lessons.length||tours.length||pend.length||clubs.length) ? '<ul class="list">'+
         // one list in date and time order: lessons, club classes, tournaments and requests together
         [...lessons.map(x=>({k:x.date+" "+(x.time||""), h:(()=>{ const pc = pendingChange(s, x); return '<li><div class="main"><div class="title">Lesson'+(needsAnswer(s, x)||offerFor(s, x)?' <span class="tag warn">'+(offerFor(s, x)?"New time proposed":"Answer needed")+'</span>':'')+(pc?' <span class="tag warn">'+(pc.kind==="cancel"?"Cancel requested":"Move requested")+'</span>':'')+'</div><div class="small muted">'+[where(x), x.duration?x.duration+" min":"", x.topics].filter(Boolean).map(esc).join(" · ")+'</div>'+
@@ -4762,16 +4831,18 @@ function askCheckin(s){
   const c = lastCheckin(s); return !c || c.date<g.last || daysBetween(c.date, today())>=ASK_GAP_DAYS;
 }
 function checkinBox(s){
-  if (PARENT() || !askCheckin(s)) return "";
-  const g = practiceGap(s);
+  // a player's own board has nobody to ask (the Tips card covers the gap); a child's answer goes to their parent
+  if (PARENT() || PLAYER || !askCheckin(s)) return "";
+  const g = practiceGap(s), who = NOCOACH() ? "parent" : "coach";
   return '<section class="panel checkin" style="margin-bottom:16px;border-color:var(--warn)"><div class="panel-head"><h2>'+(g.never?"No practice logged yet":"No practice logged for "+g.days+" days")+'</h2></div>'+
-    '<p style="margin:0 0 10px">What’s going on? Your coach would like to know.</p><div class="row-actions" style="flex-wrap:wrap;justify-content:flex-start">'+
+    '<p style="margin:0 0 10px">What’s going on? Your '+who+' would like to know.</p><div class="row-actions" style="flex-wrap:wrap;justify-content:flex-start">'+
     '<button class="btn small primary" data-a="log">I practiced — log it now</button>'+CHECKIN_REASONS.map(([k,l])=>'<button class="btn small" data-a="checkin" data-id="'+k+'">'+esc(l)+'</button>').join("")+'</div></section>';
 }
 function sendCheckin(s, reason){
-  const go = note=>{ const op = {type:"checkin", item:{id:uid(), date:today(), reason, note:note||""}}; store.send(op); applyOp(s, op, false); render(); toast("Thanks — your coach will see it"); };
+  const who = NOCOACH() ? "parent" : "coach";
+  const go = note=>{ const op = {type:"checkin", item:{id:uid(), date:today(), reason, note:note||""}}; store.send(op); applyOp(s, op, false); render(); toast("Thanks — your "+who+" will see it"); };
   if (reason!=="other") return go("");
-  openForm({title:"What’s going on?", submit:"Send to your coach", fields:[{name:"note",label:"A few words for your coach",type:"textarea",value:"",placeholder:"e.g. Busy with a school project this week"}],
+  openForm({title:"What’s going on?", submit:"Send to your "+who, fields:[{name:"note",label:"A few words for your "+who,type:"textarea",value:"",placeholder:"e.g. Busy with a school project this week"}],
     onSubmit:d=>{ if (!d.note.trim()) return "Write a few words, or pick one of the other answers."; go(d.note.trim()); }});
 }
 // A friendly message to send from the coach's phone.
@@ -7810,7 +7881,7 @@ const HE = {
   "No phone number":"אין מספר טלפון", "Use the fitness message?":"להשתמש בהודעה על הכושר?", "The text in the box will be replaced.":"הטקסט בתיבה יוחלף.", "Replace":"החלפה", "Message copied":"ההודעה הועתקה",
   "No parent has connected to the app yet.":"עדיין אף הורה לא התחבר לאפליקציה.", "No active students.":"אין תלמידים פעילים.", "no Hebrew name":"אין שם בעברית", "boy/girl not set":"לא צוין בן/בת", "Practice today to keep your streak":"כדאי לתרגל היום כדי לשמור על הרצף", "Miss 2 days in a row and you drop 2 levels.":"יומיים ברצף בלי תרגול — יורדים שתי דרגות.",
   "Busy with school / exams":"עסוק/ה בבית הספר / מבחנים", "I was sick":"הייתי חולה", "Taking a short break":"לוקח/ת הפסקה קצרה", "Something else":"משהו אחר", "I practiced — log it now":"תרגלתי — לרשום עכשיו",
-  "What’s going on? Your coach would like to know.":"מה קורה? המאמן ישמח לדעת.", "No practice logged yet":"עדיין לא נרשם תרגול", "Thanks — your coach will see it":"תודה — המאמן יראה את זה",
+  "What’s going on? Your coach would like to know.":"מה קורה? המאמן ישמח לדעת.", "No practice logged yet":"עדיין לא נרשם תרגול", "Thanks — your coach will see it":"תודה — המאמן יראה את זה", "What’s going on? Your parent would like to know.":"מה קורה? ההורים ישמחו לדעת.", "Thanks — your parent will see it":"תודה — ההורים יראו את זה", "Send to your parent":"שליחה להורים", "A few words for your parent":"כמה מילים להורים",
   "What’s going on?":"מה קורה?", "A few words for your coach":"כמה מילים למאמן", "Write a few words, or pick one of the other answers.":"אפשר לכתוב כמה מילים או לבחור אחת מהתשובות האחרות.",
   "Nudge":"תזכורת", "Has the app, no practice logged yet":"יש לו/ה את האפליקציה, עדיין לא נרשם תרגול", "Answered":"ענה/תה", "a practice check-in":"תשובה על תרגול", "Pawn":"רגלי", "Knight":"פרש", "Bishop":"רץ", "Rook":"צריח", "Queen":"מלכה", "King":"מלך", "My medals":"המדליות שלי", "Practice streak":"רצף תרגול", "Fitness streak":"רצף כושר",
   "Starts once your coach sets a weekly fitness goal.":"מתחיל אחרי שהמאמן יקבע יעד כושר שבועי.", "Set a weekly fitness goal in the Fitness tab to start this streak.":"כדי להתחיל את הרצף הזה יש לקבוע יעד כושר שבועי בלשונית כושר.", "Same time, but online":"באותה שעה, אבל אונליין", "Same time, but in person":"באותה שעה, אבל פרונטלי", "In person or online":"פרונטלי או אונליין", "Mark all as read":"סימון הכול כנקרא",
@@ -8213,7 +8284,7 @@ Object.assign(HE, {
   "Your child can sign in on their own phone and log practice, games and tournaments. Everything shows here too.":"הילד/ה יכול/ה להתחבר מהטלפון שלו/ה ולרשום תרגול, משחקים ותחרויות. הכל מופיע גם כאן.",
   "They create an account with their own email and a password.":"יוצרים חשבון עם אימייל משלהם וסיסמה.", "They enter this code:":"מזינים את הקוד הזה:",
   "Enter the code your coach (or your parent) gave you to connect your account.":"יש להזין את הקוד שקיבלת מהמאמן (או מההורה) כדי לחבר את החשבון.",
-  "Next tournament":"התחרות הבאה", "No tournament planned":"אין תחרות מתוכננת",   "No tasks yet. Add one to plan your practice.":"עדיין אין משימות. אפשר להוסיף משימה כדי לתכנן את האימון.", "Done — nice work":"בוצע — כל הכבוד", "Welcome! Opening your board…":"ברוכים הבאים! הלוח שלך נפתח…",
+  "Tips":"טיפים",   "Next tournament":"התחרות הבאה", "No tournament planned":"אין תחרות מתוכננת",   "No tasks yet. Add one to plan your practice.":"עדיין אין משימות. אפשר להוסיף משימה כדי לתכנן את האימון.", "Done — nice work":"בוצע — כל הכבוד", "Welcome! Opening your board…":"ברוכים הבאים! הלוח שלך נפתח…",
   "Coaches":"מאמנים", "Another coach can use Rank Up with their own students. Make a coach code and send it to them: they create an account and enter it. Each coach sees only their own students, payments and backups.":"מאמן נוסף יכול להשתמש ב„עולים בדרגה” עם התלמידים שלו. יוצרים קוד מאמן ושולחים לו: הוא יוצר חשבון ומזין את הקוד. כל מאמן רואה רק את התלמידים, התשלומים והגיבויים שלו.",
   "Couldn’t load the coach codes.":"לא ניתן לטעון את קודי המאמן.", "Used by":"נוצל על ידי", "Not used yet":"עדיין לא נוצל", "Copy message":"העתקת ההודעה",
   "No coach codes yet.":"עדיין אין קודי מאמן.", "Make a coach code":"יצירת קוד מאמן", "Remove this coach code?":"להסיר את קוד המאמן?", "account removed":"החשבון נמחק", "Remove from the list?":"להסיר מהרשימה?", "The account that used it was deleted.":"החשבון שהשתמש בו נמחק.", "Nobody will be able to join with it.":"אי אפשר יהיה להצטרף איתו.",
@@ -8382,7 +8453,7 @@ const HE_RX = [
   [/^Green weeks reached the goal of (\d+) minutes\.$/, "בשבועות הירוקים הושג היעד של $1 דקות."],
   [/^Green weeks reached the goal of (\d+) workouts? and (\d+) minutes\.$/, "בשבועות הירוקים הושג היעד של $1 אימונים ו־$2 דקות."],
   [/^Notifications disappear from the app (\d+) days after they’re sent\.$/, "ההתראות נעלמות מהאפליקציה $1 ימים אחרי שנשלחו."],
-  [/^This is (.+)’s copy\. Use \{name\} for each child’s name\.$/, "זה הנוסח ש־$1 קיבל/ה. כתבו {name} במקום שם הילד/ה."], [/^Read (\d+) of (\d+)$/, "נקרא $1 מתוך $2"], [/^\+(\d+) new$/, "+$1 חדשים"], [/^(\d+) students$/, "$1 תלמידים"], [/^(\d+) parents?$/, (m,n)=>+n===1?"הורה אחד":n+" הורים"], [/^Notification sent — (.+)$/, (m,x)=>"ההתראה נשלחה — "+x.split(" · ").map(heT).join(" · ")], [/^Notification sent to (\d+) students?(.*)$/, (m,n,r)=>"ההתראה נשלחה ל־"+n+" תלמידים"+(r.includes("and")?" ולהורים שלהם":r?" (להורים)":"")], [/^(\d+) more workouts? this week to keep your streak$/, (m,n)=>(+n===1?"עוד אימון אחד":"עוד "+n+" אימונים")+" השבוע כדי לשמור על הרצף"], [/^Now: (\d+ days?) in a row$/, (m,x)=>"עכשיו: "+heT(x)+" ברצף"], [/^Highest: (Pawn|Knight|Bishop|Rook|Queen|King)$/, (m,p)=>"הכי גבוה: "+heT(p)], [/^No practice logged for (\d+) days$/, "לא נרשם תרגול כבר $1 ימים"], [/^Nudge — (.+)$/, "תזכורת — $1"], [/^(\d+)-day practice streak$/, "רצף תרגול של $1 ימים"], [/^(\d+)-week fitness streak$/, "רצף כושר של $1 שבועות"], [/^(.+)’s medals$/, "המדליות של $1"],
+  [/^This is (.+)’s copy\. Use \{name\} for each child’s name\.$/, "זה הנוסח ש־$1 קיבל/ה. כתבו {name} במקום שם הילד/ה."], [/^Read (\d+) of (\d+)$/, "נקרא $1 מתוך $2"], [/^\+(\d+) new$/, "+$1 חדשים"], [/^(\d+) students$/, "$1 תלמידים"], [/^(\d+) parents?$/, (m,n)=>+n===1?"הורה אחד":n+" הורים"], [/^Notification sent — (.+)$/, (m,x)=>"ההתראה נשלחה — "+x.split(" · ").map(heT).join(" · ")], [/^Notification sent to (\d+) students?(.*)$/, (m,n,r)=>"ההתראה נשלחה ל־"+n+" תלמידים"+(r.includes("and")?" ולהורים שלהם":r?" (להורים)":"")], [/^(\d+) more workouts? this week to keep your streak$/, (m,n)=>(+n===1?"עוד אימון אחד":"עוד "+n+" אימונים")+" השבוע כדי לשמור על הרצף"], [/^Now: (\d+ days?) in a row$/, (m,x)=>"עכשיו: "+heT(x)+" ברצף"], [/^Highest: (Pawn|Knight|Bishop|Rook|Queen|King)$/, (m,p)=>"הכי גבוה: "+heT(p)], [/^No practice logged for (\d+) days$/, "לא נרשם תרגול כבר $1 ימים"], [/^(.+) says:$/, "התשובה של $1:"], [/^Nudge — (.+)$/, "תזכורת — $1"], [/^(\d+)-day practice streak$/, "רצף תרגול של $1 ימים"], [/^(\d+)-week fitness streak$/, "רצף כושר של $1 שבועות"], [/^(.+)’s medals$/, "המדליות של $1"],
   [/^(\d+) (days?|weeks?)$/, (m,n,u)=>(+n===1 ? (u[0]==="d"?"יום אחד":"שבוע אחד") : n+(u[0]==="d"?" ימים":" שבועות"))], [/^Now: (.+)$/, (m,x)=>"עכשיו: "+heT(x)], [/^Best: (.+)$/, (m,x)=>"הכי טוב: "+heT(x)],
   [/^(\d+ (?:days?|weeks?)) more to (Pawn|Knight|Bishop|Rook|Queen|King)$/, (m,x,t)=>"עוד "+heT(x)+" ל"+heT(t)], [/^Switch to online$/, "מעבר לאונליין"], [/^Switch to in person$/, "מעבר לפרונטלי"], [/^The lesson on (.+) is now online$/, "השיעור ב־$1 יהיה אונליין"], [/^The lesson on (.+) is now in person$/, "השיעור ב־$1 יהיה פרונטלי"], [/^(In person|Online) → (In person|Online)$/, (m,a,b)=>({"In person":"פרונטלי","Online":"אונליין"})[a]+" → "+({"In person":"פרונטלי","Online":"אונליין"})[b]], [/^Notes from your lesson on (.+)$/, "הערות מהשיעור ב־$1"], [/^(.+) challenge$/, "האתגר של $1"], [/^(\d+) to go$/, "עוד $1"], [/^You added (\d+) this month$/, "הוספת $1 החודש"], [/^(.+) added (\d+) this month$/, "$1 הוסיף/ה $2 החודש"], [/^(\d+) of (\d+) group workouts this month$/, "$1 מתוך $2 אימונים קבוצתיים החודש"],
   [/^Logged: (.+)$/, "תועד: $1"], [/^🔥 (\d+) weeks in a row reaching the fitness goal$/, "🔥 $1 שבועות ברצף ביעד הכושר"], [/^Points scored after 8 h or more:$/, "נקודות אחרי 8 שעות שינה ומעלה:"], [/^after less:$/, "אחרי פחות:"], [/^([\d.]+) h$/, "$1 ש׳"], [/^of (\d+) pages read$/, "מתוך $1 עמודים נקראו"], [/^(\d+) of (\d+) pages read$/, "$1 מתוך $2 עמודים נקראו"], [/^(\d+) pages read$/, "$1 עמודים נקראו"], [/^p\. ([\d–, ]+)$/, "עמ׳ $1"], [/^last stop p\. (\d+)$/, "עצירה אחרונה בעמ׳ $1"], [/^p\. (\d+)–(\d+)$/, "עמ׳ $1–$2"], [/^pages read$/, "עמודים נקראו"], [/^Whole group: (.+) \((\d+)\)$/, "כל הקבוצה: $1 ($2)"], [/^Assignment given to (\d+) students?$/, (m,n)=>+n===1 ? "המשימה ניתנה לתלמיד אחד" : "המשימה ניתנה ל־"+n+" תלמידים"], [/^(\d+) students?$/, (m,n)=>+n===1 ? "תלמיד אחד" : n+" תלמידים"], [/^(\d+) of (\d+) workouts this week$/, "$1 מתוך $2 אימונים השבוע"], [/^(\d+) more to reach the weekly goal$/, "עוד $1 כדי להגיע ליעד השבועי"], [/^(\d+) weeks in a row$/, "$1 שבועות ברצף"],
