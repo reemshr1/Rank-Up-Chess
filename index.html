@@ -3644,44 +3644,62 @@ function playerProfile(first){
 const TIP_CAT_HE = {Tactics:"טקטיקה", Endgames:"סיומים", Openings:"פתיחות", Calculation:"חישוב", Strategy:"אסטרטגיה", "Game analysis":"ניתוח משחקים", Reading:"קריאה", Other:"אחר"};
 // Up to 3, the most pressing first: [kind, English, Hebrew] — kind is "warn" (do something soon) or "ok" (encouragement).
 function playerTips(s){
-  const t = today(), he = lang()==="he", out = [], add = (kind, en, hb)=>out.push({kind, text:he ? hb : en});
+  // on a parent's board the tips talk about the child: (en, he) for the player, then (en, he) for the parent
+  const t = today(), he = lang()==="he", pa = PLAYER && s.setup==="parent", n = firstName(s), out = [];
+  const to = p=>/^[\u0590-\u05FF]/.test(n) ? p+n : p+"־"+n; // למאיה, but ל־Maya
+  const add = (kind, en, hb, pen, phb)=>out.push({kind, text:pa ? (he ? phb : pen) : (he ? hb : en)});
   const cat = c=>he ? TIP_CAT_HE[c]||c : c.toLowerCase(), log = (s.worklog||[]).filter(w=>+w.minutes>0);
   const gap = practiceGap(s), streak = (streaksOf(s).practice||{}).now||0, practicedToday = log.some(w=>w.date===t);
   // practice: never, or not for a few days
-  if (!log.length) add("warn", "Log your first practice — even 15 minutes counts.", "כדאי לרשום את התרגול הראשון — גם 15 דקות נחשבות.");
-  else if (gap && gap.days>=3) add("warn", "No practice for "+gap.days+" days. A short session today gets you back on track.", "אין תרגול כבר "+gap.days+" ימים. אימון קצר היום יחזיר אותך למסלול.");
+  if (!log.length) add("warn", "Log your first practice — even 15 minutes counts.", "כדאי לרשום את התרגול הראשון — גם 15 דקות נחשבות.",
+    "Nothing logged yet — ask "+n+" to log their first practice (even 15 minutes counts).", "עוד לא נרשם תרגול — אפשר לבקש "+to("מ")+" לרשום את התרגול הראשון (גם 15 דקות נחשבות).");
+  else if (gap && gap.days>=3) add("warn", "No practice for "+gap.days+" days. A short session today gets you back on track.", "אין תרגול כבר "+gap.days+" ימים. אימון קצר היום יחזיר אותך למסלול.",
+    n+" hasn't practiced for "+gap.days+" days. A short session today gets them back on track.", to("ל")+" אין תרגול כבר "+gap.days+" ימים. אימון קצר היום יחזיר למסלול.");
   // a tournament this week
   const tour = (s.tournaments||[]).filter(x=>tourAhead(x, t)).map(x=>({x, d:tourNext(x, t)})).filter(o=>o.d>=t && daysBetween(t, o.d)<=7).sort((a,b)=>a.d<b.d?-1:1)[0];
-  if (tour){ const n = daysBetween(t, tour.d), when = n===0 ? (he ? "היום" : "today") : n===1 ? (he ? "מחר" : "tomorrow") : (he ? "בעוד "+n+" ימים" : "in "+n+" days");
+  if (tour){ const k = daysBetween(t, tour.d), when = k===0 ? (he ? "היום" : "today") : k===1 ? (he ? "מחר" : "tomorrow") : (he ? "בעוד "+k+" ימים" : "in "+k+" days");
     add("warn", "“"+tour.x.name+"” starts "+when+". Warm up with tactics, look over your openings, and sleep well the nights before.",
-      "„"+tour.x.name+"” מתחילה "+when+". כדאי להתחמם עם טקטיקה, לעבור על הפתיחות ולישון טוב בלילות שלפני."); }
+      "„"+tour.x.name+"” מתחילה "+when+". כדאי להתחמם עם טקטיקה, לעבור על הפתיחות ולישון טוב בלילות שלפני.",
+      "“"+tour.x.name+"” starts "+when+". Help "+n+" warm up with tactics, look over their openings, and get to bed early the nights before.",
+      "„"+tour.x.name+"” מתחילה "+when+". כדאי לעזור "+to("ל")+" להתחמם עם טקטיקה, לעבור על הפתיחות וללכת לישון מוקדם בלילות שלפני."); }
   // their own games, not gone over yet
-  const fresh = (state.games||[]).filter(g=>g.studentId===s.id && (g.analysis||"Not analysed")==="Not analysed" && (!g.date || daysBetween(g.date, t)<=60));
-  if (fresh.length) add("warn", fresh.length===1 ? "1 game isn't analysed yet. Going over your own games is the fastest way to improve." : fresh.length+" games aren't analysed yet. Going over your own games is the fastest way to improve.",
-    fresh.length===1 ? "משחק אחד עוד לא נותח. מעבר על המשחקים שלך הוא הדרך המהירה ביותר להשתפר." : fresh.length+" משחקים עוד לא נותחו. מעבר על המשחקים שלך הוא הדרך המהירה ביותר להשתפר.");
+  const fresh = (state.games||[]).filter(g=>g.studentId===s.id && (g.analysis||"Not analysed")==="Not analysed" && (!g.date || daysBetween(g.date, t)<=60)), f = fresh.length;
+  if (f) add("warn", f===1 ? "1 game isn't analysed yet. Going over your own games is the fastest way to improve." : f+" games aren't analysed yet. Going over your own games is the fastest way to improve.",
+    f===1 ? "משחק אחד עוד לא נותח. מעבר על המשחקים שלך הוא הדרך המהירה ביותר להשתפר." : f+" משחקים עוד לא נותחו. מעבר על המשחקים שלך הוא הדרך המהירה ביותר להשתפר.",
+    (f===1 ? "1 of "+n+"’s games isn't analysed yet." : f+" of "+n+"’s games aren't analysed yet.")+" Going over their own games is the fastest way to improve.",
+    (f===1 ? "משחק אחד של "+n+" עוד לא נותח." : f+" משחקים של "+n+" עוד לא נותחו.")+" מעבר על המשחקים האישיים הוא הדרך המהירה ביותר להשתפר.");
   // tasks past their date
   const late = (state.assignments||[]).filter(a=>a.studentId===s.id && a.status==="Assigned" && a.due && a.due<t).length;
-  if (late) add("warn", late===1 ? "1 task is past its date." : late+" tasks are past their date.", late===1 ? "משימה אחת עברה את התאריך שלה." : late+" משימות עברו את התאריך שלהן.");
+  if (late) add("warn", late===1 ? "1 task is past its date." : late+" tasks are past their date.", late===1 ? "משימה אחת עברה את התאריך שלה." : late+" משימות עברו את התאריך שלהן.",
+    late===1 ? "1 of "+n+"’s tasks is past its date." : late+" of "+n+"’s tasks are past their date.", late===1 ? "משימה אחת של "+n+" עברה את התאריך שלה." : late+" משימות של "+n+" עברו את התאריך שלהן.");
   if (log.length>=4){
     // a core area left out for two weeks
     const since = c=>{ const d = log.filter(w=>w.what===c).reduce((m,w)=>w.date>m?w.date:m, ""); return d ? daysBetween(d, t) : null; };
     const gapCat = ["Endgames","Tactics","Calculation"].map(c=>({c, d:since(c)})).filter(o=>o.d===null || o.d>=14).sort((a,b)=>(b.d===null?999:b.d)-(a.d===null?999:a.d))[0];
-    if (gapCat) add("warn", gapCat.d===null ? "No "+cat(gapCat.c)+" logged yet — add a short "+cat(gapCat.c)+" session this week." : "No "+cat(gapCat.c)+" for "+Math.floor(gapCat.d/7)+" weeks — add a short session this week.",
-      gapCat.d===null ? "עוד לא נרשם תרגול "+cat(gapCat.c)+" — כדאי להוסיף אימון קצר השבוע." : "אין תרגול "+cat(gapCat.c)+" כבר "+Math.floor(gapCat.d/7)+" שבועות — כדאי להוסיף אימון קצר השבוע.");
+    if (gapCat){ const c = cat(gapCat.c), w = gapCat.d===null ? 0 : Math.floor(gapCat.d/7);
+      add("warn", w ? "No "+c+" for "+w+" weeks — add a short session this week." : "No "+c+" logged yet — add a short "+c+" session this week.",
+        w ? "אין תרגול "+c+" כבר "+w+" שבועות — כדאי להוסיף אימון קצר השבוע." : "עוד לא נרשם תרגול "+c+" — כדאי להוסיף אימון קצר השבוע.",
+        w ? "No "+c+" for "+n+" in "+w+" weeks — a short session this week would help." : n+" hasn't logged any "+c+" yet — a short "+c+" session this week would help.",
+        w ? to("ל")+" אין תרגול "+c+" כבר "+w+" שבועות — כדאי להוסיף אימון קצר השבוע." : "עוד לא נרשם "+to("ל")+" תרגול "+c+" — כדאי להוסיף אימון קצר השבוע."); }
     // one topic taking over
     const month = log.filter(w=>daysBetween(w.date, t)<=30), mins = {}; month.forEach(w=>{ mins[w.what] = (mins[w.what]||0) + (+w.minutes||0); });
-    const total = Object.values(mins).reduce((a,b)=>a+b, 0), top = Object.keys(mins).sort((a,b)=>mins[b]-mins[a])[0];
-    if (month.length>=5 && total && mins[top]/total>0.7 && top!=="Other") add("warn", "Most of your practice this month is "+cat(top)+" ("+Math.round(mins[top]/total*100)+"%). Mix in other areas for a rounder game.",
-      "רוב התרגול החודש הוא "+cat(top)+" ("+Math.round(mins[top]/total*100)+"%). כדאי לשלב תחומים נוספים.");
+    const total = Object.values(mins).reduce((a,b)=>a+b, 0), top = Object.keys(mins).sort((a,b)=>mins[b]-mins[a])[0], pc = total ? Math.round(mins[top]/total*100) : 0;
+    if (month.length>=5 && total && mins[top]/total>0.7 && top!=="Other") add("warn", "Most of your practice this month is "+cat(top)+" ("+pc+"%). Mix in other areas for a rounder game.",
+      "רוב התרגול החודש הוא "+cat(top)+" ("+pc+"%). כדאי לשלב תחומים נוספים.",
+      "Most of "+n+"’s practice this month is "+cat(top)+" ("+pc+"%). Mixing in other areas makes for a rounder game.", "רוב התרגול של "+n+" החודש הוא "+cat(top)+" ("+pc+"%). כדאי לשלב תחומים נוספים.");
   }
   // puzzle accuracy over the last two weeks
   const puz = log.filter(w=>w.what==="Tactics" && +w.attempted>0 && daysBetween(w.date, t)<=14), tried = puz.reduce((a,w)=>a+(+w.attempted||0), 0), right = puz.reduce((a,w)=>a+(+w.correct||0), 0);
   if (tried>=20){ const acc = Math.round(right/tried*100);
-    if (acc<60) add("warn", "Puzzle accuracy "+acc+"% in the last two weeks. Slow down and check your opponent's replies before you move.", "דיוק בתרגילים "+acc+"% בשבועיים האחרונים. כדאי להאט ולבדוק את התשובות של היריב לפני שמזיזים.");
-    else if (acc>=85) add("ok", "Puzzle accuracy "+acc+"% — time for harder puzzles.", "דיוק בתרגילים "+acc+"% — הגיע הזמן לתרגילים קשים יותר."); }
+    if (acc<60) add("warn", "Puzzle accuracy "+acc+"% in the last two weeks. Slow down and check your opponent's replies before you move.", "דיוק בתרגילים "+acc+"% בשבועיים האחרונים. כדאי להאט ולבדוק את התשובות של היריב לפני שמזיזים.",
+      n+"’s puzzle accuracy is "+acc+"% over the last two weeks. Encourage them to slow down and check the opponent's replies before moving.", "הדיוק של "+n+" בתרגילים הוא "+acc+"% בשבועיים האחרונים. כדאי לעודד להאט ולבדוק את התשובות של היריב לפני שמזיזים.");
+    else if (acc>=85) add("ok", "Puzzle accuracy "+acc+"% — time for harder puzzles.", "דיוק בתרגילים "+acc+"% — הגיע הזמן לתרגילים קשים יותר.",
+      n+"’s puzzle accuracy is "+acc+"% — time for harder puzzles.", "הדיוק של "+n+" בתרגילים הוא "+acc+"% — הגיע הזמן לתרגילים קשים יותר."); }
   // encouragement
-  if (streak>=3) add("ok", practicedToday ? streak+"-day practice streak — great work!" : streak+"-day practice streak — practice today to keep it going.", practicedToday ? "רצף תרגול של "+streak+" ימים — כל הכבוד!" : "רצף תרגול של "+streak+" ימים — תרגול היום ישמור עליו.");
-  if (!out.length && log.length) add("ok", "A good balance lately — keep it up.", "איזון טוב לאחרונה — כדאי להמשיך כך.");
+  if (streak>=3) add("ok", practicedToday ? streak+"-day practice streak — great work!" : streak+"-day practice streak — practice today to keep it going.", practicedToday ? "רצף תרגול של "+streak+" ימים — כל הכבוד!" : "רצף תרגול של "+streak+" ימים — תרגול היום ישמור עליו.",
+    practicedToday ? n+" is on a "+streak+"-day practice streak — worth a word of praise!" : n+" is on a "+streak+"-day practice streak — a session today keeps it going.",
+    practicedToday ? n+" ברצף תרגול של "+streak+" ימים — שווה מילה טובה!" : n+" ברצף תרגול של "+streak+" ימים — אימון היום ישמור עליו.");
+  if (!out.length && log.length) add("ok", "A good balance lately — keep it up.", "איזון טוב לאחרונה — כדאי להמשיך כך.", n+" has had a good balance lately.", to("ל")+" יש איזון טוב לאחרונה.");
   return out.filter(x=>x.kind==="warn").concat(out.filter(x=>x.kind==="ok")).slice(0, 3);
 }
 function tipsPanel(s){

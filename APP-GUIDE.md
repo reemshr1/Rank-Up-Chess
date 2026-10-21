@@ -414,7 +414,7 @@ A player follows their own chess with no coach. They get a **player code** from 
   a gap in practice, a tournament within a week, games not analysed yet, tasks past their date, an area left
   alone for 2+ weeks (endgames, tactics, calculation), a month spent almost all on one topic, puzzle accuracy
   (too low → easier puzzles, very high → harder ones) and practice streaks. The child and the parent both see it;
-  coach boards don't.
+  coach boards don't. On a parent's board they talk about the child by name ("Maya hasn't practiced for 5 days").
 
 ## 2. Student view
 
