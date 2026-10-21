@@ -3048,6 +3048,30 @@ function applyOp(s, op, coachSide){
     return true;
   }
   if (t==="request.cancel"){ const r = list("requests").find(x=>x.id===op.id); if (r && r.status==="pending") r.status = "cancelled"; return true; }
+  // A player who used Rank Up without a coach brings what they logged (in parts, see historyOps). What the coach
+  // already has stays as it is; the rest is added, as the student's own.
+  if (t==="history"){
+    const ok = x=>x && typeof x==="object" && typeof x.id==="string" && x.id;
+    Object.keys(op.lists||{}).forEach(k=>{ if (!PORTAL_KEYS.includes(k) || !Array.isArray(op.lists[k])) return; const L = list(k);
+      op.lists[k].forEach(x=>{ if (!ok(x) || L.some(y=>y.id===x.id)) return;
+        const y = k==="tournaments" ? (({assist, assistDays, assistFee, assistReason, ...z})=>z)(x) : k==="books" ? (({pdf, ...z})=>z)(x) : x;
+        L.push(Object.assign({}, y, {by:"student"})); }); });
+    (Array.isArray(op.games) ? op.games : []).forEach(g=>{ if (!ok(g) || !/^gm-/.test(g.id) || state.games.some(x=>x.id===g.id)) return;
+      const x = Object.assign({}, g, {studentId:s.id, by:"student"}); state.games.push(x); if (coachSide) saveGame(x); });
+    (Array.isArray(op.tasks) ? op.tasks : []).forEach(a=>{ if (!ok(a) || !/^as-/.test(a.id) || state.assignments.some(x=>x.id===a.id)) return;
+      const x = Object.assign({}, a, {studentId:s.id, by:"self"}); state.assignments.push(x); if (coachSide) saveAssignment(x); });
+    const R = list("ratings");
+    (Array.isArray(op.ratings) ? op.ratings : []).forEach(r=>{ if (!r || !/^\d{4}-\d{2}-\d{2}$/.test(r.date||"") || !(+r.value>0)) return;
+      if (!R.some(x=>x.date===r.date && String(x.value)===String(r.value) && (x.source||"")===(r.source||""))) R.push(Object.assign({}, r)); });
+    R.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+    const p = op.profile||{}; // fills in only what the coach left empty
+    ["fullHe","birthYear","fideId","icfId"].forEach(k=>{ if (!String(s[k]||"").trim() && p[k]) s[k] = String(p[k]).trim().slice(0,80); });
+    if (s.fullHe && !s.nameHe) s.nameHe = s.fullHe.split(" ")[0];
+    if (s.fideId || s.icfId) s.noId = false;
+    if (!s.rating && +p.rating>0){ s.rating = p.rating; if (p.ratingType) s.ratingType = p.ratingType; }
+    if (coachSide && !s.movedIn) s.movedIn = {date:(op.at||"").slice(0,10)||today(), by:op.by==="parent" ? "parent" : "student"};
+    return true;
+  }
   return false;
 }
 // The coach's side: link students who typed their invite code, keep each linked student's view up to date,
@@ -3158,7 +3182,7 @@ function makePortal(db){
       fresh.forEach(o=>{ taken.add(o._id);
         try {
           // a parent may only ask about lessons, and only for a child in their family
-          const who = st ? (o.type==="payment.report" && !st.payShared ? null : st) : ((fam.studentIds||[]).includes(o.sid) && PARENT_OPS.includes(o.type) && byId(o.sid)); // a student reports payments only when the coach shows them theirs
+          const who = st ? (o.type==="payment.report" && !st.payShared ? null : st) : o.type==="history" ? historyChild(fam, o) : ((fam.studentIds||[]).includes(o.sid) && PARENT_OPS.includes(o.type) && byId(o.sid)); // a student reports payments only when the coach shows them theirs
           if (who && fam && o.item) o.item.by = "parent";
           if (who) o.by = fam ? "parent" : "student";
           const ok = who && applyOp(who, o, true);
@@ -3188,6 +3212,7 @@ function makePortal(db){
     db.collection("portal").onSnapshot(snap=>{
       snap.docChanges().filter(ch=>ch.type!=="removed").map(ch=>ch.doc).forEach(d=>{
         const v = d.data()||{}, uid = d.id, code = String(v.code||"").trim().toUpperCase();
+        if (ACCOUNT && uid===ACCOUNT.uid) return; // a player's own link (to a coach they're moving to) isn't one of theirs to answer
         if (v.lang) accLang[uid] = v.lang;
         if (v.linked && v.email){ const o = state.students.find(x=>x.portal && x.portal.uid===uid) || families().find(x=>x.portal && x.portal.uid===uid);
           if (o && o.portal.email!==String(v.email).slice(0,120)){ o.portal.email = String(v.email).slice(0,120); if (o.studentIds) saveSettings(); else saveStudent(o); } }
@@ -3547,7 +3572,7 @@ async function webStart(){
     sb.auth.onAuthStateChange(ev=>{ if (ev==="SIGNED_OUT" && !window.__signingOut) location.reload(); });
     // Coaches are listed in "coaches"; everyone else is a student or parent. A new coach joins with a coach code (linkPage).
     const c = await sb.from("coaches").select("user_id,is_admin,kind").eq("user_id", user.id).maybeSingle(); if (c.error) throw c.error;
-    const isCoach = !!c.data; webAdmin = !!(c.data && c.data.is_admin); PLAYER = !!(c.data && c.data.kind==="player");
+    const isCoach = !!c.data && c.data.kind!=="moved"; webAdmin = !!(c.data && c.data.is_admin); PLAYER = !!(c.data && c.data.kind==="player");
     document.body.classList.add("web"); ungate();
     if ("serviceWorker" in navigator && location.protocol==="https:") navigator.serviceWorker.register("sw.js").catch(()=>{});
     return {db:makeSupaDb(sb), uid:user.id, user:{id:async()=>user.id, isOwner:async()=>isCoach}};
@@ -3723,6 +3748,66 @@ function kidMessage(s){
   openForm({title:"Send this to your child", submit:"Copy", parentOk:true, fields:[{name:"msg", label:"Message", type:"textarea", value:txt, full:true}],
     onSubmit:d=>{ (navigator.clipboard ? navigator.clipboard.writeText(d.msg) : Promise.reject()).then(()=>toast("Copied"), ()=>toast("Couldn't copy — select the text and copy it yourself.")); }});
 }
+/* ---------- connect to a coach: a player (or a parent's board, or the child on it) moves to a coach ----------
+   The coach adds them in Rank Up and gives them a code, as for any student or family. The code goes into this
+   account's link; once the link has that coach, everything logged here is sent in parts as "history" changes, which
+   the coach's app adds to the student's records. A player's account then turns into a student's (or a parent's);
+   their old player board stays in the database as a hidden copy. */
+function historyOps(s){
+  const first = {type:"history", name:s.name, profile:{fullHe:s.fullHe||"", birthYear:s.birthYear||"", fideId:s.fideId||"", icfId:s.icfId||"", rating:s.rating||"", ratingType:s.ratingType||""},
+    ratings:(s.ratings||[]).slice(), lists:{}, games:[], tasks:[]};
+  const ops = [first], items = [];
+  PORTAL_KEYS.forEach(k=>(s[k]||[]).forEach(x=>{ if (x && x.id) items.push(["lists", k, x]); }));
+  (state.games||[]).filter(g=>g.studentId===s.id).forEach(g=>items.push(["games", "", g]));
+  (state.assignments||[]).filter(a=>a.studentId===s.id).forEach(a=>items.push(["tasks", "", a]));
+  let cur = first, size = JSON.stringify(first).length;
+  items.forEach(([where, k, x])=>{ const n = JSON.stringify(x).length + 1;
+    if (size+n > DOC_LIMIT/2){ cur = {type:"history", name:s.name, lists:{}, games:[], tasks:[]}; ops.push(cur); size = 200; } // each part stays well under a document's size
+    if (where==="lists") (cur.lists[k] = cur.lists[k]||[]).push(x); else cur[where].push(x); size += n; });
+  ops.forEach((o, i)=>{ o.part = i+1; o.parts = ops.length; });
+  return JSON.parse(JSON.stringify(ops));
+}
+function connectPanel(s){
+  const pa = PLAYER && s.setup==="parent", he = lang()==="he", n = firstName(s);
+  const text = pa ? (he ? "האם "+n+" מתחיל/ה ללמוד עם מאמן? המאמן מוסיף את "+n+" ב„עולים בדרגה” ונותן לכם קוד משפחה (להורים). התרגול, המשחקים, המשימות והתחרויות של "+n+" עוברים אל המאמן."
+      : "Has "+n+" started with a coach? The coach adds "+n+" in Rank Up and gives you a family code (for the parent). "+n+"’s practice, games, tasks and tournaments move to the coach.")
+    : "Working with a coach? Ask them for a code — they add you as a student in Rank Up. Your practice, games, tasks and tournaments move with you.";
+  return '<section class="panel connect" style="margin-top:16px"><div class="panel-head"><h2>'+esc(pa ? (he ? "מאמן ל"+(/^[\u0590-\u05FF]/.test(n) ? "" : "־")+n : n+"’s coach") : "Have a coach?")+'</h2></div>'+
+    '<p class="small muted" style="margin:0 0 10px">'+esc(text)+'</p><button class="btn small" data-a="toCoach">Connect to a coach</button></section>';
+}
+function connectCoach(s){
+  const pa = PLAYER && s.setup==="parent", he = lang()==="he", n = firstName(s);
+  const hint = pa ? (he ? "ההיסטוריה של "+n+" עוברת אל המאמן, והחשבון הזה הופך לחשבון ההורה אצלו. אחר כך מזינים באפליקציה של "+n+" את הקוד האישי מהמאמן." : n+"’s history moves to the coach, and this account becomes your parent account with them. Then "+n+" enters their own code from the coach in their app.")
+    : PLAYER ? "Everything you logged moves to your coach, and this app becomes your coach’s student app." : "Everything you logged moves to your coach.";
+  openForm({title:"Connect to a coach", submit:"Connect", parentOk:true, fields:[{name:"code", label:pa ? "Family code from the coach" : "Code from your coach", value:"", full:true, placeholder:"ABC123", hint}],
+    onSubmit:d=>{ const code = d.code.replace(/\s/g,"").toUpperCase(), form = $("#modal form"), er = form.querySelector(".form-err"), btn = form.querySelector("[type=submit]");
+      const say = t=>{ er.textContent = t; er.hidden = false; if (btn) btn.disabled = false; };
+      if (code.length<4) return "Enter the code from your coach.";
+      if (btn) btn.disabled = true;
+      moveToCoach(s, code).then(r=>{
+        if (r==="wrong") return say("That code wasn't recognised. Check it with your coach and try again.");
+        $("#modal").close();
+        if (PLAYER){ toast("Connected! Opening your app…"); setTimeout(()=>location.reload(), 900); }
+        else { toast("Connected — your coach’s app takes it in next time they open Rank Up"); render(); }
+      }, ()=>say("Couldn't connect. Check your connection and try again."));
+      return false; }});
+}
+async function moveToCoach(s, code){
+  if (!ACCOUNT) throw new Error("offline");
+  const root = ACCOUNT.db.doc("portal/"+ACCOUNT.uid), was = await root.get(), prev = was.exists ? JSON.parse(JSON.stringify(was.data()||{})) : {};
+  const me = Object.assign({}, prev, {code, lang:state.settings.lang||"en", linked:false, error:"", unlinked:false}, webUser && webUser.email ? {email:webUser.email} : {});
+  delete me.coach; delete me.errorKind;
+  await root.set(me);
+  const now = await root.get(), v = now.exists ? now.data()||{} : {};
+  if (!v.coach || v.error===code || v.coach===prev.coach){ // not a coach's code: put the link back as it was
+    if (prev.code){ const back = Object.assign({}, prev); delete back.coach; await root.set(back).catch(()=>{}); }
+    return "wrong"; }
+  // their history, in parts; the coach's app adds each part once it has linked them
+  const at = new Date().toISOString();
+  for (const op of historyOps(s)) await root.collection("inbox").doc("op-"+uid()).set(Object.assign(op, {at}));
+  if (PLAYER){ const r = await sb.rpc("leave_player"); if (r.error || r.data!==true) throw new Error("leave"); }
+  return "ok";
+}
 // A task the player sets for themselves.
 function playerTask(a){
   const me = myself(); if (!me) return;
@@ -3753,6 +3838,7 @@ function openPreview(s){
 function closePreview(){ const w = $("#pvWrap"); if (w) w.remove(); document.removeEventListener("keydown", pvKey); }
 function pvKey(e){ if (e.key==="Escape") closePreview(); }
 
+let ACCOUNT = null; // {db, uid} of the signed-in account, for "Connect to a coach"
 async function initStore(){
   let db = null, userApi = null, userId = null;
   if (WEB && /\.netlify\.app$/.test(location.hostname) && !window.__stayHere) await movedNotice(); // the app moved to GitHub Pages
@@ -3766,6 +3852,7 @@ async function initStore(){
   } catch(e){ db = null; }
   // Anyone but the owner is a student: they get their own page, never the coach's records.
   const owner = userApi && typeof userApi.isOwner==="function" ? await userApi.isOwner().catch(()=>true) : true;
+  if (db && userId) ACCOUNT = {db, uid:userId};
   if (db && userId && !owner){
     ROLE = "student"; document.body.classList.add("student-mode");
     store = makeStudentStore(db, userId);
@@ -4312,8 +4399,9 @@ function pHome(v, s){
         ...pend.filter(r=>r.kind!=="cancel").map(r=>({k:r.date+" "+(r.time||""), h:'<li><div class="main"><div class="title">'+(r.kind==="move"?"Move request":"Lesson request")+'</div><div class="small muted">'+esc(fmtDate(r.date,{weekday:"short",day:"numeric",month:"short"}))+' · '+esc(r.time)+'</div></div><span class="tag warn">Waiting for your coach</span></li>'}))].sort((a,b)=>a.k<b.k?-1:a.k>b.k?1:0).map(o=>o.h).join("")+'</ul>'
       : '<p class="empty">Nothing planned yet.</p>', NOCOACH() ? '' : '<a class="btn small" href="#/schedule">Schedule</a>')+
     panel("Assignments", hw.length ? '<ul class="list">'+hw.map(a=>'<li><div class="main"><div class="title"><a href="#/assignment/'+a.id+'">'+esc(a.title)+'</a></div><div class="small muted">'+esc(a.type)+(a.due?' · due '+esc(fmtShort(a.due)):'')+'</div></div>'+(a.status==="Assigned"?'<button class="btn small" data-a="hwdone" data-id="'+a.id+'">Mark done</button>':'<span class="tag warn">Done · to review</span>')+'</li>').join("")+'</ul>' : '<p class="empty">No assignments right now.</p>')+
-    '</div>';
-  bindActions(v,{ ans:id=>{ const [rid, c] = id.split("|"), r = (s.requests||[]).find(x=>x.id===rid); if (r) answerMove(s, r, c); },
+    '</div>'+
+    (NOCOACH() && !PARENT() && ACCOUNT && WEB ? connectPanel(s) : '');
+  bindActions(v,{ toCoach:()=>connectCoach(s), ans:id=>{ const [rid, c] = id.split("|"), r = (s.requests||[]).find(x=>x.id===rid); if (r) answerMove(s, r, c); },
     offer:id=>{ const [oid, c] = id.split("|"), o = (s.offers||[]).find(x=>x.id===oid && x.status==="pending"); if (o) answerOffer(s, o, c); },
     profile:()=>playerProfile(false),
     kidInvite:()=>{ s.invite = {code:inviteCode(), created:today()}; saveStudent(s); render(); setTimeout(()=>kidMessage(s), 0); },
@@ -4652,7 +4740,15 @@ function askedFor(o){
   return (it.kind==="cancel" ? "Asked to cancel a lesson" : it.kind==="move" ? "Asked to move a lesson to "+when : "Asked for a lesson on "+when)+(it.note?" — “"+it.note+"”":"")+". ";
 }
 // Why a change from the student or parent app couldn't be applied, in plain words.
+// A parent's history is about one child: the family's only child, or the one with that name.
+function historyChild(fam, o){
+  const kids = (fam.studentIds||[]).map(byId).filter(Boolean), n = x=>String(x||"").trim().toLowerCase().replace(/\s+/g," ");
+  if (kids.length===1) return kids[0];
+  const want = n(o.name); if (!want) return null;
+  return kids.find(k=>n(k.name)===want || n(k.fullHe)===want) || kids.find(k=>n(k.name).split(" ")[0]===want.split(" ")[0]) || null;
+}
 function whyNotApplied(s, o){
+  if (!s && o.type==="history") return "It's the history of "+(o.name||"a child")+", who isn't in this family. Add them to the family (in their Parent app box), then reload.";
   if (!s) return "It was for a child who isn't in this family. Check the family in the student's Parent app box.";
   const it = o.item||{}, when = x=>fmtDate(x.date,{weekday:"short",day:"numeric",month:"short"})+(x.time?" "+x.time:"");
   if (o.type==="request"){
@@ -4671,7 +4767,7 @@ function whyNotApplied(s, o){
   return "It didn't match anything current.";
 }
 // The last time a student (or their parent) added something from the app: practice, workouts, games, books…
-const UPDATE_KIND = {worklog:"practice", fitness:"workout", sleep:"sleep", tournaments:"tournament", books:"book", training:"training plan", game:"game", repertoire:"opening", "assignment.status":"homework", checkin:"check-in"};
+const UPDATE_KIND = {history:"history", worklog:"practice", fitness:"workout", sleep:"sleep", tournaments:"tournament", books:"book", training:"training plan", game:"game", repertoire:"opening", "assignment.status":"homework", checkin:"check-in"};
 function noteUpdate(s, o, parent){
   const what = UPDATE_KIND[o.type] || UPDATE_KIND[o.type.split(".")[0]]; if (!what || /\.delete$/.test(o.type)) return;
   const at = o.at || new Date().toISOString();
@@ -4690,11 +4786,11 @@ function updateMark(s){
   const he = lang()==="he", u = s.lastUpdate || lastOwnEntry(s);
   if (!u) return '<div class="upd small muted"><i class="upd-dot"></i>'+(he?"עוד לא עדכן/ה מהאפליקציה":"No updates from the app yet")+'</div>';
   const d = daysBetween(u.at.slice(0,10), today()), when = d<=0 ? (he?"היום":"today") : d===1 ? (he?"אתמול":"yesterday") : d<=30 ? (he?"לפני "+d+" ימים":d+" days ago") : fmtDate(u.at.slice(0,10));
-  const what = he ? ({practice:"תרגול", workout:"אימון כושר", sleep:"שינה", tournament:"טורניר", book:"ספר", "training plan":"תוכנית אימון", game:"משחק", opening:"פתיחה", homework:"משימה", "check-in":"עדכון תרגול"}[u.what]||u.what) : u.what;
+  const what = he ? ({history:"היסטוריה", practice:"תרגול", workout:"אימון כושר", sleep:"שינה", tournament:"טורניר", book:"ספר", "training plan":"תוכנית אימון", game:"משחק", opening:"פתיחה", homework:"משימה", "check-in":"עדכון תרגול"}[u.what]||u.what) : u.what;
   return '<div class="upd small" title="'+esc(fmtDate(u.at.slice(0,10))+" "+u.at.slice(11,16))+'"><i class="upd-dot '+(d<=3?"ok":d<=14?"warn":"")+'"></i>'+(he?"עודכן "+when:"Updated "+when)+' · '+esc(what)+(u.by==="parent"?(he?" (הורה)":" (parent)"):"")+'</div>';
 }
 const OP_LABEL = {"links.order":"the order of the links", "username.set":"a username", "request":"a lesson request", "request.cancel":"a withdrawn request", "move.answer":"an answer about a lesson", "offer.answer":"an answer to a new lesson time", "assignment.status":"an assignment marked done",
-  "worklog.upsert":"a practice entry", "worklog.delete":"a deleted practice entry", "fitness.upsert":"a workout", "fitness.delete":"a deleted workout", "sleep.upsert":"a night's sleep", "sleep.delete":"a deleted night's sleep", "tournaments.upsert":"a tournament", "books.upsert":"a book", "training.upsert":"a training plan", "game.upsert":"a game", "repertoire.upsert":"an opening line", "checkin":"a practice check-in", "notice.read":"a notification read", "payment.report":"a payment report", "repertoire.delete":"a deleted opening line"};
+  "worklog.upsert":"a practice entry", "worklog.delete":"a deleted practice entry", "fitness.upsert":"a workout", "fitness.delete":"a deleted workout", "sleep.upsert":"a night's sleep", "sleep.delete":"a deleted night's sleep", "tournaments.upsert":"a tournament", "books.upsert":"a book", "training.upsert":"a training plan", "game.upsert":"a game", "repertoire.upsert":"an opening line", "checkin":"a practice check-in", "notice.read":"a notification read", "payment.report":"a payment report", "repertoire.delete":"a deleted opening line", "history":"their history from Rank Up"};
 function issuesPanel(){
   const list = portal ? portal.issues() : []; if (!list.length) return "";
   return '<section class="panel" style="margin-bottom:16px;border-color:var(--flag)"><div class="panel-head"><h2>Problems with the student and parent app</h2></div><ul class="list">'+
@@ -5383,6 +5479,7 @@ function appPanel(s){
   else if (s.portal) body = '<p style="margin:0">'+first+' is connected to the app since '+esc(fmtDate(s.portal.linkedAt))+'.</p>'+(s.portal.email ? '<p class="small" style="margin:4px 0 0"><span class="muted">Account:</span> <bdi dir="ltr">'+esc(s.portal.email)+'</bdi></p>' : '')+'<p class="small muted">They see their lessons, assignments, goals, games, practice, reading and repertoire. They don\'t see payments, fees, contact details, other students or notes you keep private.</p><button class="btn small ghost danger" data-a="unlink">Disconnect</button>';
   else if (s.invite) body = '<ol class="steps">'+(WEB?'<li>Send '+first+' the link to the app: <bdi class="link-box" dir="ltr">'+esc(APP_LINK())+'</bdi></li><li>They create an account with their email and a password.</li>':'<li>Share Rank Up with '+first+' (or a parent) by email and give them Editor access. Don\'t turn on a public link.</li>')+'<li>Give them this code: <span class="code-box">'+esc(s.invite.code)+'</span></li><li>They open the app and enter the code. They\'re connected the next time you open Rank Up.</li></ol><div class="row-actions"><button class="btn small primary" data-a="sendInv">Send invite message</button><button class="btn small ghost" data-a="uninvite">Cancel invite</button></div>';
   else body = '<p class="small muted" style="margin:0 0 10px">'+first+' can see their assignments, lessons and goals, log practice and games, and ask you for lessons — in their own account.</p><button class="btn small primary" data-a="invite">Invite to the app</button>';
+  if (s.movedIn) body += '<p class="small" style="margin:8px 0 0"><span class="tag">From their own board</span> '+(s.movedIn.by==="parent" ? "Their parent" : first)+' brought what they logged in Rank Up before you (practice, games, tasks, tournaments) on '+esc(fmtDate(s.movedIn.date))+'.</p>';
   return '<section class="panel" style="margin-top:16px"><div class="panel-head"><h2>Student app</h2>'+(s.portal?'<span class="tag ok">Connected</span>':s.invite?'<span class="tag warn">Waiting for '+first+'</span>':'')+'</div>'+body+'</section>';
 }
 
@@ -8284,7 +8381,11 @@ Object.assign(HE, {
   "Your child can sign in on their own phone and log practice, games and tournaments. Everything shows here too.":"הילד/ה יכול/ה להתחבר מהטלפון שלו/ה ולרשום תרגול, משחקים ותחרויות. הכל מופיע גם כאן.",
   "They create an account with their own email and a password.":"יוצרים חשבון עם אימייל משלהם וסיסמה.", "They enter this code:":"מזינים את הקוד הזה:",
   "Enter the code your coach (or your parent) gave you to connect your account.":"יש להזין את הקוד שקיבלת מהמאמן (או מההורה) כדי לחבר את החשבון.",
-  "Tips":"טיפים",   "Next tournament":"התחרות הבאה", "No tournament planned":"אין תחרות מתוכננת",   "No tasks yet. Add one to plan your practice.":"עדיין אין משימות. אפשר להוסיף משימה כדי לתכנן את האימון.", "Done — nice work":"בוצע — כל הכבוד", "Welcome! Opening your board…":"ברוכים הבאים! הלוח שלך נפתח…",
+  "Tips":"טיפים", "Have a coach?":"יש לך מאמן?", "From their own board":"מהלוח האישי", "Connect to a coach":"חיבור למאמן", "Family code from the coach":"קוד משפחה מהמאמן",
+  "Working with a coach? Ask them for a code — they add you as a student in Rank Up. Your practice, games, tasks and tournaments move with you.":"מתחילים ללמוד עם מאמן? בקשו ממנו קוד — הוא מוסיף אתכם כתלמידים ב„עולים בדרגה”. התרגול, המשחקים, המשימות והתחרויות שלכם עוברים איתכם.",
+  "Everything you logged moves to your coach, and this app becomes your coach’s student app.":"כל מה שרשמתם עובר אל המאמן, והאפליקציה הזו הופכת לאפליקציית התלמיד שלו.", "Everything you logged moves to your coach.":"כל מה שרשמתם עובר אל המאמן.",
+  "Connected! Opening your app…":"מחובר! האפליקציה נפתחת…", "Connected — your coach’s app takes it in next time they open Rank Up":"מחובר — האפליקציה של המאמן תקלוט את זה כשיפתח את „עולים בדרגה”",
+  "Couldn't connect. Check your connection and try again.":"לא ניתן להתחבר. כדאי לבדוק את החיבור ולנסות שוב.",   "Next tournament":"התחרות הבאה", "No tournament planned":"אין תחרות מתוכננת",   "No tasks yet. Add one to plan your practice.":"עדיין אין משימות. אפשר להוסיף משימה כדי לתכנן את האימון.", "Done — nice work":"בוצע — כל הכבוד", "Welcome! Opening your board…":"ברוכים הבאים! הלוח שלך נפתח…",
   "Coaches":"מאמנים", "Another coach can use Rank Up with their own students. Make a coach code and send it to them: they create an account and enter it. Each coach sees only their own students, payments and backups.":"מאמן נוסף יכול להשתמש ב„עולים בדרגה” עם התלמידים שלו. יוצרים קוד מאמן ושולחים לו: הוא יוצר חשבון ומזין את הקוד. כל מאמן רואה רק את התלמידים, התשלומים והגיבויים שלו.",
   "Couldn’t load the coach codes.":"לא ניתן לטעון את קודי המאמן.", "Used by":"נוצל על ידי", "Not used yet":"עדיין לא נוצל", "Copy message":"העתקת ההודעה",
   "No coach codes yet.":"עדיין אין קודי מאמן.", "Make a coach code":"יצירת קוד מאמן", "Remove this coach code?":"להסיר את קוד המאמן?", "account removed":"החשבון נמחק", "Remove from the list?":"להסיר מהרשימה?", "The account that used it was deleted.":"החשבון שהשתמש בו נמחק.", "Nobody will be able to join with it.":"אי אפשר יהיה להצטרף איתו.",
@@ -8453,7 +8554,7 @@ const HE_RX = [
   [/^Green weeks reached the goal of (\d+) minutes\.$/, "בשבועות הירוקים הושג היעד של $1 דקות."],
   [/^Green weeks reached the goal of (\d+) workouts? and (\d+) minutes\.$/, "בשבועות הירוקים הושג היעד של $1 אימונים ו־$2 דקות."],
   [/^Notifications disappear from the app (\d+) days after they’re sent\.$/, "ההתראות נעלמות מהאפליקציה $1 ימים אחרי שנשלחו."],
-  [/^This is (.+)’s copy\. Use \{name\} for each child’s name\.$/, "זה הנוסח ש־$1 קיבל/ה. כתבו {name} במקום שם הילד/ה."], [/^Read (\d+) of (\d+)$/, "נקרא $1 מתוך $2"], [/^\+(\d+) new$/, "+$1 חדשים"], [/^(\d+) students$/, "$1 תלמידים"], [/^(\d+) parents?$/, (m,n)=>+n===1?"הורה אחד":n+" הורים"], [/^Notification sent — (.+)$/, (m,x)=>"ההתראה נשלחה — "+x.split(" · ").map(heT).join(" · ")], [/^Notification sent to (\d+) students?(.*)$/, (m,n,r)=>"ההתראה נשלחה ל־"+n+" תלמידים"+(r.includes("and")?" ולהורים שלהם":r?" (להורים)":"")], [/^(\d+) more workouts? this week to keep your streak$/, (m,n)=>(+n===1?"עוד אימון אחד":"עוד "+n+" אימונים")+" השבוע כדי לשמור על הרצף"], [/^Now: (\d+ days?) in a row$/, (m,x)=>"עכשיו: "+heT(x)+" ברצף"], [/^Highest: (Pawn|Knight|Bishop|Rook|Queen|King)$/, (m,p)=>"הכי גבוה: "+heT(p)], [/^No practice logged for (\d+) days$/, "לא נרשם תרגול כבר $1 ימים"], [/^(.+) says:$/, "התשובה של $1:"], [/^Nudge — (.+)$/, "תזכורת — $1"], [/^(\d+)-day practice streak$/, "רצף תרגול של $1 ימים"], [/^(\d+)-week fitness streak$/, "רצף כושר של $1 שבועות"], [/^(.+)’s medals$/, "המדליות של $1"],
+  [/^This is (.+)’s copy\. Use \{name\} for each child’s name\.$/, "זה הנוסח ש־$1 קיבל/ה. כתבו {name} במקום שם הילד/ה."], [/^Read (\d+) of (\d+)$/, "נקרא $1 מתוך $2"], [/^\+(\d+) new$/, "+$1 חדשים"], [/^(\d+) students$/, "$1 תלמידים"], [/^(\d+) parents?$/, (m,n)=>+n===1?"הורה אחד":n+" הורים"], [/^Notification sent — (.+)$/, (m,x)=>"ההתראה נשלחה — "+x.split(" · ").map(heT).join(" · ")], [/^Notification sent to (\d+) students?(.*)$/, (m,n,r)=>"ההתראה נשלחה ל־"+n+" תלמידים"+(r.includes("and")?" ולהורים שלהם":r?" (להורים)":"")], [/^(\d+) more workouts? this week to keep your streak$/, (m,n)=>(+n===1?"עוד אימון אחד":"עוד "+n+" אימונים")+" השבוע כדי לשמור על הרצף"], [/^Now: (\d+ days?) in a row$/, (m,x)=>"עכשיו: "+heT(x)+" ברצף"], [/^Highest: (Pawn|Knight|Bishop|Rook|Queen|King)$/, (m,p)=>"הכי גבוה: "+heT(p)], [/^No practice logged for (\d+) days$/, "לא נרשם תרגול כבר $1 ימים"], [/^(.+) says:$/, "התשובה של $1:"], [/^(.+)’s coach$/, "מאמן ל־$1"], [/^(.+) brought what they logged in Rank Up before you \(practice, games, tasks, tournaments\) on (.+)\.$/, (m,w,d)=>(w==="Their parent"?"ההורה הביא/ה":w+" הביא/ה")+" את מה שנרשם ב„עולים בדרגה” לפני שהגיע/ה אליך (תרגול, משחקים, משימות, תחרויות) ב־"+d+"."], [/^(.+)’s history moves to the coach, and this account becomes your parent account with them\. Then (.+) enters their own code from the coach in their app\.$/, "ההיסטוריה של $1 עוברת אל המאמן, והחשבון הזה הופך לחשבון ההורה אצלו. אחר כך מזינים באפליקציה של $2 את הקוד האישי מהמאמן."], [/^Nudge — (.+)$/, "תזכורת — $1"], [/^(\d+)-day practice streak$/, "רצף תרגול של $1 ימים"], [/^(\d+)-week fitness streak$/, "רצף כושר של $1 שבועות"], [/^(.+)’s medals$/, "המדליות של $1"],
   [/^(\d+) (days?|weeks?)$/, (m,n,u)=>(+n===1 ? (u[0]==="d"?"יום אחד":"שבוע אחד") : n+(u[0]==="d"?" ימים":" שבועות"))], [/^Now: (.+)$/, (m,x)=>"עכשיו: "+heT(x)], [/^Best: (.+)$/, (m,x)=>"הכי טוב: "+heT(x)],
   [/^(\d+ (?:days?|weeks?)) more to (Pawn|Knight|Bishop|Rook|Queen|King)$/, (m,x,t)=>"עוד "+heT(x)+" ל"+heT(t)], [/^Switch to online$/, "מעבר לאונליין"], [/^Switch to in person$/, "מעבר לפרונטלי"], [/^The lesson on (.+) is now online$/, "השיעור ב־$1 יהיה אונליין"], [/^The lesson on (.+) is now in person$/, "השיעור ב־$1 יהיה פרונטלי"], [/^(In person|Online) → (In person|Online)$/, (m,a,b)=>({"In person":"פרונטלי","Online":"אונליין"})[a]+" → "+({"In person":"פרונטלי","Online":"אונליין"})[b]], [/^Notes from your lesson on (.+)$/, "הערות מהשיעור ב־$1"], [/^(.+) challenge$/, "האתגר של $1"], [/^(\d+) to go$/, "עוד $1"], [/^You added (\d+) this month$/, "הוספת $1 החודש"], [/^(.+) added (\d+) this month$/, "$1 הוסיף/ה $2 החודש"], [/^(\d+) of (\d+) group workouts this month$/, "$1 מתוך $2 אימונים קבוצתיים החודש"],
   [/^Logged: (.+)$/, "תועד: $1"], [/^🔥 (\d+) weeks in a row reaching the fitness goal$/, "🔥 $1 שבועות ברצף ביעד הכושר"], [/^Points scored after 8 h or more:$/, "נקודות אחרי 8 שעות שינה ומעלה:"], [/^after less:$/, "אחרי פחות:"], [/^([\d.]+) h$/, "$1 ש׳"], [/^of (\d+) pages read$/, "מתוך $1 עמודים נקראו"], [/^(\d+) of (\d+) pages read$/, "$1 מתוך $2 עמודים נקראו"], [/^(\d+) pages read$/, "$1 עמודים נקראו"], [/^p\. ([\d–, ]+)$/, "עמ׳ $1"], [/^last stop p\. (\d+)$/, "עצירה אחרונה בעמ׳ $1"], [/^p\. (\d+)–(\d+)$/, "עמ׳ $1–$2"], [/^pages read$/, "עמודים נקראו"], [/^Whole group: (.+) \((\d+)\)$/, "כל הקבוצה: $1 ($2)"], [/^Assignment given to (\d+) students?$/, (m,n)=>+n===1 ? "המשימה ניתנה לתלמיד אחד" : "המשימה ניתנה ל־"+n+" תלמידים"], [/^(\d+) students?$/, (m,n)=>+n===1 ? "תלמיד אחד" : n+" תלמידים"], [/^(\d+) of (\d+) workouts this week$/, "$1 מתוך $2 אימונים השבוע"], [/^(\d+) more to reach the weekly goal$/, "עוד $1 כדי להגיע ליעד השבועי"], [/^(\d+) weeks in a row$/, "$1 שבועות ברצף"],

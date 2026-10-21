@@ -81,7 +81,9 @@ const HE = {"Rank Up Admin":"ניהול „עולים בדרגה”", "Back to t
   "This page is only for the Rank Up admin.":"הדף הזה מיועד רק למנהל „עולים בדרגה”.",
   "Everyone who asked to join through the website, and where each one stands.":"כל מי שביקש להצטרף דרך האתר, ואיפה כל אחד עומד.",
   "All":"הכל", "Open":"פתוחות", "New":"חדש", "Contacted":"נוצר קשר", "Code sent":"נשלח קוד", "Joined":"הצטרף", "Not interested":"לא מעוניין",
-  "Coach":"מאמן", "Player":"שחקן", "Parent of a player":"הורה של שחקן",
+  "Coach":"מאמן", "Player":"שחקן", "Moved to a coach":"עבר למאמן", "Delete the copy":"מחיקת העותק", "Copy deleted":"העותק נמחק",
+  "Now with a coach (as a student or a parent). A hidden copy of their old player board is kept, in case it’s needed.":"עכשיו אצל מאמן (כתלמיד או כהורה). עותק מוסתר של לוח השחקן הישן נשמר, למקרה שיהיה צורך.",
+  "Their account and their link to the coach stay; only the copy is deleted. This can’t be undone.":"החשבון והחיבור למאמן נשארים; רק העותק נמחק. אי אפשר לבטל את זה.", "Parent of a player":"הורה של שחקן",
   "Your notes":"ההערות שלך", "Saved":"נשמר", "Couldn’t save.":"לא ניתן לשמור.", "Remove":"הסרה", "Send coach code":"שליחת קוד מאמן", "Copy message":"העתקת ההודעה",
   "Nobody yet.":"עדיין אין.", "Nobody in this list.":"אין אף אחד ברשימה הזו.", "Couldn’t load the list.":"לא ניתן לטעון את הרשימה.",
   "Remove from the list?":"להסיר מהרשימה?", "Their details are deleted.":"הפרטים שלהם נמחקים.", "Removed":"הוסר", "Couldn’t remove it.":"לא ניתן להסיר.",
@@ -245,16 +247,19 @@ async function fillCoachList(el){
   if (!el.isConnected) return;
   if (r.error){ el.innerHTML = '<p class="small muted">'+esc(T("Couldn’t load the coaches."))+'</p>'; return; }
   const he = lang()==="he", rows = r.data||[], others = rows.filter(x=>!x.is_admin);
-  const line = x=>esc(fmtDate(x.joined))+(x.kind==="player" ? '' : ' · '+(he ? x.students+" תלמידים" : x.students+(x.students===1?" student":" students")));
-  el.innerHTML = '<ul class="list">'+rows.map(x=>'<li><div class="main"><div class="title">'+esc(x.name||x.email)+(x.is_admin?' <span class="tag">'+esc(T("Your account"))+'</span>':' <span class="tag">'+esc(T(x.kind==="player" ? "Player" : "Coach"))+'</span>')+'</div>'+
-      (x.name ? '<div class="small"><bdi dir="ltr">'+esc(x.email)+'</bdi></div>' : '')+'<div class="small muted">'+(he?"הצטרף ":"Joined ")+line(x)+'</div></div>'+
-      (x.is_admin ? '' : '<div class="row-actions"><button type="button" class="btn small ghost danger" data-rc="'+esc(x.user_id)+'">'+esc(T("Remove"))+'</button></div>')+'</li>').join("")+'</ul>'+
+  const line = x=>esc(fmtDate(x.joined))+(x.kind==="player" || x.kind==="moved" ? '' : ' · '+(he ? x.students+" תלמידים" : x.students+(x.students===1?" student":" students")));
+  el.innerHTML = '<ul class="list">'+rows.map(x=>'<li><div class="main"><div class="title">'+esc(x.name||x.email)+(x.is_admin?' <span class="tag">'+esc(T("Your account"))+'</span>':' <span class="tag">'+esc(T(x.kind==="moved" ? "Moved to a coach" : x.kind==="player" ? "Player" : "Coach"))+'</span>')+'</div>'+
+      (x.name ? '<div class="small"><bdi dir="ltr">'+esc(x.email)+'</bdi></div>' : '')+'<div class="small muted">'+(he?"הצטרף ":"Joined ")+line(x)+'</div>'+(x.kind==="moved" ? '<div class="small muted">'+esc(T("Now with a coach (as a student or a parent). A hidden copy of their old player board is kept, in case it’s needed."))+'</div>' : '')+'</div>'+
+      (x.is_admin ? '' : '<div class="row-actions"><button type="button" class="btn small ghost danger" data-rc="'+esc(x.user_id)+'">'+esc(T(x.kind==="moved" ? "Delete the copy" : "Remove"))+'</button></div>')+'</li>').join("")+'</ul>'+
     (others.length ? '' : '<p class="small muted" style="margin:8px 0 0">'+esc(T("Nobody else yet."))+'</p>');
   el.onclick = e=>{ const b = e.target.closest("[data-rc]"); if (!b) return;
     const x = rows.find(y=>y.user_id===b.dataset.rc); if (!x) return; const who = x.name||x.email;
     const go = wipe=>sb.rpc("remove_coach", {target:x.user_id, wipe}).then(res=>{
       if (res.error || res.data!==true) toast("Couldn’t remove it."); else toast("Removed"); fillCoachList(el); },
       ()=>toast("Couldn’t remove the coach."));
+    if (x.kind==="moved") return confirmBox(he ? "למחוק את העותק המוסתר של "+who+"?" : "Delete the hidden copy of "+who+"’s old player board?",
+      T("Their account and their link to the coach stay; only the copy is deleted. This can’t be undone."), T("Delete the copy"), ()=>sb.rpc("remove_coach", {target:x.user_id, wipe:true}).then(res=>{
+        if (res.error || res.data!==true) toast("Couldn’t remove it."); else toast(T("Copy deleted")); fillCoachList(el); }, ()=>toast("Couldn’t remove it.")));
     const player = x.kind==="player";
     openForm({title:he ? "להסיר את "+who+"?" : "Remove "+who+"?", submit:player ? "Remove player" : "Remove coach",
       fields:[{name:"wipe", label:player ? "What happens to their records?" : "What happens to their students and records?", type:"select", value:"keep",
