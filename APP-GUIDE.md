@@ -51,6 +51,9 @@ The daily overview.
   parents asked for. Approve or decline each one. When the coach declines a
   move, the student answers (keep the lesson, cancel it, or ask for another
   time) and the answer shows under **Answers to declined moves**.
+- **New lesson times:** lessons the coach moved with **Ask the student (or parent) to confirm the
+  new time** ticked: **Waiting**, **Confirmed**, or **Can't make it** with their note and a
+  **Propose another time** button. Answers stay listed for 3 days.
 - **Payments reported in the app:** a parent (or a student the coach shows
   their payments to) pressed "I've paid", marked "by the parent" or "by the
   student". Confirm it (it becomes a real payment) or mark it as not received.
@@ -219,7 +222,11 @@ time.
   time" undoes it), cancel just that date, or edit the class. They
   are added and managed on the **Club classes** page.
 - Click a lesson to mark it done, cancel it, move it (including switching
-  in person / online) or edit it. **Add weekly slot** and **Plan session**
+  in person / online) or edit it. When the student or a parent has the app, **Move** has
+  **Ask the student (or parent) to confirm the new time**, ticked by default: the lesson stays
+  where it is, marked **New time proposed**, until they confirm (then it moves) or say they
+  can't make it (then it stays, and Today shows it). The lesson window has **Withdraw proposal**.
+  Untick it to move the lesson straight away, as when you already agreed by phone. **Add weekly slot** and **Plan session**
   add lessons.
 
 ### Club classes
@@ -380,6 +387,9 @@ new things.
 - Tiles: next lesson, assignments to do, practice minutes this week, rating.
 - **Answer needed:** when the coach declined a lesson move, the student
   chooses: keep the lesson, cancel it, or ask for another time.
+- **New lesson time:** when the coach proposes a new time, the student (or a parent) sees the old
+  and new time with **Confirm** and **Can't make it** (with an optional note). The lesson in
+  Coming up shows **New time proposed** with **Answer**.
 - **Practice check-in:** after 2 days without practice: "What's going on?".
   The student logs practice, or answers (busy with school, sick, short
   break, something else). It asks again every 2 days without practice.
@@ -463,7 +473,7 @@ several children picks the child at the top. Differences:
 - An extra **Payments** page: the statement for the last two years, how to
   pay, what's coming up.
 - **Read only**, except for: requesting, cancelling or moving lessons,
-  answering a declined move, reporting a payment, and marking notifications
+  answering a declined move or a new lesson time, reporting a payment, and marking notifications
   read. Parents don't log practice, workouts, games or books, and get no
   practice check-in.
 - Club-only students have no parent app.
@@ -485,6 +495,7 @@ Alerts on the phone (push notifications), even when Rank Up is closed.
   - a new notification from the coach (not an edit);
   - an answer to a lesson request: approved, declined, a move that doesn't
     work (asks them to choose), a cancellation;
+  - a new time the coach proposed for a lesson ("Open Rank Up to confirm");
   - a lesson the coach moved (time, day, or in person/online), cancelled, or
     added in the next 2 weeks. Lessons planned automatically by a weekly
     slot don't alert. More than 2 changes at once become one alert;
