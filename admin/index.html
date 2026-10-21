@@ -73,7 +73,10 @@ const SUPABASE = {url:"https://gzcwvnynkcepvqkzwvkb.supabase.co", key:"sb_publis
 const APP_LINK = ()=>new URL("../", location.href).href.replace(/\/admin\/?$/, "/");
 /* ---------- language: the app's choice, kept in the same place ---------- */
 const HE = {"Rank Up Admin":"ניהול „עולים בדרגה”", "Back to the app":"חזרה לאפליקציה", "Loading…":"טוען…",
-  "Access requests":"בקשות הצטרפות", "Codes":"קודים", "Coaches":"מאמנים",
+  "Access requests":"בקשות הצטרפות", "Codes":"קודים", "Coaches":"מאמנים", "Accounts":"חשבונות", "Coaches and players":"מאמנים ושחקנים", "Nobody else yet.":"עדיין אין אחרים.",
+  "One code lets one new coach or player join. Make a code and send it: they create an account in the app and enter it.":"כל קוד מאפשר למאמן או לשחקן חדש אחד להצטרף. יוצרים קוד ושולחים: הם יוצרים חשבון באפליקציה ומזינים אותו.",
+  "Send player code":"שליחת קוד שחקן", "Make a player code":"יצירת קוד שחקן", "e.g. Tom Levi":"למשל: תום לוי", "Send this to the new player":"שליחה לשחקן החדש",
+  "Remove player":"הסרת השחקן", "What happens to their records?":"מה קורה למידע שלו?", "Keep them — a new player code brings them back":"נשמר — קוד שחקן חדש מחזיר אותו",
   "Sign in to the app first, with the admin account.":"קודם צריך להתחבר לאפליקציה, עם חשבון המנהל.", "Open the app":"פתיחת האפליקציה",
   "This page is only for the Rank Up admin.":"הדף הזה מיועד רק למנהל „עולים בדרגה”.",
   "Everyone who asked to join through the website, and where each one stands.":"כל מי שביקש להצטרף דרך האתר, ואיפה כל אחד עומד.",
@@ -147,12 +150,12 @@ async function start(){
 function gate(msg, link){ $("#view").innerHTML = '<div class="gate panel"><p>'+esc(T(msg))+'</p>'+(link ? '<a class="btn primary" href="../">'+esc(T("Open the app"))+'</a>' : '')+'</div>'; }
 function render(){
   if (!me) return;
-  $("#view").innerHTML = '<div class="tabs" role="tablist">'+[["requests","Access requests"],["codes","Codes"],["coaches","Coaches"]].map(([k,l])=>'<button type="button" role="tab" aria-selected="'+(tab===k)+'" class="'+(tab===k?"on":"")+'" data-tab="'+k+'">'+esc(T(l))+'</button>').join("")+'</div><div id="pane"></div>';
+  $("#view").innerHTML = '<div class="tabs" role="tablist">'+[["requests","Access requests"],["codes","Codes"],["coaches","Accounts"]].map(([k,l])=>'<button type="button" role="tab" aria-selected="'+(tab===k)+'" class="'+(tab===k?"on":"")+'" data-tab="'+k+'">'+esc(T(l))+'</button>').join("")+'</div><div id="pane"></div>';
   document.querySelectorAll("[data-tab]").forEach(b=>b.onclick = ()=>{ tab = b.dataset.tab; render(); });
   const pane = $("#pane");
   if (tab==="requests"){ pane.innerHTML = '<section class="panel"><h2>'+esc(T("Access requests"))+'</h2><p class="small muted" style="margin:0">'+esc(T("Everyone who asked to join through the website, and where each one stands."))+'</p><div id="leadsList"></div></section>'; fillLeads($("#leadsList")); }
-  if (tab==="codes"){ pane.innerHTML = '<section class="panel"><h2>'+esc(T("Coach codes"))+'</h2><p class="small muted" style="margin:0">'+esc(T("One code lets one new coach join. Make a code and send it: they create an account in the app and enter it."))+'</p><div id="coachCodes"></div></section>'; fillCoachCodes($("#coachCodes")); }
-  if (tab==="coaches"){ pane.innerHTML = '<section class="panel"><h2>'+esc(T("Coaches using Rank Up"))+'</h2><div id="coachList"></div></section>'; fillCoachList($("#coachList")); }
+  if (tab==="codes"){ pane.innerHTML = '<section class="panel"><h2>'+esc(T("Codes"))+'</h2><p class="small muted" style="margin:0">'+esc(T("One code lets one new coach or player join. Make a code and send it: they create an account in the app and enter it."))+'</p><div id="coachCodes"></div></section>'; fillCoachCodes($("#coachCodes")); }
+  if (tab==="coaches"){ pane.innerHTML = '<section class="panel"><h2>'+esc(T("Coaches and players"))+'</h2><div id="coachList"></div></section>'; fillCoachList($("#coachList")); }
 }
 /* ---------- access requests ---------- */
 const STATUS = [["new","New"],["contacted","Contacted"],["code","Code sent"],["joined","Joined"],["no","Not interested"]];
@@ -179,53 +182,57 @@ async function fillLeads(el){
       '<textarea class="notes small" data-note="'+esc(x.id)+'" placeholder="'+esc(T("Your notes"))+'" aria-label="'+esc(T("Your notes"))+'">'+esc(x.admin_note||"")+'</textarea></div>'+
       '<div class="row-actions"><select class="status small" data-st="'+esc(x.id)+'" aria-label="Status">'+STATUS.map(([k,l])=>'<option value="'+k+'"'+(x.status===k?" selected":"")+'>'+esc(T(l))+'</option>').join("")+'</select>'+
         '<a class="btn small" href="'+esc(waLink(x.phone))+'" target="_blank" rel="noopener">WhatsApp</a>'+
-        ((x.who||"coach")==="coach" && !x.code ? '<button type="button" class="btn small primary" data-send="'+esc(x.id)+'">'+esc(T("Send coach code"))+'</button>' : '')+
-        (x.code && x.status!=="joined" ? '<button type="button" class="btn small" data-copy="'+esc(x.code)+'">'+esc(T("Copy message"))+'</button>' : '')+
+        (!x.code ? '<button type="button" class="btn small primary" data-send="'+esc(x.id)+'">'+esc(T((x.who||"coach")==="coach" ? "Send coach code" : "Send player code"))+'</button>' : '')+
+        (x.code && x.status!=="joined" ? '<button type="button" class="btn small" data-copy="'+esc(x.code)+'" data-kind="'+((x.who||"coach")==="coach" ? "coach" : "player")+'">'+esc(T("Copy message"))+'</button>' : '')+
         '<button type="button" class="btn small ghost danger" data-del="'+esc(x.id)+'">'+esc(T("Remove"))+'</button></div></li>').join("")+'</ul>'
       : '<p class="empty">'+esc(T(rows.length ? "Nobody in this list." : "Nobody yet."))+'</p>');
   const save = (id, patch)=>sb.from("leads").update(Object.assign(patch, {updated_at:new Date().toISOString()})).eq("id", id).then(x=>{ if (x.error) toast("Couldn’t save."); else toast("Saved"); }, ()=>toast("Couldn’t save."));
   el.querySelectorAll("[data-f]").forEach(b=>b.onclick = ()=>{ filter = b.dataset.f; fillLeads(el); });
   el.querySelectorAll("[data-st]").forEach(s=>s.onchange = ()=>save(s.dataset.st, {status:s.value}).then(()=>fillLeads(el)));
   el.querySelectorAll("[data-note]").forEach(t=>{ const was = t.value; t.onblur = ()=>{ if (t.value!==was) save(t.dataset.note, {admin_note:t.value.slice(0,1000)}); }; });
-  el.querySelectorAll("[data-copy]").forEach(b=>b.onclick = ()=>copyCoachInvite(b.dataset.copy));
+  el.querySelectorAll("[data-copy]").forEach(b=>b.onclick = ()=>copyInvite(b.dataset.copy, b.dataset.kind));
   el.querySelectorAll("[data-send]").forEach(b=>b.onclick = async ()=>{ const x = rows.find(y=>String(y.id)===b.dataset.send); if (!x) return;
-    const c = await makeCoachCode(x.name); if (!c) return;
+    const kind = (x.who||"coach")==="coach" ? "coach" : "player", c = await makeCode(x.name, kind); if (!c) return;
     await sb.from("leads").update({code:c, status:"code", updated_at:new Date().toISOString()}).eq("id", x.id);
-    fillLeads(el); copyCoachInvite(c); });
+    fillLeads(el); copyInvite(c, kind); });
   el.querySelectorAll("[data-del]").forEach(b=>b.onclick = ()=>confirmBox(T("Remove from the list?"), "Their details are deleted.", "Remove", async ()=>{
     const x = await sb.from("leads").delete().eq("id", b.dataset.del); if (x.error) toast("Couldn’t remove it."); else toast("Removed"); fillLeads(el); }));
 }
-/* ---------- coach codes: one code lets one new coach join ---------- */
-const coachInvite = code=>lang()==="he"
-  ? "הוזמנת להשתמש ב„עולים בדרגה” כמאמן.\n1. נכנסים ל־"+APP_LINK()+"\n2. יוצרים חשבון עם אימייל\n3. לוחצים על „אני מאמן ויש לי קוד מאמן” ומזינים: "+code
-  : "You're invited to use Rank Up as a coach.\n1. Open "+APP_LINK()+"\n2. Create an account with your email\n3. Tap “I'm a coach and have a coach code” and enter: "+code;
-async function makeCoachCode(note){
+/* ---------- codes: one code lets one new coach (or player) join ---------- */
+const invite = (code, kind)=>kind==="player"
+  ? (lang()==="he"
+    ? "הוזמנת להשתמש ב„עולים בדרגה” כשחקן — מעקב אחרי התרגול, המשחקים, התחרויות והדירוג שלך.\n1. נכנסים ל־"+APP_LINK()+"\n2. יוצרים חשבון עם אימייל\n3. לוחצים על „אני שחקן ויש לי קוד שחקן” ומזינים: "+code
+    : "You're invited to use Rank Up as a player, to follow your practice, games, tournaments and rating.\n1. Open "+APP_LINK()+"\n2. Create an account with your email\n3. Tap “I'm a player and have a player code” and enter: "+code)
+  : (lang()==="he"
+    ? "הוזמנת להשתמש ב„עולים בדרגה” כמאמן.\n1. נכנסים ל־"+APP_LINK()+"\n2. יוצרים חשבון עם אימייל\n3. לוחצים על „אני מאמן ויש לי קוד מאמן” ומזינים: "+code
+    : "You're invited to use Rank Up as a coach.\n1. Open "+APP_LINK()+"\n2. Create an account with your email\n3. Tap “I'm a coach and have a coach code” and enter: "+code);
+async function makeCode(note, kind){
   const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let c = ""; crypto.getRandomValues(new Uint32Array(8)).forEach(n=>{ c += A[n % A.length]; });
-  let x; try { x = await sb.from("coach_codes").insert({code:c, note:String(note||"").trim().slice(0,80)}); } catch(e){ x = {error:e}; }
+  let x; try { x = await sb.from("coach_codes").insert({code:c, note:String(note||"").trim().slice(0,80), kind:kind==="player" ? "player" : "coach"}); } catch(e){ x = {error:e}; }
   if (x.error){ toast("Couldn’t make the code. Check your connection."); return null; }
   return c;
 }
 async function fillCoachCodes(el){
-  let r; try { r = await sb.from("coach_codes").select("code,note,made_at,used_by,used_email,used_at").order("made_at", {ascending:false}); } catch(e){ r = {error:e}; }
+  let r; try { r = await sb.from("coach_codes").select("code,note,kind,made_at,used_by,used_email,used_at").order("made_at", {ascending:false}); } catch(e){ r = {error:e}; }
   if (!el.isConnected) return;
   if (r.error){ el.innerHTML = '<p class="small muted">'+esc(T("Couldn’t load the coach codes."))+'</p>'; return; }
   const rows = r.data||[];
-  el.innerHTML = (rows.length ? '<ul class="list">'+rows.map(x=>'<li><div class="main"><div class="title"><bdi dir="ltr" style="letter-spacing:.08em">'+esc(x.code)+'</bdi>'+(x.note?' · '+esc(x.note):'')+'</div><div class="small muted">'+
+  el.innerHTML = (rows.length ? '<ul class="list">'+rows.map(x=>'<li><div class="main"><div class="title"><bdi dir="ltr" style="letter-spacing:.08em">'+esc(x.code)+'</bdi> <span class="tag">'+esc(T(x.kind==="player" ? "Player" : "Coach"))+'</span>'+(x.note?' · '+esc(x.note):'')+'</div><div class="small muted">'+
       (x.used_at ? esc(T("Used by"))+' <bdi dir="ltr">'+esc(x.used_email||"")+'</bdi> · '+esc(fmtDate(x.used_at))+(x.used_by ? '' : ' · <span class="tag">'+esc(T("account removed"))+'</span>') : esc(T("Not used yet")))+'</div></div>'+
-      (x.used_at && x.used_by ? '' : '<div class="row-actions">'+(x.used_at ? '' : '<button type="button" class="btn small ghost" data-cc="copy" data-code="'+esc(x.code)+'">'+esc(T("Copy message"))+'</button>')+'<button type="button" class="btn small ghost" data-cc="del" data-code="'+esc(x.code)+'">'+esc(T("Remove"))+'</button></div>')+'</li>').join("")+'</ul>'
+      (x.used_at && x.used_by ? '' : '<div class="row-actions">'+(x.used_at ? '' : '<button type="button" class="btn small ghost" data-cc="copy" data-code="'+esc(x.code)+'" data-kind="'+(x.kind==="player"?"player":"coach")+'">'+esc(T("Copy message"))+'</button>')+'<button type="button" class="btn small ghost" data-cc="del" data-code="'+esc(x.code)+'">'+esc(T("Remove"))+'</button></div>')+'</li>').join("")+'</ul>'
     : '<p class="empty">'+esc(T("No coach codes yet."))+'</p>')+
-    '<div class="row-actions" style="margin-top:12px"><button type="button" class="btn small primary" data-cc="new">'+esc(T("Make a coach code"))+'</button></div>';
+    '<div class="row-actions" style="margin-top:12px"><button type="button" class="btn small primary" data-cc="new" data-kind="coach">'+esc(T("Make a coach code"))+'</button><button type="button" class="btn small primary" data-cc="new" data-kind="player">'+esc(T("Make a player code"))+'</button></div>';
   el.onclick = e=>{ const b = e.target.closest("[data-cc]"); if (!b) return; const k = b.dataset.cc, code = b.dataset.code;
-    if (k==="copy") return copyCoachInvite(code);
+    if (k==="copy") return copyInvite(code, b.dataset.kind);
     const used = (rows.find(y=>y.code===code)||{}).used_at; // used by an account that was since deleted
     if (k==="del") return confirmBox(T(used ? "Remove from the list?" : "Remove this coach code?"), used ? "The account that used it was deleted." : "Nobody will be able to join with it.", "Remove", async ()=>{
       const x = await sb.from("coach_codes").delete().eq("code", code); if (x.error) toast("Couldn’t remove the code."); else toast("Code removed"); fillCoachCodes(el); });
-    if (k==="new") openForm({title:T("Make a coach code"), submit:"Make code", fields:[{name:"note", label:"Who is it for? (optional)", value:"", placeholder:"e.g. Dan, chess club Haifa"}],
-      onSubmit:d=>{ makeCoachCode(d.note).then(c=>{ if (c){ fillCoachCodes(el); copyCoachInvite(c); } }); }});
+    if (k==="new"){ const kind = b.dataset.kind; openForm({title:T(kind==="player" ? "Make a player code" : "Make a coach code"), submit:"Make code", fields:[{name:"note", label:"Who is it for? (optional)", value:"", placeholder:kind==="player" ? "e.g. Tom Levi" : "e.g. Dan, chess club Haifa"}],
+      onSubmit:d=>{ makeCode(d.note, kind).then(c=>{ if (c){ fillCoachCodes(el); copyInvite(c, kind); } }); }}); }
   };
 }
-function copyCoachInvite(code){
-  openForm({title:T("Send this to the new coach"), submit:"Copy", fields:[{name:"msg", label:"Message", type:"textarea", value:coachInvite(code)}],
+function copyInvite(code, kind){
+  openForm({title:T(kind==="player" ? "Send this to the new player" : "Send this to the new coach"), submit:"Copy", fields:[{name:"msg", label:"Message", type:"textarea", value:invite(code, kind)}],
     onSubmit:d=>{ (navigator.clipboard ? navigator.clipboard.writeText(d.msg) : Promise.reject()).then(()=>toast("Copied"), ()=>toast("Couldn't copy — select the text and copy it yourself.")); }});
 }
 /* ---------- the coaches who joined: removing one keeps their records (a new code brings them back) or deletes everything ---------- */
@@ -234,19 +241,20 @@ async function fillCoachList(el){
   if (!el.isConnected) return;
   if (r.error){ el.innerHTML = '<p class="small muted">'+esc(T("Couldn’t load the coaches."))+'</p>'; return; }
   const he = lang()==="he", rows = r.data||[], others = rows.filter(x=>!x.is_admin);
-  const line = x=>esc(fmtDate(x.joined))+' · '+(he ? x.students+" תלמידים" : x.students+(x.students===1?" student":" students"));
-  el.innerHTML = '<ul class="list">'+rows.map(x=>'<li><div class="main"><div class="title">'+esc(x.name||x.email)+(x.is_admin?' <span class="tag">'+esc(T("Your account"))+'</span>':'')+'</div>'+
+  const line = x=>esc(fmtDate(x.joined))+(x.kind==="player" ? '' : ' · '+(he ? x.students+" תלמידים" : x.students+(x.students===1?" student":" students")));
+  el.innerHTML = '<ul class="list">'+rows.map(x=>'<li><div class="main"><div class="title">'+esc(x.name||x.email)+(x.is_admin?' <span class="tag">'+esc(T("Your account"))+'</span>':' <span class="tag">'+esc(T(x.kind==="player" ? "Player" : "Coach"))+'</span>')+'</div>'+
       (x.name ? '<div class="small"><bdi dir="ltr">'+esc(x.email)+'</bdi></div>' : '')+'<div class="small muted">'+(he?"הצטרף ":"Joined ")+line(x)+'</div></div>'+
       (x.is_admin ? '' : '<div class="row-actions"><button type="button" class="btn small ghost danger" data-rc="'+esc(x.user_id)+'">'+esc(T("Remove"))+'</button></div>')+'</li>').join("")+'</ul>'+
-    (others.length ? '' : '<p class="small muted" style="margin:8px 0 0">'+esc(T("No other coaches yet."))+'</p>');
+    (others.length ? '' : '<p class="small muted" style="margin:8px 0 0">'+esc(T("Nobody else yet."))+'</p>');
   el.onclick = e=>{ const b = e.target.closest("[data-rc]"); if (!b) return;
     const x = rows.find(y=>y.user_id===b.dataset.rc); if (!x) return; const who = x.name||x.email;
     const go = wipe=>sb.rpc("remove_coach", {target:x.user_id, wipe}).then(res=>{
-      if (res.error || res.data!==true) toast("Couldn’t remove the coach."); else toast("Coach removed"); fillCoachList(el); },
+      if (res.error || res.data!==true) toast("Couldn’t remove it."); else toast("Removed"); fillCoachList(el); },
       ()=>toast("Couldn’t remove the coach."));
-    openForm({title:he ? "להסיר את "+who+"?" : "Remove "+who+"?", submit:"Remove coach",
-      fields:[{name:"wipe", label:"What happens to their students and records?", type:"select", value:"keep",
-        options:[["keep","Keep them — a new coach code brings them back"],["wipe","Delete their account and everything in it"]]}],
+    const player = x.kind==="player";
+    openForm({title:he ? "להסיר את "+who+"?" : "Remove "+who+"?", submit:player ? "Remove player" : "Remove coach",
+      fields:[{name:"wipe", label:player ? "What happens to their records?" : "What happens to their students and records?", type:"select", value:"keep",
+        options:[["keep",player ? "Keep them — a new player code brings them back" : "Keep them — a new coach code brings them back"],["wipe","Delete their account and everything in it"]]}],
       onSubmit:d=>{ if (d.wipe!=="wipe") return go(false);
         setTimeout(()=>confirmBox(he ? "למחוק את "+who+" ואת כל המידע?" : "Delete "+who+" and all their data?",
           "Their account, students, lessons, payments and backups are deleted, and their students and parents are disconnected. This can’t be undone.", "Delete", ()=>go(true))); }}); // after the form has closed its dialog

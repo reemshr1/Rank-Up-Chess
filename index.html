@@ -2577,7 +2577,7 @@ function trCore(core){
   return undefined;
 }
 // Students and parents see the coach's name wherever the app says "coach" (Settings → Your name / in Hebrew).
-const nameOn = ()=>STUDENT() && !!(state.settings.coachName||"").trim();
+const nameOn = ()=>STUDENT() && !PLAYER && !!(state.settings.coachName||"").trim(); // a player has no coach
 const signName = lng=>(lng==="he" && (state.settings.coachNameHe||"").trim()) || (state.settings.coachName||"").trim();
 const escRx = x=>x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 function namePass(t){
@@ -3335,6 +3335,7 @@ function applyLoaded(data){
 const SUPABASE = {url:"https://gzcwvnynkcepvqkzwvkb.supabase.co", key:"sb_publishable_0on-hzzXoXPdk8dOFM3RNQ_9pEMALHx"};
 const WEB = !(window.claude && typeof window.claude.use==="function") && (/^https?:$/.test(location.protocol) || !!window.__supaFake);
 let sb = null, webUser = null, webAdmin = false; // webAdmin: this coach makes the coach codes for new coaches
+let PLAYER = false; // a player without a coach: their own board, shown with the student app
 const loadScript = src=>new Promise((ok, fail)=>{ const el = document.createElement("script"); el.src = src; el.onload = ok; el.onerror = fail; document.head.appendChild(el); });
 // The same small document API the artifact storage offers (collection/doc, get/set/delete, live snapshots).
 function makeSupaDb(client){
@@ -3542,8 +3543,8 @@ async function webStart(){
     // rather than staying on a page that can no longer load anything.
     sb.auth.onAuthStateChange(ev=>{ if (ev==="SIGNED_OUT" && !window.__signingOut) location.reload(); });
     // Coaches are listed in "coaches"; everyone else is a student or parent. A new coach joins with a coach code (linkPage).
-    const c = await sb.from("coaches").select("user_id,is_admin").eq("user_id", user.id).maybeSingle(); if (c.error) throw c.error;
-    const isCoach = !!c.data; webAdmin = !!(c.data && c.data.is_admin);
+    const c = await sb.from("coaches").select("user_id,is_admin,kind").eq("user_id", user.id).maybeSingle(); if (c.error) throw c.error;
+    const isCoach = !!c.data; webAdmin = !!(c.data && c.data.is_admin); PLAYER = !!(c.data && c.data.kind==="player");
     document.body.classList.add("web"); ungate();
     if ("serviceWorker" in navigator && location.protocol==="https:") navigator.serviceWorker.register("sw.js").catch(()=>{});
     return {db:makeSupaDb(sb), uid:user.id, user:{id:async()=>user.id, isOwner:async()=>isCoach}};
@@ -3587,6 +3588,66 @@ async function startPreview(){
   await store.loadAll(); store.subscribe(); setSync("ok");
   loaded = true; render();
 }
+/* ---------- a player without a coach ----------
+   Their records are kept like a coach's, with one student: themselves. The app shows them with the student app,
+   and what the student app would send to a coach is applied right away and saved. */
+async function startPlayer(){
+  try { applyLoaded(await store.loadAll()); setSync("ok"); store.subscribe(); } catch(e){ setSync("err", "Couldn't load your board"); }
+  ROLE = "student"; document.body.classList.add("student-mode", "player-mode");
+  const coachStore = store;
+  store = Object.assign(Object.create(coachStore), {
+    send(op){ const me = state.students[0]; op.at = new Date().toISOString(); if (me && applyOp(me, op, true)) coachStore.saveStudent(me.id); return Promise.resolve(); },
+    me:()=>({linked:true, role:"student", lang:state.settings.lang||"en", seen:state.settings.seen||[]}),
+    markSeen(keys){ state.settings.seen = [...new Set([...(state.settings.seen||[]), ...keys])].slice(-400); coachStore.saveSettings(); },
+    saveLang(){ coachStore.saveSettings(); }, link(){ return Promise.resolve(); }, pickChild(){} });
+  if (!myself()){ // the first time: their own profile
+    const x = Object.assign(blankStudent(), {self:true, name:(webUser && webUser.email || "").split("@")[0], rate:0});
+    state.students.push(x); saveStudent(x); setTimeout(()=>playerProfile(true), 300);
+  }
+  playerize();
+  if (WEB) setTimeout(()=>{ const t = today(), st = state.settings;
+    const monthly = (st.ratingsSyncedAt||"").slice(0,7)!==t.slice(0,7), retry = (st.ratingsFailed||[]).length && st.ratingsTriedAt!==t;
+    if (monthly || retry) syncRatings(false); }, 4000);
+  loaded = true; render();
+}
+// The student app reads a few things a coach's app would have filled in: no coach here, so they're empty (and never saved).
+function playerize(){
+  const me = myself() || state.students[0]; if (!me) return;
+  if (state.students.length!==1 || state.students[0]!==me) state.students = [me];
+  const empty = {free:[], taken:[], freeSet:false, pay:null, waiting:0, syncedAt:""};
+  Object.keys(empty).forEach(k=>{ if (!Object.getOwnPropertyDescriptor(me, k)) Object.defineProperty(me, k, {value:empty[k], writable:true, configurable:true, enumerable:false}); });
+  if (!state.settings.links) state.settings.links = coachLinks();
+}
+function playerProfile(first){
+  const me = myself(); if (!me) return;
+  openForm({title:first ? "Welcome to Rank Up" : "My profile", submit:first ? "Let's start" : "Save", parentOk:true, fields:[
+      {name:"name", label:"Your name (English)", value:me.name, full:true, hint:first ? "Set up your profile. With a FIDE or Israel Chess Federation number, your rating fills in by itself." : ""},
+      {name:"fullHe", label:"Your name in Hebrew (optional)", value:me.fullHe||"", full:true},
+      {name:"birthYear", label:"Year of birth (optional)", type:"number", value:me.birthYear||"", min:1920},
+      {name:"fideId", label:"FIDE number (optional)", value:me.fideId||""},
+      {name:"icfId", label:"Israel Chess Federation number (optional)", value:me.icfId||""}],
+    onSubmit:d=>{
+      if (!d.name.trim()) return "Write your name.";
+      const ids = (d.fideId||"").trim()!==(me.fideId||"") || (d.icfId||"").trim()!==(me.icfId||"");
+      Object.assign(me, {name:d.name.trim().slice(0,80), fullHe:d.fullHe.trim().slice(0,80), birthYear:d.birthYear, fideId:d.fideId.trim(), icfId:d.icfId.trim(), noId:!d.fideId.trim() && !d.icfId.trim()});
+      state.settings.coachName = me.name; saveStudent(me); saveSettings(); render(); toast("Profile saved");
+      if (ids && WEB) setTimeout(()=>syncRatings(false), 300);
+    }});
+}
+// A task the player sets for themselves.
+function playerTask(a){
+  const me = myself(); if (!me) return;
+  const isNew = !a, x = a || {id:"as-"+uid(), studentId:me.id, title:"", type:"Tactics", instructions:"", assigned:today(), due:addDays(today(),7), status:"Assigned", feedback:"", games:[], by:"self"};
+  openForm({title:isNew ? "New task" : "Edit task", submit:isNew ? "Add task" : "Save", parentOk:true, danger:isNew ? null : {label:"Delete", onClick:()=>confirmBox("Delete this task?", "This can't be undone.", "Delete", ()=>{
+      state.assignments = state.assignments.filter(y=>y.id!==x.id); store.deleteAssignment(x.id); render(); toast("Task deleted"); })},
+    fields:[{name:"title", label:"Title", value:x.title, full:true, placeholder:"e.g. 30 puzzles on pins"},
+      {name:"type", label:"Type", type:"select", options:AS_TYPES, value:x.type},
+      {name:"due", label:"Due date", type:"date", value:x.due},
+      {name:"instructions", label:"Details (optional)", type:"textarea", value:x.instructions, full:true}],
+    onSubmit:d=>{ if (!d.title.trim()) return "Write a title.";
+      Object.assign(x, {title:d.title.trim().slice(0,160), type:d.type, due:d.due, instructions:d.instructions});
+      if (isNew) state.assignments.push(x); saveAssignment(x); render(); toast(isNew ? "Task added" : "Saved"); }});
+}
 // The coach's button: the frame over the page, a phone or computer width, and a way out.
 function openPreview(s){
   closePreview();
@@ -3624,6 +3685,7 @@ async function initStore(){
   }
   if (db && userId){
     store = makeDbStore(db, userId);
+    if (PLAYER && !PREVIEW) return startPlayer();
     if (PREVIEW){ try { applyLoaded(await store.loadAll()); } catch(e){} return startPreview(); } // read once, never written
     try { applyLoaded(await store.loadAll()); setSync("ok"); store.tidy(); store.subscribe(); portal = makePortal(db); portal.start();
       if (WEB) autoFolder();
@@ -3888,13 +3950,14 @@ function renderNav(){
   const mine = me ? '<a href="#/student/'+me.id+'/overview"'+(meOn?' aria-current="page"':'')+'>'+ICONS.progress+'<span>My chess</span></a>' : "";
   $("#nav").innerHTML = html+mine; $("#bnav").innerHTML = html;
 }
-const studentNav = s=>{ const b = "#/student/"+s.id+"/"; return [["home","#/home","Home",ICONS.dash], ["assignments",b+"assignments","Tasks",ICONS.assign], ["work",b+"work","Practice",ICONS.practice], ["tournaments",b+"tournaments","Games",ICONS.games], ["progress","#/progress","Progress",ICONS.progress], ["schedule","#/schedule","Schedule",ICONS.schedule], ...(PARENT() || s.pay ?[["payments","#/payments","Payments",ICONS.pay]]:[])]; };
+const studentNav = s=>{ const b = "#/student/"+s.id+"/"; return [["home","#/home","Home",ICONS.dash], ["assignments",b+"assignments","Tasks",ICONS.assign], ["work",b+"work","Practice",ICONS.practice], ["tournaments",b+"tournaments","Games",ICONS.games], ["progress","#/progress","Progress",ICONS.progress], ...(PLAYER ? [] : [["schedule","#/schedule","Schedule",ICONS.schedule]]), ...(PARENT() || s.pay ?[["payments","#/payments","Payments",ICONS.pay]]:[])]; };
 document.addEventListener("change", e=>{ if (e.target.id==="childPick" && store && store.pickChild) store.pickChild(e.target.value); });
 // The language button students have (the coach changes language in Settings).
 document.addEventListener("click", e=>{ const b = e.target.closest("[data-lang]"); if (!b) return;
   state.settings.lang = lang()==="he" ? "en" : "he"; if (store && store.saveLang) store.saveLang(); render(); });
 
 function render(){
+  if (PLAYER && STUDENT()) playerize();
   applyLang();
   renderNav();
   const v = $("#view");
@@ -3969,24 +4032,25 @@ function linkPage(me){
         : bad?'<p class="small" style="color:var(--flag)">That code wasn\'t recognised. Check it with your coach and try again.</p>':'')+
       (waiting?'<p class="small">Code sent. You\'ll be connected as soon as your coach opens Rank Up.</p>':'')+
       '<form id="linkF" class="row-actions"><input id="linkCode" class="search" dir="ltr" placeholder="ABC123" autocomplete="off" value="'+esc(code)+'" style="text-transform:uppercase;min-width:170px;letter-spacing:.1em" aria-label="Code from your coach"><button class="btn primary" type="submit">Connect</button></form>'+
-      (WEB && sb ? '<p class="small" style="margin:22px 0 0"><button type="button" class="linkish" id="beCoach">I\'m a coach and have a coach code</button></p>' : ''))+'</div>';
+      (WEB && sb ? '<p class="small" style="margin:22px 0 0"><button type="button" class="linkish" id="beCoach">I\'m a coach and have a coach code</button><br><button type="button" class="linkish" id="bePlayer">I\'m a player and have a player code</button></p>' : ''))+'</div>';
 }
 function bindLink(){
   const f = $("#linkF"); if (!f) return;
   f.onsubmit = e=>{ e.preventDefault(); const c = $("#linkCode").value.replace(/\s/g,"");
     if (c.length<4) return toast("Enter the code from your coach.");
     store.link(c).then(()=>{ toast("Code sent"); render(); }, ()=>toast("Couldn't send the code. Check your connection.")); };
-  const bc = $("#beCoach"); if (bc) bc.onclick = coachCodeForm;
+  const bc = $("#beCoach"); if (bc) bc.onclick = ()=>coachCodeForm(false);
+  const bp = $("#bePlayer"); if (bp) bp.onclick = ()=>coachCodeForm(true);
 }
 // A new coach types the coach code they were given; their account then gets its own, empty board.
-function coachCodeForm(){
-  openForm({title:"Join as a coach", submit:"Open my board", parentOk:true, fields:[{name:"code", label:"Coach code", value:"", full:true, placeholder:"ABCD2345", hint:"You get a coach code from the person who runs Rank Up. Students and parents use the code from their coach instead."}],
+function coachCodeForm(player){
+  openForm({title:player ? "Join as a player" : "Join as a coach", submit:"Open my board", parentOk:true, fields:[{name:"code", label:player ? "Player code" : "Coach code", value:"", full:true, placeholder:"ABCD2345", hint:player ? "You get a player code from the person who runs Rank Up. Students of a coach use the code from their coach instead." : "You get a coach code from the person who runs Rank Up. Students and parents use the code from their coach instead."}],
     onSubmit:d=>{ const code = d.code.replace(/\s/g,"").toUpperCase(), form = $("#modal form"), er = form.querySelector(".form-err"), btn = form.querySelector("[type=submit]");
       const say = t=>{ er.textContent = t; er.hidden = false; if (btn) btn.disabled = false; };
-      if (code.length<6) return "Enter the coach code.";
+      if (code.length<6) return player ? "Enter the player code." : "Enter the coach code.";
       if (btn) btn.disabled = true;
       sb.rpc("become_coach", {code}).then(r=>{ if (r.error) return say("Couldn't check the code. Check your connection.");
-        if (!r.data) return say("That coach code isn't valid or was already used.");
+        if (!r.data) return say(player ? "That player code isn't valid or was already used." : "That coach code isn't valid or was already used.");
         toast("Welcome! Opening your board…"); setTimeout(()=>location.reload(), 600); }, ()=>say("Couldn't check the code. Check your connection."));
       return false; }});
 }
@@ -4125,8 +4189,9 @@ function pHome(v, s){
   const clubs = []; for (let d=t; d<=addDays(t,7) && clubs.length<2; d=addDays(d,1)) clubOn(d).forEach(o=>clubs.push({d, o})); // their club classes this coming week
   const rt = sortBy(s.ratings.filter(r=>(r.source||mainSource(s))===mainSource(s)),"date").pop();
   const hr = new Date().getHours(), greet = hr<12?"Good morning":hr<18?"Good afternoon":"Good evening";
-  v.innerHTML = '<div class="page-head"><div><p class="sub" style="margin:0 0 4px">'+esc(fmtDay(t))+'</p><h1>'+(PARENT() ? esc(first)+'’s board' : greet+', '+esc(first))+'</h1>'+freshness(s)+'</div><div class="row-actions">'+noticesButton(s)+'<button class="btn" data-a="req">Request a lesson</button><button class="btn primary" data-a="log">Log practice</button></div></div>'+
-    '<div class="stats"><div class="stat"><div class="v num">'+(lessons[0]?esc(fmtDate(lessons[0].date,{weekday:"short",day:"numeric",month:"short"})):"—")+'</div><div class="l">'+(lessons[0]?"Next lesson"+(lessons[0].time?" · "+esc(lessons[0].time):""):"No lesson planned")+'</div></div>'+
+  v.innerHTML = '<div class="page-head"><div><p class="sub" style="margin:0 0 4px">'+esc(fmtDay(t))+'</p><h1>'+(PARENT() ? esc(first)+'’s board' : greet+', '+esc(first))+'</h1>'+(PLAYER ? '' : freshness(s))+'</div><div class="row-actions">'+(PLAYER ? '<button class="btn" data-a="profile">My profile</button>' : noticesButton(s)+'<button class="btn" data-a="req">Request a lesson</button>')+'<button class="btn primary" data-a="log">Log practice</button></div></div>'+
+    '<div class="stats">'+(PLAYER ? '<div class="stat"><div class="v num">'+(tours[0]?esc(fmtDate(tourNext(tours[0],t),{weekday:"short",day:"numeric",month:"short"})):"—")+'</div><div class="l">'+(tours[0]?"Next tournament":"No tournament planned")+'</div></div>' // no lessons without a coach
+      : '<div class="stat"><div class="v num">'+(lessons[0]?esc(fmtDate(lessons[0].date,{weekday:"short",day:"numeric",month:"short"})):"—")+'</div><div class="l">'+(lessons[0]?"Next lesson"+(lessons[0].time?" · "+esc(lessons[0].time):""):"No lesson planned")+'</div></div>')+
       '<div class="stat"><div class="v num'+(todo.some(a=>a.due&&a.due<t)?" money-owed":"")+'">'+todo.length+'</div><div class="l">Assignments to do</div></div>'+
       '<div class="stat"><div class="v num">'+week+'</div><div class="l">Practice minutes this week</div></div>'+
       '<div class="stat"><div class="v num">'+(rt?esc(rt.value):"—")+'</div><div class="l">'+(rt?esc(rt.source||mainSource(s))+" rating":"Rating")+'</div></div></div>'+
@@ -4146,7 +4211,7 @@ function pHome(v, s){
         (pendingReports(s).length ? '<p class="small" style="margin:10px 0 0;display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span class="tag warn">Payment sent</span><bdi class="num">'+esc((p.currency||"")+pendingReports(s).reduce((a,r)=>a+(+r.amount||0),0).toLocaleString(LOCALE()))+'</bdi><span class="muted">'+esc("Waiting for "+coachCalled()+" to confirm")+'</span></p>' : ''); })(),
       '<div class="row-actions">'+(pendingReports(s).length ? ''
         : (s.pay.balance>0.009 || (s.pay.open||[]).some(x=>!x.upcoming)) ? '<button type="button" class="btn small" id="iPaid">I\'ve paid</button>' : '')+'<a class="btn small" href="#/payments">Statement</a></div>') : '')+
-    updatesPanel(s)+
+    (PLAYER ? '' : updatesPanel(s))+ // updates are what a coach changed
     panel("Coming up", (lessons.length||tours.length||pend.length||clubs.length) ? '<ul class="list">'+
         // one list in date and time order: lessons, club classes, tournaments and requests together
         [...lessons.map(x=>({k:x.date+" "+(x.time||""), h:(()=>{ const pc = pendingChange(s, x); return '<li><div class="main"><div class="title">Lesson'+(needsAnswer(s, x)||offerFor(s, x)?' <span class="tag warn">'+(offerFor(s, x)?"New time proposed":"Answer needed")+'</span>':'')+(pc?' <span class="tag warn">'+(pc.kind==="cancel"?"Cancel requested":"Move requested")+'</span>':'')+'</div><div class="small muted">'+[where(x), x.duration?x.duration+" min":"", x.topics].filter(Boolean).map(esc).join(" · ")+'</div>'+
@@ -4154,16 +4219,17 @@ function pHome(v, s){
         ...clubs.map(({d,o})=>({k:d+" "+o.from, h:'<li><div class="main"><div class="title">'+esc(clubName(o.r))+'</div><div class="small muted">'+[o.r.place, "Club class"].filter(Boolean).map(esc).join(" · ")+'</div></div><div style="text-align:end" class="small">'+esc(fmtDate(d,{weekday:"short",day:"numeric",month:"short"}))+'<br>'+esc(o.from)+'</div></li>'})),
         ...tours.map(x=>({k:tourNext(x,t)+" ", h:'<li><div class="main"><div class="title">'+esc(x.name)+'</div><div class="small muted">'+[x.location, x.format].filter(Boolean).map(esc).join(" · ")+'</div></div><span class="tag board">'+esc(fmtShort(tourNext(x,t)))+'</span></li>'})),
         ...pend.filter(r=>r.kind!=="cancel").map(r=>({k:r.date+" "+(r.time||""), h:'<li><div class="main"><div class="title">'+(r.kind==="move"?"Move request":"Lesson request")+'</div><div class="small muted">'+esc(fmtDate(r.date,{weekday:"short",day:"numeric",month:"short"}))+' · '+esc(r.time)+'</div></div><span class="tag warn">Waiting for your coach</span></li>'}))].sort((a,b)=>a.k<b.k?-1:a.k>b.k?1:0).map(o=>o.h).join("")+'</ul>'
-      : '<p class="empty">Nothing planned yet.</p>', '<a class="btn small" href="#/schedule">Schedule</a>')+
+      : '<p class="empty">Nothing planned yet.</p>', PLAYER ? '' : '<a class="btn small" href="#/schedule">Schedule</a>')+
     panel("Assignments", hw.length ? '<ul class="list">'+hw.map(a=>'<li><div class="main"><div class="title"><a href="#/assignment/'+a.id+'">'+esc(a.title)+'</a></div><div class="small muted">'+esc(a.type)+(a.due?' · due '+esc(fmtShort(a.due)):'')+'</div></div>'+(a.status==="Assigned"?'<button class="btn small" data-a="hwdone" data-id="'+a.id+'">Mark done</button>':'<span class="tag warn">Done · to review</span>')+'</li>').join("")+'</ul>' : '<p class="empty">No assignments right now.</p>')+
     '</div>';
   bindActions(v,{ ans:id=>{ const [rid, c] = id.split("|"), r = (s.requests||[]).find(x=>x.id===rid); if (r) answerMove(s, r, c); },
     offer:id=>{ const [oid, c] = id.split("|"), o = (s.offers||[]).find(x=>x.id===oid && x.status==="pending"); if (o) answerOffer(s, o, c); },
+    profile:()=>playerProfile(false),
     req:()=>requestLesson(s), log:()=>openPractice(s, null), sleep:id=>logSleep(s, id||today()),
     seenAll:()=>{ markSeen(studentUpdates(s).map(u=>u.key)); render(); },
     checkin:k=>sendCheckin(s, k),
     notes:()=>showNotices(s), les:id=>{ const x = s.sessions.find(y=>y.id===id); if (x) lessonActions(s, x); }, reqat:id=>{ const [date, time, place] = id.split("|"); requestLesson(s, {date, time, place}); },
-    hwdone:id=>{ const a = state.assignments.find(x=>x.id===id); if (!a) return; a.status = "Submitted"; a.submitted = today(); saveAssignment(a); render(); toast("Marked done — your coach will review it"); } });
+    hwdone:id=>{ const a = state.assignments.find(x=>x.id===id); if (!a) return; if (PLAYER){ a.status = "Reviewed"; a.submitted = a.reviewedOn = today(); saveAssignment(a); render(); toast("Done — nice work"); return; } a.status = "Submitted"; a.submitted = today(); saveAssignment(a); render(); toast("Marked done — your coach will review it"); } });
 }
 // Start times (every 30 minutes) at which a lesson of `dur` minutes fits in the coach's open windows that day.
 // Start times as select options; a time at the club says so, and its value carries the place ("17:00|the club").
@@ -4225,7 +4291,7 @@ function markSeen(keys){
 // "New" is only for the last 2 days; older updates stay listed without the tag.
 const NEW_DAYS = 2;
 const isNew = (u, seen)=>!seen.has(u.key) && u.date>=addDays(today(), -NEW_DAYS);
-const unseenUpdates = s=>{ const seen = seenSet(); return studentUpdates(s).filter(u=>isNew(u, seen)); };
+const unseenUpdates = s=>{ if (PLAYER) return []; const seen = seenSet(); return studentUpdates(s).filter(u=>isNew(u, seen)); }; // a player has no coach making changes
 // Which menu item an update belongs to, for the count on the menu.
 const updateArea = u=>/^as:/.test(u.key) ? "assignments" : /^notes:/.test(u.key) ? "progress" : "schedule";
 function updatesPanel(s){
@@ -6648,7 +6714,7 @@ const AS_STATUS = ["Assigned","Submitted","Reviewed"];
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 const MAX_DOC = 240000;
 function asTag(a){ const t = today();
-  if (a.status==="Reviewed") return '<span class="tag ok">Reviewed</span>';
+  if (a.status==="Reviewed") return '<span class="tag ok">'+(PLAYER ? "Done" : "Reviewed")+'</span>';
   if (a.status==="Submitted") return '<span class="tag warn">'+(STUDENT() ? "Waiting for your coach" : "Done · to review")+'</span>';
   if (a.due && a.due<t) return '<span class="tag flag">Overdue</span>';
   return '<span class="tag board">Assigned</span>'; }
@@ -6726,14 +6792,17 @@ function pAssignments(v){
 function tAssignments(el, s){
   const list = asSort(state.assignments.filter(a=>a.studentId===s.id));
   if (STUDENT()){ const todo = list.filter(a=>a.status==="Assigned"), done = list.filter(a=>a.status!=="Assigned");
-    const seen = seenSet(), fresh = new Set(studentUpdates(s).filter(u=>/^as:/.test(u.key) && isNew(u, seen)).map(u=>u.key.split(":")[1]));
+    const seen = seenSet(), fresh = new Set((PLAYER ? [] : studentUpdates(s)).filter(u=>/^as:/.test(u.key) && isNew(u, seen)).map(u=>u.key.split(":")[1]));
     const box = (title, xs, empty)=>'<section class="panel" style="padding:0;margin-bottom:16px"><div class="panel-head"><h2>'+title+'</h2></div>'+(xs.length ? xs.map(a=>'<div class="as-item">'+(fresh.has(a.id)?'<span class="tag board new-tag">New</span>':'')+asRow(a,false)+(a.status==="Assigned"?'<button class="btn small" data-a="done" data-id="'+a.id+'">Mark done</button>':'')+'</div>').join("") : '<p class="empty" style="padding:4px 18px 18px">'+empty+'</p>')+'</section>';
-    el.innerHTML = box("To do", todo, PARENT() ? "All assignments are done." : "All tasks are done, nice job!")+(done.length ? box("Done", done, "") : "");
+    el.innerHTML = (PLAYER ? '<div class="row-actions" style="margin:0 0 12px"><button class="btn primary" data-a="new">New task</button></div>' : '')+
+      box("To do", todo, PARENT() ? "All assignments are done." : PLAYER ? "No tasks yet. Add one to plan your practice." : "All tasks are done, nice job!")+(done.length ? box("Done", done, "") : "");
   } else
   el.innerHTML = '<section class="panel" style="padding:0"><div class="panel-head"><h2>Assignments</h2>'+coachOnly('<button class="btn small primary" data-a="new">New assignment</button>')+'</div>'+
     (list.length ? list.map(a=>'<div class="as-item">'+asRow(a,false)+(a.status==="Assigned"?'<button class="btn small" data-a="done" data-id="'+a.id+'">Mark done</button>':'')+'</div>').join("") : '<p class="empty" style="padding:4px 18px 18px">'+(PARENT() ? 'All assignments are done.' : STUDENT() ? 'All tasks are done, nice job!' : 'No assignments yet. Add a task like “30 puzzles on pins”, or upload games in PGN for '+esc(fullName(s))+' to analyse.')+'</p>')+'</section>';
-  bindActions(el,{ new:()=>editAssignment(null, s.id),
-    done:id=>{ const a = state.assignments.find(x=>x.id===id); a.status = "Submitted"; a.submitted = today(); saveAssignment(a); render(); toast(STUDENT() ? "Marked done — your coach will review it" : "Marked done — waiting for your review"); } });
+  bindActions(el,{ new:()=>PLAYER ? playerTask(null) : editAssignment(null, s.id),
+    done:id=>{ const a = state.assignments.find(x=>x.id===id);
+      if (PLAYER){ a.status = "Reviewed"; a.submitted = a.reviewedOn = today(); saveAssignment(a); render(); toast("Done — nice work"); return; }
+      a.status = "Submitted"; a.submitted = today(); saveAssignment(a); render(); toast(STUDENT() ? "Marked done — your coach will review it" : "Marked done — waiting for your review"); } });
 }
 
 function pgnHeaders(pgn){ const h = {}; pgn.replace(/\[(\w+)\s+"((?:[^"\\]|\\.)*)"\]/g,(m,k,v)=>{ h[k]=v; return m; }); return h; }
@@ -8101,7 +8170,17 @@ Object.assign(HE, {
   "I'm a coach and have a coach code":"אני מאמן ויש לי קוד מאמן", "Join as a coach":"הצטרפות כמאמן", "Open my board":"פתיחת הלוח שלי", "Coach code":"קוד מאמן",
   "You get a coach code from the person who runs Rank Up. Students and parents use the code from their coach instead.":"את קוד המאמן מקבלים ממי שמפעיל את „עולים בדרגה”. תלמידים והורים משתמשים בקוד שקיבלו מהמאמן.",
   "Enter the coach code.":"יש להזין את קוד המאמן.", "Couldn't check the code. Check your connection.":"לא ניתן לבדוק את הקוד. כדאי לבדוק את החיבור.",
-  "That coach code isn't valid or was already used.":"קוד המאמן לא תקין או שכבר השתמשו בו.", "Welcome! Opening your board…":"ברוכים הבאים! הלוח שלך נפתח…",
+  "That coach code isn't valid or was already used.":"קוד המאמן לא תקין או שכבר השתמשו בו.",
+  "I'm a player and have a player code":"אני שחקן ויש לי קוד שחקן", "Join as a player":"הצטרפות כשחקן", "Player code":"קוד שחקן", "Enter the player code.":"יש להזין את קוד השחקן.",
+  "That player code isn't valid or was already used.":"קוד השחקן לא תקין או שכבר השתמשו בו.",
+  "You get a player code from the person who runs Rank Up. Students of a coach use the code from their coach instead.":"את קוד השחקן מקבלים ממי שמנהל את „עולים בדרגה”. תלמידים של מאמן משתמשים בקוד מהמאמן שלהם.",
+  "Welcome to Rank Up":"ברוכים הבאים ל„עולים בדרגה”", "My profile":"הפרופיל שלי", "Let's start":"בואו נתחיל", "Your name (English)":"השם שלך (באנגלית)", "Your name in Hebrew (optional)":"השם שלך בעברית (לא חובה)",
+  "Year of birth (optional)":"שנת לידה (לא חובה)", "FIDE number (optional)":"מספר FIDE (לא חובה)", "Israel Chess Federation number (optional)":"מספר שחקן באיגוד השחמט (לא חובה)",
+  "Set up your profile. With a FIDE or Israel Chess Federation number, your rating fills in by itself.":"הגדרת הפרופיל. עם מספר FIDE או מספר שחקן באיגוד, הדירוג מתמלא לבד.",
+  "Write your name.":"נא לכתוב את השם.", "Profile saved":"הפרופיל נשמר",
+  "New task":"משימה חדשה", "Edit task":"עריכת משימה", "Add task":"הוספת משימה", "Delete this task?":"למחוק את המשימה?", "Task deleted":"המשימה נמחקה", "Task added":"המשימה נוספה",
+  "Due date":"תאריך יעד", "Details (optional)":"פרטים (לא חובה)", "e.g. 30 puzzles on pins":"למשל: 30 תרגילים על ריתוק", "Write a title.":"נא לכתוב כותרת.",
+  "Next tournament":"התחרות הבאה", "No tournament planned":"אין תחרות מתוכננת",   "No tasks yet. Add one to plan your practice.":"עדיין אין משימות. אפשר להוסיף משימה כדי לתכנן את האימון.", "Done — nice work":"בוצע — כל הכבוד", "Welcome! Opening your board…":"ברוכים הבאים! הלוח שלך נפתח…",
   "Coaches":"מאמנים", "Another coach can use Rank Up with their own students. Make a coach code and send it to them: they create an account and enter it. Each coach sees only their own students, payments and backups.":"מאמן נוסף יכול להשתמש ב„עולים בדרגה” עם התלמידים שלו. יוצרים קוד מאמן ושולחים לו: הוא יוצר חשבון ומזין את הקוד. כל מאמן רואה רק את התלמידים, התשלומים והגיבויים שלו.",
   "Couldn’t load the coach codes.":"לא ניתן לטעון את קודי המאמן.", "Used by":"נוצל על ידי", "Not used yet":"עדיין לא נוצל", "Copy message":"העתקת ההודעה",
   "No coach codes yet.":"עדיין אין קודי מאמן.", "Make a coach code":"יצירת קוד מאמן", "Remove this coach code?":"להסיר את קוד המאמן?", "account removed":"החשבון נמחק", "Remove from the list?":"להסיר מהרשימה?", "The account that used it was deleted.":"החשבון שהשתמש בו נמחק.", "Nobody will be able to join with it.":"אי אפשר יהיה להצטרף איתו.",

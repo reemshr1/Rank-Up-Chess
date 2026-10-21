@@ -387,6 +387,22 @@ so open the app first. Hebrew or English, as in the app. Three tabs:
   **Delete their account and everything in it** (after a second confirmation) deletes their account,
   students, lessons, payments and backups and disconnects their students and parents.
 
+## Players (without a coach)
+
+A player follows their own chess with no coach. They get a **player code** from the admin (Admin page →
+**Codes** → **Make a player code**, or **Send player code** on a player's request), create an account and tap
+**I'm a player and have a player code** on the sign-in screen.
+
+- The first time, **Welcome to Rank Up** asks for their name (and optionally a Hebrew name, year of birth,
+  FIDE and Israel Chess Federation numbers). **My profile** on Home changes it later; with a player number
+  the rating fills in by itself (and is checked once a month).
+- They use the student app: Home, **Tasks**, Practice (practice, fitness, sleep, books), Games (games and
+  tournaments) and Progress. There's no Schedule, no lesson requests, no payments and nothing from a coach.
+  Home's first tile is their **next tournament**.
+- **Tasks:** **New task** (title, type, due date, details); **Mark done** finishes it (no coach to review).
+- Everything they log is saved straight away in their own records (kept like a coach's, with one student:
+  themselves), so it has nightly backups too. The admin page lists them under **Accounts** as **Player**.
+
 ## 2. Student view
 
 Menu: **Home · Tasks · Practice · Games · Progress · Schedule**. At the top:
@@ -577,7 +593,8 @@ change them directly.
   the app itself can't read. The coach's app decides what to send
   (`boardAlerts`, comparing each board before and after it's written, and
   `checkinAlerts`). `sw.js` shows the alert and opens the app when tapped.
-- Coaches: table `coaches` (`is_admin` marks the first coach), coach codes in `coach_codes`, joining
+- Coaches and players: table `coaches` (`is_admin` marks the first coach; `kind` is `coach` or `player`, from
+  the code they joined with — `coach_codes.kind`; run `supabase/player-accounts.sql` once to turn this on), coach codes in `coach_codes`, joining
   through `become_coach(code)`. The admin lists them with `coach_list()` and removes one with
   `remove_coach(id, wipe)` (run `supabase/remove-coach.sql` once to turn this on). The access rules give each coach only `data/users/<their id>/…` and the
   portal accounts marked with their id.
