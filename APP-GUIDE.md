@@ -289,19 +289,8 @@ All the money in one place.
   (see Phone alerts below).
 - **Account:** which email is signed in, Sign out.
 - The sign-in screen has a **What is Rank Up?** link to the public page.
-- **Coaches** (the admin only — the first coach): lets another coach use Rank Up with their own students.
-  **Make a coach code** (with an optional note of who it's for) shows a ready message to send them: open the
-  app, create an account, tap **I'm a coach and have a coach code** and enter the code. Each code works once.
-  The list shows each code as **Not used yet** (with **Copy message** and **Remove**) or **Used by** the
-  account's email and date. See "Several coaches" below.
-  **Coaches using Rank Up** lists every coach who joined: name, email, join date and number of students
-  (your own row is marked **Your account**). **Remove** on another coach asks what happens to their data:
-  **Keep them** takes away only their coach access (their students and records stay, and a new coach code
-  brings them back), or **Delete their account and everything in it** (after a second confirmation) deletes
-  their account, students, lessons, payments and backups and disconnects their students and parents.
-  Under it, **Left their details on the website**: coaches who sent the form on the public page
-  (`welcome/`), newest first, with phone, email, city, what they teach and how many students, a
-  **WhatsApp** button and **Remove**.
+- **Running Rank Up** (the admin only — the first coach): a link to the **admin page** (`admin/`), where
+  running the app is kept apart from the coach's own work. See "Admin page" below.
 - **Useful links:** the sites shown to students and parents on their Practice
   page (suggested: Chess.com, Lichess, Lichess puzzles, ChessTempo, Chessable,
   Chess-Results, Israel Chess Federation). Add, edit, remove, or restore the
@@ -374,6 +363,29 @@ your library**. Either way the student gets the book's details and their own cop
 the PDF (`<student id>/<book id>.pdf`), so it opens like any book PDF. A student who
 already has the book isn't given it twice. Deleting a book from the library keeps the
 students' books and PDFs. Students never see the library.
+
+## Admin page (`admin/`)
+
+Only the admin account sees anything here (the database rules make sure of it); it uses the app's sign-in,
+so open the app first. Hebrew or English, as in the app. Three tabs:
+
+- **Access requests:** everyone who sent the form on the public page (`welcome/`): a coach, a player, or a
+  player's parent. Each shows name, phone, email, city, date, (for coaches) what they teach and how many
+  students, and their note. The admin sets a **status** (New, Contacted, Code sent, Joined, Not interested)
+  and writes **notes**; filters show Open (not joined or not interested), All, or one status. **WhatsApp**
+  opens a chat. **Send coach code** (coaches) makes a coach code for them, marks the request **Code sent**
+  and shows the message to send; once the code is used the request turns **Joined** by itself. **Remove**
+  deletes the request.
+- **Codes:** coach codes. **Make a coach code** (with an optional note of who it's for) shows a ready
+  message to send: open the app, create an account, tap **I'm a coach and have a coach code** and enter the
+  code. Each code works once, even if the account that used it is deleted later. A code is **Not used yet**
+  (with **Copy message** and **Remove**), **Used by** an account's email and date, or used by an account
+  that was since deleted (**account removed**, with **Remove**). See "Several coaches" below.
+- **Coaches:** every coach who joined, with name, email, join date and number of students (your own row is
+  marked **Your account**). **Remove** on another coach asks what happens to their data: **Keep them** takes
+  away only their coach access (their students and records stay, and a new coach code brings them back), or
+  **Delete their account and everything in it** (after a second confirmation) deletes their account,
+  students, lessons, payments and backups and disconnects their students and parents.
 
 ## 2. Student view
 
