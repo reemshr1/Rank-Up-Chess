@@ -200,6 +200,7 @@ summary .panel-hide{margin-inline-start:auto}
 .list{list-style:none;margin:0;padding:0}
 .list li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
 .list li:first-child{border-top:0}
+.list.tips li{justify-content:flex-start;align-items:flex-start;gap:10px}
 .list .main{min-width:0;flex:1}
 .list .title{font-weight:600}
 .tag{display:inline-block;font-size:.76rem;padding:2px 8px;border-radius:999px;background:var(--paper);border:1px solid var(--line);color:var(--muted);white-space:nowrap}
@@ -3639,6 +3640,54 @@ function playerProfile(first){
       if (ids && WEB) setTimeout(()=>syncRatings(false), 300);
     }});
 }
+/* ---------- tips for a player with no coach: worked out from what they log (no AI, nothing sent anywhere) ---------- */
+const TIP_CAT_HE = {Tactics:"טקטיקה", Endgames:"סיומים", Openings:"פתיחות", Calculation:"חישוב", Strategy:"אסטרטגיה", "Game analysis":"ניתוח משחקים", Reading:"קריאה", Other:"אחר"};
+// Up to 3, the most pressing first: [kind, English, Hebrew] — kind is "warn" (do something soon) or "ok" (encouragement).
+function playerTips(s){
+  const t = today(), he = lang()==="he", out = [], add = (kind, en, hb)=>out.push({kind, text:he ? hb : en});
+  const cat = c=>he ? TIP_CAT_HE[c]||c : c.toLowerCase(), log = (s.worklog||[]).filter(w=>+w.minutes>0);
+  const gap = practiceGap(s), streak = (streaksOf(s).practice||{}).now||0, practicedToday = log.some(w=>w.date===t);
+  // practice: never, or not for a few days
+  if (!log.length) add("warn", "Log your first practice — even 15 minutes counts.", "כדאי לרשום את התרגול הראשון — גם 15 דקות נחשבות.");
+  else if (gap && gap.days>=3) add("warn", "No practice for "+gap.days+" days. A short session today gets you back on track.", "אין תרגול כבר "+gap.days+" ימים. אימון קצר היום יחזיר אותך למסלול.");
+  // a tournament this week
+  const tour = (s.tournaments||[]).filter(x=>tourAhead(x, t)).map(x=>({x, d:tourNext(x, t)})).filter(o=>o.d>=t && daysBetween(t, o.d)<=7).sort((a,b)=>a.d<b.d?-1:1)[0];
+  if (tour){ const n = daysBetween(t, tour.d), when = n===0 ? (he ? "היום" : "today") : n===1 ? (he ? "מחר" : "tomorrow") : (he ? "בעוד "+n+" ימים" : "in "+n+" days");
+    add("warn", "“"+tour.x.name+"” starts "+when+". Warm up with tactics, look over your openings, and sleep well the nights before.",
+      "„"+tour.x.name+"” מתחילה "+when+". כדאי להתחמם עם טקטיקה, לעבור על הפתיחות ולישון טוב בלילות שלפני."); }
+  // their own games, not gone over yet
+  const fresh = (state.games||[]).filter(g=>g.studentId===s.id && (g.analysis||"Not analysed")==="Not analysed" && (!g.date || daysBetween(g.date, t)<=60));
+  if (fresh.length) add("warn", fresh.length===1 ? "1 game isn't analysed yet. Going over your own games is the fastest way to improve." : fresh.length+" games aren't analysed yet. Going over your own games is the fastest way to improve.",
+    fresh.length===1 ? "משחק אחד עוד לא נותח. מעבר על המשחקים שלך הוא הדרך המהירה ביותר להשתפר." : fresh.length+" משחקים עוד לא נותחו. מעבר על המשחקים שלך הוא הדרך המהירה ביותר להשתפר.");
+  // tasks past their date
+  const late = (state.assignments||[]).filter(a=>a.studentId===s.id && a.status==="Assigned" && a.due && a.due<t).length;
+  if (late) add("warn", late===1 ? "1 task is past its date." : late+" tasks are past their date.", late===1 ? "משימה אחת עברה את התאריך שלה." : late+" משימות עברו את התאריך שלהן.");
+  if (log.length>=4){
+    // a core area left out for two weeks
+    const since = c=>{ const d = log.filter(w=>w.what===c).reduce((m,w)=>w.date>m?w.date:m, ""); return d ? daysBetween(d, t) : null; };
+    const gapCat = ["Endgames","Tactics","Calculation"].map(c=>({c, d:since(c)})).filter(o=>o.d===null || o.d>=14).sort((a,b)=>(b.d===null?999:b.d)-(a.d===null?999:a.d))[0];
+    if (gapCat) add("warn", gapCat.d===null ? "No "+cat(gapCat.c)+" logged yet — add a short "+cat(gapCat.c)+" session this week." : "No "+cat(gapCat.c)+" for "+Math.floor(gapCat.d/7)+" weeks — add a short session this week.",
+      gapCat.d===null ? "עוד לא נרשם תרגול "+cat(gapCat.c)+" — כדאי להוסיף אימון קצר השבוע." : "אין תרגול "+cat(gapCat.c)+" כבר "+Math.floor(gapCat.d/7)+" שבועות — כדאי להוסיף אימון קצר השבוע.");
+    // one topic taking over
+    const month = log.filter(w=>daysBetween(w.date, t)<=30), mins = {}; month.forEach(w=>{ mins[w.what] = (mins[w.what]||0) + (+w.minutes||0); });
+    const total = Object.values(mins).reduce((a,b)=>a+b, 0), top = Object.keys(mins).sort((a,b)=>mins[b]-mins[a])[0];
+    if (month.length>=5 && total && mins[top]/total>0.7 && top!=="Other") add("warn", "Most of your practice this month is "+cat(top)+" ("+Math.round(mins[top]/total*100)+"%). Mix in other areas for a rounder game.",
+      "רוב התרגול החודש הוא "+cat(top)+" ("+Math.round(mins[top]/total*100)+"%). כדאי לשלב תחומים נוספים.");
+  }
+  // puzzle accuracy over the last two weeks
+  const puz = log.filter(w=>w.what==="Tactics" && +w.attempted>0 && daysBetween(w.date, t)<=14), tried = puz.reduce((a,w)=>a+(+w.attempted||0), 0), right = puz.reduce((a,w)=>a+(+w.correct||0), 0);
+  if (tried>=20){ const acc = Math.round(right/tried*100);
+    if (acc<60) add("warn", "Puzzle accuracy "+acc+"% in the last two weeks. Slow down and check your opponent's replies before you move.", "דיוק בתרגילים "+acc+"% בשבועיים האחרונים. כדאי להאט ולבדוק את התשובות של היריב לפני שמזיזים.");
+    else if (acc>=85) add("ok", "Puzzle accuracy "+acc+"% — time for harder puzzles.", "דיוק בתרגילים "+acc+"% — הגיע הזמן לתרגילים קשים יותר."); }
+  // encouragement
+  if (streak>=3) add("ok", practicedToday ? streak+"-day practice streak — great work!" : streak+"-day practice streak — practice today to keep it going.", practicedToday ? "רצף תרגול של "+streak+" ימים — כל הכבוד!" : "רצף תרגול של "+streak+" ימים — תרגול היום ישמור עליו.");
+  if (!out.length && log.length) add("ok", "A good balance lately — keep it up.", "איזון טוב לאחרונה — כדאי להמשיך כך.");
+  return out.filter(x=>x.kind==="warn").concat(out.filter(x=>x.kind==="ok")).slice(0, 3);
+}
+function tipsPanel(s){
+  const tips = playerTips(s); if (!tips.length) return "";
+  return panel("Tips", '<ul class="list tips">'+tips.map(x=>'<li><span aria-hidden="true">'+(x.kind==="ok" ? "✨" : "💡")+'</span> <span class="tip-text">'+esc(x.text)+'</span></li>').join("")+'</ul>');
+}
 // A parent's board: the child gets their own sign-in with a code, and logs their practice and games themselves.
 function kidPanel(s){
   const first = esc(firstName(s));
@@ -4234,6 +4283,7 @@ function pHome(v, s){
         : (s.pay.balance>0.009 || (s.pay.open||[]).some(x=>!x.upcoming)) ? '<button type="button" class="btn small" id="iPaid">I\'ve paid</button>' : '')+'<a class="btn small" href="#/payments">Statement</a></div>') : '')+
     (NOCOACH() ? '' : updatesPanel(s))+ // updates are what a coach changed
     (PLAYER && s.setup==="parent" ? kidPanel(s) : '')+
+    (NOCOACH() ? tipsPanel(s) : '')+
     panel("Coming up", (lessons.length||tours.length||pend.length||clubs.length) ? '<ul class="list">'+
         // one list in date and time order: lessons, club classes, tournaments and requests together
         [...lessons.map(x=>({k:x.date+" "+(x.time||""), h:(()=>{ const pc = pendingChange(s, x); return '<li><div class="main"><div class="title">Lesson'+(needsAnswer(s, x)||offerFor(s, x)?' <span class="tag warn">'+(offerFor(s, x)?"New time proposed":"Answer needed")+'</span>':'')+(pc?' <span class="tag warn">'+(pc.kind==="cancel"?"Cancel requested":"Move requested")+'</span>':'')+'</div><div class="small muted">'+[where(x), x.duration?x.duration+" min":"", x.topics].filter(Boolean).map(esc).join(" · ")+'</div>'+
@@ -8213,7 +8263,7 @@ Object.assign(HE, {
   "Your child can sign in on their own phone and log practice, games and tournaments. Everything shows here too.":"הילד/ה יכול/ה להתחבר מהטלפון שלו/ה ולרשום תרגול, משחקים ותחרויות. הכל מופיע גם כאן.",
   "They create an account with their own email and a password.":"יוצרים חשבון עם אימייל משלהם וסיסמה.", "They enter this code:":"מזינים את הקוד הזה:",
   "Enter the code your coach (or your parent) gave you to connect your account.":"יש להזין את הקוד שקיבלת מהמאמן (או מההורה) כדי לחבר את החשבון.",
-  "Next tournament":"התחרות הבאה", "No tournament planned":"אין תחרות מתוכננת",   "No tasks yet. Add one to plan your practice.":"עדיין אין משימות. אפשר להוסיף משימה כדי לתכנן את האימון.", "Done — nice work":"בוצע — כל הכבוד", "Welcome! Opening your board…":"ברוכים הבאים! הלוח שלך נפתח…",
+  "Tips":"טיפים",   "Next tournament":"התחרות הבאה", "No tournament planned":"אין תחרות מתוכננת",   "No tasks yet. Add one to plan your practice.":"עדיין אין משימות. אפשר להוסיף משימה כדי לתכנן את האימון.", "Done — nice work":"בוצע — כל הכבוד", "Welcome! Opening your board…":"ברוכים הבאים! הלוח שלך נפתח…",
   "Coaches":"מאמנים", "Another coach can use Rank Up with their own students. Make a coach code and send it to them: they create an account and enter it. Each coach sees only their own students, payments and backups.":"מאמן נוסף יכול להשתמש ב„עולים בדרגה” עם התלמידים שלו. יוצרים קוד מאמן ושולחים לו: הוא יוצר חשבון ומזין את הקוד. כל מאמן רואה רק את התלמידים, התשלומים והגיבויים שלו.",
   "Couldn’t load the coach codes.":"לא ניתן לטעון את קודי המאמן.", "Used by":"נוצל על ידי", "Not used yet":"עדיין לא נוצל", "Copy message":"העתקת ההודעה",
   "No coach codes yet.":"עדיין אין קודי מאמן.", "Make a coach code":"יצירת קוד מאמן", "Remove this coach code?":"להסיר את קוד המאמן?", "account removed":"החשבון נמחק", "Remove from the list?":"להסיר מהרשימה?", "The account that used it was deleted.":"החשבון שהשתמש בו נמחק.", "Nobody will be able to join with it.":"אי אפשר יהיה להצטרף איתו.",
