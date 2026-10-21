@@ -402,6 +402,14 @@ A player follows their own chess with no coach. They get a **player code** from 
 - **Tasks:** **New task** (title, type, due date, details); **Mark done** finishes it (no coach to review).
 - Everything they log is saved straight away in their own records (kept like a coach's, with one student:
   themselves), so it has nightly backups too. The admin page lists them under **Accounts** as **Player**.
+- **Young players — the parent first.** The parent gets the player code (on the admin page, **Send player code**
+  on a parent's request sends a message about setting it up for their child), signs up, and in **Who is this
+  account for?** chooses **My child**. Home then reads "<child>’s board" with **The player's own sign-in**:
+  **Send an invite** makes a code and a message for the child. The child creates their own account and enters
+  the code (the welcome screen says "the code your coach (or your parent) gave you"). The child uses the student
+  app with no coach parts (no Schedule, lesson requests, updates or coach names); their practice, games and
+  tasks reach the parent's board when the parent's app is open, like a coach's. The parent sets the tasks; when
+  the child marks one done it shows Done, and the parent's board finishes it.
 
 ## 2. Student view
 

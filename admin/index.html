@@ -75,7 +75,7 @@ const APP_LINK = ()=>new URL("../", location.href).href.replace(/\/admin\/?$/, "
 const HE = {"Rank Up Admin":"ניהול „עולים בדרגה”", "Back to the app":"חזרה לאפליקציה", "Loading…":"טוען…",
   "Access requests":"בקשות הצטרפות", "Codes":"קודים", "Coaches":"מאמנים", "Accounts":"חשבונות", "Coaches and players":"מאמנים ושחקנים", "Nobody else yet.":"עדיין אין אחרים.",
   "One code lets one new coach or player join. Make a code and send it: they create an account in the app and enter it.":"כל קוד מאפשר למאמן או לשחקן חדש אחד להצטרף. יוצרים קוד ושולחים: הם יוצרים חשבון באפליקציה ומזינים אותו.",
-  "Send player code":"שליחת קוד שחקן", "Make a player code":"יצירת קוד שחקן", "e.g. Tom Levi":"למשל: תום לוי", "Send this to the new player":"שליחה לשחקן החדש",
+  "Send player code":"שליחת קוד שחקן", "Make a player code":"יצירת קוד שחקן", "e.g. Tom Levi":"למשל: תום לוי", "Send this to the new player":"שליחה לשחקן החדש", "Send this to the parent":"שליחה להורה",
   "Remove player":"הסרת השחקן", "What happens to their records?":"מה קורה למידע שלו?", "Keep them — a new player code brings them back":"נשמר — קוד שחקן חדש מחזיר אותו",
   "Sign in to the app first, with the admin account.":"קודם צריך להתחבר לאפליקציה, עם חשבון המנהל.", "Open the app":"פתיחת האפליקציה",
   "This page is only for the Rank Up admin.":"הדף הזה מיועד רק למנהל „עולים בדרגה”.",
@@ -183,23 +183,27 @@ async function fillLeads(el){
       '<div class="row-actions"><select class="status small" data-st="'+esc(x.id)+'" aria-label="Status">'+STATUS.map(([k,l])=>'<option value="'+k+'"'+(x.status===k?" selected":"")+'>'+esc(T(l))+'</option>').join("")+'</select>'+
         '<a class="btn small" href="'+esc(waLink(x.phone))+'" target="_blank" rel="noopener">WhatsApp</a>'+
         (!x.code ? '<button type="button" class="btn small primary" data-send="'+esc(x.id)+'">'+esc(T((x.who||"coach")==="coach" ? "Send coach code" : "Send player code"))+'</button>' : '')+
-        (x.code && x.status!=="joined" ? '<button type="button" class="btn small" data-copy="'+esc(x.code)+'" data-kind="'+((x.who||"coach")==="coach" ? "coach" : "player")+'">'+esc(T("Copy message"))+'</button>' : '')+
+        (x.code && x.status!=="joined" ? '<button type="button" class="btn small" data-copy="'+esc(x.code)+'" data-kind="'+((x.who||"coach")==="coach" ? "coach" : "player")+'" data-who="'+esc(x.who||"coach")+'">'+esc(T("Copy message"))+'</button>' : '')+
         '<button type="button" class="btn small ghost danger" data-del="'+esc(x.id)+'">'+esc(T("Remove"))+'</button></div></li>').join("")+'</ul>'
       : '<p class="empty">'+esc(T(rows.length ? "Nobody in this list." : "Nobody yet."))+'</p>');
   const save = (id, patch)=>sb.from("leads").update(Object.assign(patch, {updated_at:new Date().toISOString()})).eq("id", id).then(x=>{ if (x.error) toast("Couldn’t save."); else toast("Saved"); }, ()=>toast("Couldn’t save."));
   el.querySelectorAll("[data-f]").forEach(b=>b.onclick = ()=>{ filter = b.dataset.f; fillLeads(el); });
   el.querySelectorAll("[data-st]").forEach(s=>s.onchange = ()=>save(s.dataset.st, {status:s.value}).then(()=>fillLeads(el)));
   el.querySelectorAll("[data-note]").forEach(t=>{ const was = t.value; t.onblur = ()=>{ if (t.value!==was) save(t.dataset.note, {admin_note:t.value.slice(0,1000)}); }; });
-  el.querySelectorAll("[data-copy]").forEach(b=>b.onclick = ()=>copyInvite(b.dataset.copy, b.dataset.kind));
+  el.querySelectorAll("[data-copy]").forEach(b=>b.onclick = ()=>copyInvite(b.dataset.copy, b.dataset.kind, b.dataset.who));
   el.querySelectorAll("[data-send]").forEach(b=>b.onclick = async ()=>{ const x = rows.find(y=>String(y.id)===b.dataset.send); if (!x) return;
     const kind = (x.who||"coach")==="coach" ? "coach" : "player", c = await makeCode(x.name, kind); if (!c) return;
     await sb.from("leads").update({code:c, status:"code", updated_at:new Date().toISOString()}).eq("id", x.id);
-    fillLeads(el); copyInvite(c, kind); });
+    fillLeads(el); copyInvite(c, kind, x.who); });
   el.querySelectorAll("[data-del]").forEach(b=>b.onclick = ()=>confirmBox(T("Remove from the list?"), "Their details are deleted.", "Remove", async ()=>{
     const x = await sb.from("leads").delete().eq("id", b.dataset.del); if (x.error) toast("Couldn’t remove it."); else toast("Removed"); fillLeads(el); }));
 }
 /* ---------- codes: one code lets one new coach (or player) join ---------- */
-const invite = (code, kind)=>kind==="player"
+const invite = (code, kind, who)=>who==="parent"
+  ? (lang()==="he"
+    ? "הוזמנת לפתוח לילד/ה שלך חשבון ב„עולים בדרגה” — מעקב אחרי התרגול, המשחקים, התחרויות והדירוג.\n1. נכנסים ל־"+APP_LINK()+"\n2. יוצרים חשבון עם האימייל שלך\n3. לוחצים על „אני שחקן ויש לי קוד שחקן”, מזינים: "+code+"\n4. בוחרים „בשביל הילד/ה שלי”, ואז שולחים לילד/ה קוד מהאפליקציה"
+    : "You're invited to set up Rank Up for your child, to follow their practice, games, tournaments and rating.\n1. Open "+APP_LINK()+"\n2. Create an account with your email\n3. Tap “I'm a player and have a player code” and enter: "+code+"\n4. Choose “My child”, then send your child a code from the app")
+  : kind==="player"
   ? (lang()==="he"
     ? "הוזמנת להשתמש ב„עולים בדרגה” כשחקן — מעקב אחרי התרגול, המשחקים, התחרויות והדירוג שלך.\n1. נכנסים ל־"+APP_LINK()+"\n2. יוצרים חשבון עם אימייל\n3. לוחצים על „אני שחקן ויש לי קוד שחקן” ומזינים: "+code
     : "You're invited to use Rank Up as a player, to follow your practice, games, tournaments and rating.\n1. Open "+APP_LINK()+"\n2. Create an account with your email\n3. Tap “I'm a player and have a player code” and enter: "+code)
@@ -231,8 +235,8 @@ async function fillCoachCodes(el){
       onSubmit:d=>{ makeCode(d.note, kind).then(c=>{ if (c){ fillCoachCodes(el); copyInvite(c, kind); } }); }}); }
   };
 }
-function copyInvite(code, kind){
-  openForm({title:T(kind==="player" ? "Send this to the new player" : "Send this to the new coach"), submit:"Copy", fields:[{name:"msg", label:"Message", type:"textarea", value:invite(code, kind)}],
+function copyInvite(code, kind, who){
+  openForm({title:T(who==="parent" ? "Send this to the parent" : kind==="player" ? "Send this to the new player" : "Send this to the new coach"), submit:"Copy", fields:[{name:"msg", label:"Message", type:"textarea", value:invite(code, kind, who)}],
     onSubmit:d=>{ (navigator.clipboard ? navigator.clipboard.writeText(d.msg) : Promise.reject()).then(()=>toast("Copied"), ()=>toast("Couldn't copy — select the text and copy it yourself.")); }});
 }
 /* ---------- the coaches who joined: removing one keeps their records (a new code brings them back) or deletes everything ---------- */
