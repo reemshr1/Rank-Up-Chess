@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Rank Up Admin</title>
+<link rel="icon" href="../icons/icon-192.png">
+<style>
+/* The admin page: running Rank Up itself (access requests, codes, coaches), kept apart from the coach's own board.
+   Only the admin account sees anything here; the database rules make sure of that. */
+:root{
+  --paper:#F7FAF5; --surface:#FFFFFF; --ink:#16243F; --muted:#5B6B82; --line:#DCE3EA; --accent:#1E4E9C; --accent-ink:#FFFFFF;
+  --flag:#B3412B; --flag-bg:#FBE7E2; --ok:#2E7D4F; --ok-bg:#E3F3E8; --warn:#8A6A00; --warn-bg:#FFF4CC; --tint:#E7EEF9;
+  --body:"Public Sans","Heebo","Segoe UI",system-ui,-apple-system,sans-serif; --r:12px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --paper:#0F1622; --surface:#172131; --ink:#E6ECF5; --muted:#9AA8BE; --line:#2A3647; --accent:#7FA9F0; --accent-ink:#0B1220;
+  --flag:#E57D66; --flag-bg:#3A221C; --ok:#7CC39D; --ok-bg:#1D3326; --warn:#F2D16B; --warn-bg:#3A3218; --tint:#1B2D4D; } }
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 var(--body)}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--accent)}
+.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px max(16px,env(safe-area-inset-left));border-bottom:1px solid var(--line);background:var(--surface)}
+.top h1{font-size:1.15rem;margin:0;margin-inline-end:auto}
+.wrap{max-width:980px;margin:0 auto;padding:20px 16px 60px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px}
+.tabs button,.chips button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 14px;cursor:pointer}
+.tabs button.on,.chips button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
+.chips button{font-size:.88rem;padding:4px 11px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;margin:0 0 16px}
+.panel h2{font-size:1.05rem;margin:0 0 4px}
+.muted{color:var(--muted)} .small{font-size:.88rem}
+.list{list-style:none;margin:10px 0 0;padding:0}
+.list>li{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;padding:12px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+.list>li:first-child{border-top:0}
+.main{flex:1;min-width:220px}
+.title{font-weight:700}
+.tag{display:inline-block;font-size:.75rem;font-weight:700;border-radius:999px;padding:1px 9px;background:var(--tint);color:var(--ink);vertical-align:1px}
+.tag.ok{background:var(--ok-bg);color:var(--ok)} .tag.warn{background:var(--warn-bg);color:var(--warn)} .tag.flag{background:var(--flag-bg);color:var(--flag)}
+.row-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 14px;cursor:pointer;text-decoration:none;color:var(--ink);display:inline-flex;align-items:center;gap:6px}
+.btn.small{padding:4px 10px;font-size:.88rem}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.danger{color:var(--flag)}
+.empty{color:var(--muted);margin:10px 0 0}
+.notes{width:100%;min-height:54px;margin-top:8px;padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--paper);resize:vertical}
+.status{padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--paper)}
+dialog{border:1px solid var(--line);border-radius:var(--r);padding:0;background:var(--surface);color:var(--ink);width:min(520px,calc(100vw - 32px))}
+dialog::backdrop{background:rgba(10,18,32,.45)}
+dialog header{padding:16px 20px 6px} dialog header h2{margin:0;font-size:1.1rem}
+dialog .body{padding:6px 20px 10px;display:grid;gap:10px}
+dialog label{font-weight:600;font-size:.9rem;display:grid;gap:4px}
+dialog input,dialog select,dialog textarea{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--paper);width:100%}
+dialog textarea{min-height:150px}
+dialog footer{display:flex;justify-content:flex-end;gap:8px;padding:12px 20px 16px;border-top:1px solid var(--line)}
+.form-err{color:var(--flag);margin:0 20px 6px}
+#toast{position:fixed;bottom:20px;inset-inline-start:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:9px 16px;border-radius:999px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
+[dir="rtl"] #toast{transform:translateX(50%)}
+#toast.on{opacity:1}
+.gate{max-width:440px;margin:60px auto;text-align:center}
+</style>
+</head>
+<body>
+<div class="top"><h1 data-t>Rank Up Admin</h1><a class="btn small" href="../" data-t>Back to the app</a><button type="button" class="btn small ghost" id="lang">עברית</button></div>
+<main class="wrap" id="view"><p class="muted" data-t>Loading…</p></main>
+<dialog id="modal"></dialog>
+<div id="toast" role="status"></div>
+<script>
+const SUPABASE = {url:"https://gzcwvnynkcepvqkzwvkb.supabase.co", key:"sb_publishable_0on-hzzXoXPdk8dOFM3RNQ_9pEMALHx"};
+const APP_LINK = ()=>new URL("../", location.href).href.replace(/\/admin\/?$/, "/");
+/* ---------- language: the app's choice, kept in the same place ---------- */
+const HE = {"Rank Up Admin":"ניהול „עולים בדרגה”", "Back to the app":"חזרה לאפליקציה", "Loading…":"טוען…",
+  "Access requests":"בקשות הצטרפות", "Codes":"קודים", "Coaches":"מאמנים",
+  "Sign in to the app first, with the admin account.":"קודם צריך להתחבר לאפליקציה, עם חשבון המנהל.", "Open the app":"פתיחת האפליקציה",
+  "This page is only for the Rank Up admin.":"הדף הזה מיועד רק למנהל „עולים בדרגה”.",
+  "Everyone who asked to join through the website, and where each one stands.":"כל מי שביקש להצטרף דרך האתר, ואיפה כל אחד עומד.",
+  "All":"הכל", "Open":"פתוחות", "New":"חדש", "Contacted":"נוצר קשר", "Code sent":"נשלח קוד", "Joined":"הצטרף", "Not interested":"לא מעוניין",
+  "Coach":"מאמן", "Player":"שחקן", "Parent of a player":"הורה של שחקן",
+  "Your notes":"ההערות שלך", "Saved":"נשמר", "Couldn’t save.":"לא ניתן לשמור.", "Remove":"הסרה", "Send coach code":"שליחת קוד מאמן", "Copy message":"העתקת ההודעה",
+  "Nobody yet.":"עדיין אין.", "Nobody in this list.":"אין אף אחד ברשימה הזו.", "Couldn’t load the list.":"לא ניתן לטעון את הרשימה.",
+  "Remove from the list?":"להסיר מהרשימה?", "Their details are deleted.":"הפרטים שלהם נמחקים.", "Removed":"הוסר", "Couldn’t remove it.":"לא ניתן להסיר.",
+  "Private lessons":"שיעורים פרטיים", "Club classes":"חוגים במועדון", "Private and club":"פרטי ומועדון", "students":"תלמידים",
+  "Their note":"ההערה שלהם", "code":"קוד",
+  "Coach codes":"קודי מאמן", "One code lets one new coach join. Make a code and send it: they create an account in the app and enter it.":"כל קוד מאפשר למאמן חדש אחד להצטרף. יוצרים קוד ושולחים: הוא יוצר חשבון באפליקציה ומזין אותו.",
+  "Make a coach code":"יצירת קוד מאמן", "No coach codes yet.":"עדיין אין קודי מאמן.", "Not used yet":"עדיין לא נוצל", "Used by":"נוצל על ידי", "account removed":"החשבון נמחק",
+  "Couldn’t load the coach codes.":"לא ניתן לטעון את קודי המאמן.", "Remove this coach code?":"להסיר את קוד המאמן?", "Nobody will be able to join with it.":"אי אפשר יהיה להצטרף איתו.",
+  "The account that used it was deleted.":"החשבון שהשתמש בו נמחק.", "Code removed":"הקוד הוסר", "Couldn’t remove the code.":"לא ניתן להסיר את הקוד.",
+  "Who is it for? (optional)":"בשביל מי? (לא חובה)", "e.g. Dan, chess club Haifa":"למשל: דן, מועדון שחמט חיפה", "Make code":"יצירת קוד",
+  "Couldn’t make the code. Check your connection.":"לא ניתן ליצור את הקוד. כדאי לבדוק את החיבור.", "Send this to the new coach":"שליחה למאמן החדש", "Message":"הודעה", "Copy":"העתקה", "Copied":"הועתק",
+  "Couldn't copy — select the text and copy it yourself.":"לא ניתן להעתיק — סמנו את הטקסט והעתיקו.",
+  "Coaches using Rank Up":"מאמנים שמשתמשים ב„עולים בדרגה”", "Couldn’t load the coaches.":"לא ניתן לטעון את רשימת המאמנים.", "Your account":"החשבון שלך", "No other coaches yet.":"עדיין אין מאמנים נוספים.",
+  "Remove coach":"הסרת המאמן", "What happens to their students and records?":"מה קורה לתלמידים ולמידע שלו?", "Keep them — a new coach code brings them back":"נשמרים — קוד מאמן חדש מחזיר אותם",
+  "Delete their account and everything in it":"מחיקת החשבון וכל מה שבו", "Their account, students, lessons, payments and backups are deleted, and their students and parents are disconnected. This can’t be undone.":"החשבון, התלמידים, השיעורים, התשלומים והגיבויים שלו נמחקים, והתלמידים וההורים שלו מתנתקים. אי אפשר לבטל את זה.",
+  "Couldn’t remove the coach.":"לא ניתן להסיר את המאמן.", "Coach removed":"המאמן הוסר", "Delete":"מחיקה", "Cancel":"ביטול", "Sign out":"התנתקות"};
+const lang = ()=>{ try { return localStorage.getItem("rankup-lang")==="he" ? "he" : "en"; } catch(e){ return "en"; } };
+const T = s=>lang()==="he" && HE[s] ? HE[s] : s;
+function applyLang(){
+  const he = lang()==="he"; document.documentElement.lang = he ? "he" : "en"; document.documentElement.dir = he ? "rtl" : "ltr";
+  document.getElementById("lang").textContent = he ? "English" : "עברית";
+  document.querySelectorAll("[data-t]").forEach(e=>{ if (!e.dataset.en) e.dataset.en = e.textContent; e.textContent = T(e.dataset.en); });
+  document.title = T("Rank Up Admin");
+}
+document.getElementById("lang").onclick = ()=>{ try { localStorage.setItem("rankup-lang", lang()==="he" ? "en" : "he"); } catch(e){} applyLang(); render(); };
+/* ---------- small helpers ---------- */
+const $ = s=>document.querySelector(s);
+const esc = s=>String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtDate = d=>{ const x = new Date(String(d).slice(0,10)+"T00:00"); return isNaN(x) ? "" : x.toLocaleDateString(lang()==="he" ? "he-IL" : "en-GB", {day:"numeric", month:"short", year:"numeric"}); };
+let toastT; function toast(m){ const t = $("#toast"); t.textContent = T(m); t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(()=>t.classList.remove("on"), 2200); }
+function confirmBox(title, text, label, onYes){
+  const m = $("#modal");
+  m.innerHTML = '<form method="dialog"><header><h2>'+esc(title)+'</h2></header><div class="body"><p style="margin:0">'+esc(T(text))+'</p></div><footer><button type="button" class="btn" data-act="cancel">'+esc(T("Cancel"))+'</button><button type="submit" class="btn primary">'+esc(T(label))+'</button></footer></form>';
+  const f = m.querySelector("form"); f.querySelector('[data-act="cancel"]').onclick = ()=>m.close();
+  f.onsubmit = e=>{ e.preventDefault(); m.close(); onYes(); }; m.showModal();
+}
+// fields: {name, label, type: text | textarea | select, value, options:[[value,label]], placeholder}
+function openForm({title, fields, submit, onSubmit}){
+  const m = $("#modal");
+  m.innerHTML = '<form method="dialog"><header><h2>'+esc(title)+'</h2></header><div class="body">'+fields.map(f=>'<label>'+esc(T(f.label))+
+      (f.type==="textarea" ? '<textarea id="f_'+f.name+'" name="'+f.name+'">'+esc(f.value||"")+'</textarea>'
+        : f.type==="select" ? '<select id="f_'+f.name+'" name="'+f.name+'">'+f.options.map(([v,l])=>'<option value="'+esc(v)+'"'+(v===f.value?" selected":"")+'>'+esc(T(l))+'</option>').join("")+'</select>'
+        : '<input id="f_'+f.name+'" name="'+f.name+'" value="'+esc(f.value||"")+'" placeholder="'+esc(T(f.placeholder||""))+'">')+'</label>').join("")+'</div>'+
+    '<p class="form-err" role="alert" hidden></p><footer><button type="button" class="btn" data-act="cancel">'+esc(T("Cancel"))+'</button><button type="submit" class="btn primary">'+esc(T(submit))+'</button></footer></form>';
+  const f = m.querySelector("form"); f.querySelector('[data-act="cancel"]').onclick = ()=>m.close();
+  f.onsubmit = e=>{ e.preventDefault(); const d = Object.fromEntries(new FormData(f)); const r = onSubmit(d);
+    if (typeof r==="string"){ const er = f.querySelector(".form-err"); er.textContent = T(r); er.hidden = false; return; }
+    if (m.querySelector("form")===f) m.close(); };
+  m.showModal();
+}
+/* ---------- signing in: the app's session, on the same site ---------- */
+let sb = null, me = null, tab = "requests", filter = "open";
+function loadScript(src){ return new Promise((ok, no)=>{ const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); }); }
+async function start(){
+  applyLang();
+  try {
+    if (!window.supabase) await loadScript("../vendor/supabase.js");
+    sb = window.supabase.createClient(SUPABASE.url, SUPABASE.key, {auth:{persistSession:true, autoRefreshToken:true}});
+    const {data} = await sb.auth.getSession(); const user = data && data.session && data.session.user;
+    if (!user) return gate("Sign in to the app first, with the admin account.", true);
+    const c = await sb.from("coaches").select("user_id,is_admin").eq("user_id", user.id).maybeSingle();
+    if (c.error || !c.data || !c.data.is_admin) return gate("This page is only for the Rank Up admin.", true);
+    me = user; render();
+  } catch(e){ gate("Couldn’t load the list.", true); }
+}
+function gate(msg, link){ $("#view").innerHTML = '<div class="gate panel"><p>'+esc(T(msg))+'</p>'+(link ? '<a class="btn primary" href="../">'+esc(T("Open the app"))+'</a>' : '')+'</div>'; }
+function render(){
+  if (!me) return;
+  $("#view").innerHTML = '<div class="tabs" role="tablist">'+[["requests","Access requests"],["codes","Codes"],["coaches","Coaches"]].map(([k,l])=>'<button type="button" role="tab" aria-selected="'+(tab===k)+'" class="'+(tab===k?"on":"")+'" data-tab="'+k+'">'+esc(T(l))+'</button>').join("")+'</div><div id="pane"></div>';
+  document.querySelectorAll("[data-tab]").forEach(b=>b.onclick = ()=>{ tab = b.dataset.tab; render(); });
+  const pane = $("#pane");
+  if (tab==="requests"){ pane.innerHTML = '<section class="panel"><h2>'+esc(T("Access requests"))+'</h2><p class="small muted" style="margin:0">'+esc(T("Everyone who asked to join through the website, and where each one stands."))+'</p><div id="leadsList"></div></section>'; fillLeads($("#leadsList")); }
+  if (tab==="codes"){ pane.innerHTML = '<section class="panel"><h2>'+esc(T("Coach codes"))+'</h2><p class="small muted" style="margin:0">'+esc(T("One code lets one new coach join. Make a code and send it: they create an account in the app and enter it."))+'</p><div id="coachCodes"></div></section>'; fillCoachCodes($("#coachCodes")); }
+  if (tab==="coaches"){ pane.innerHTML = '<section class="panel"><h2>'+esc(T("Coaches using Rank Up"))+'</h2><div id="coachList"></div></section>'; fillCoachList($("#coachList")); }
+}
+/* ---------- access requests ---------- */
+const STATUS = [["new","New"],["contacted","Contacted"],["code","Code sent"],["joined","Joined"],["no","Not interested"]];
+const WHO = {coach:"Coach", player:"Player", parent:"Parent of a player"};
+const KIND = {private:"Private lessons", club:"Club classes", both:"Private and club"};
+const waLink = p=>{ let d = String(p||"").replace(/\D/g,""); if (d.startsWith("0")) d = "972"+d.slice(1); return "https://wa.me/"+d; };
+async function fillLeads(el){
+  let r; try { r = await sb.from("leads").select("*").order("created_at", {ascending:false}); } catch(e){ r = {error:e}; }
+  if (!el.isConnected) return;
+  if (r.error){ el.innerHTML = '<p class="small muted">'+esc(T("Couldn’t load the list."))+'</p>'; return; }
+  let rows = r.data||[];
+  // a code that has since been used means they joined
+  const coded = rows.filter(x=>x.code && x.status==="code");
+  if (coded.length){ const c = await sb.from("coach_codes").select("code,used_at"); const used = new Set(((c && c.data)||[]).filter(x=>x.used_at).map(x=>x.code));
+    for (const x of coded) if (used.has(x.code)){ x.status = "joined"; sb.from("leads").update({status:"joined", updated_at:new Date().toISOString()}).eq("id", x.id).then(()=>{}, ()=>{}); } }
+  const count = k=>rows.filter(x=>k==="open" ? !["joined","no"].includes(x.status) : x.status===k).length;
+  const shown = filter==="all" ? rows : rows.filter(x=>filter==="open" ? !["joined","no"].includes(x.status) : x.status===filter);
+  el.innerHTML = '<div class="chips" style="margin-top:12px">'+[["open","Open"],["all","All"]].concat(STATUS).map(([k,l])=>'<button type="button" class="'+(filter===k?"on":"")+'" data-f="'+k+'">'+esc(T(l))+(k==="all"?"":" ("+count(k)+")")+'</button>').join("")+'</div>'+
+    (shown.length ? '<ul class="list">'+shown.map(x=>'<li data-id="'+esc(x.id)+'"><div class="main">'+
+      '<div class="title">'+esc(x.name)+' <span class="tag">'+esc(T(WHO[x.who]||"Coach"))+'</span>'+(x.city?' <span class="muted small">· '+esc(x.city)+'</span>':'')+'</div>'+
+      '<div class="small"><bdi dir="ltr">'+esc(x.phone)+'</bdi> · <bdi dir="ltr">'+esc(x.email)+'</bdi></div>'+
+      '<div class="small muted">'+esc(fmtDate(x.created_at))+(x.kind && (x.who||"coach")==="coach"?' · '+esc(T(KIND[x.kind]||x.kind)):'')+(x.students?' · '+esc(x.students)+' '+esc(T("students")):'')+(x.code?' · '+esc(T("code"))+' <bdi dir="ltr">'+esc(x.code)+'</bdi>':'')+'</div>'+
+      (x.note?'<div class="small"><b>'+esc(T("Their note"))+':</b> '+esc(x.note)+'</div>':'')+
+      '<textarea class="notes small" data-note="'+esc(x.id)+'" placeholder="'+esc(T("Your notes"))+'" aria-label="'+esc(T("Your notes"))+'">'+esc(x.admin_note||"")+'</textarea></div>'+
+      '<div class="row-actions"><select class="status small" data-st="'+esc(x.id)+'" aria-label="Status">'+STATUS.map(([k,l])=>'<option value="'+k+'"'+(x.status===k?" selected":"")+'>'+esc(T(l))+'</option>').join("")+'</select>'+
+        '<a class="btn small" href="'+esc(waLink(x.phone))+'" target="_blank" rel="noopener">WhatsApp</a>'+
+        ((x.who||"coach")==="coach" && !x.code ? '<button type="button" class="btn small primary" data-send="'+esc(x.id)+'">'+esc(T("Send coach code"))+'</button>' : '')+
+        (x.code && x.status!=="joined" ? '<button type="button" class="btn small" data-copy="'+esc(x.code)+'">'+esc(T("Copy message"))+'</button>' : '')+
+        '<button type="button" class="btn small ghost danger" data-del="'+esc(x.id)+'">'+esc(T("Remove"))+'</button></div></li>').join("")+'</ul>'
+      : '<p class="empty">'+esc(T(rows.length ? "Nobody in this list." : "Nobody yet."))+'</p>');
+  const save = (id, patch)=>sb.from("leads").update(Object.assign(patch, {updated_at:new Date().toISOString()})).eq("id", id).then(x=>{ if (x.error) toast("Couldn’t save."); else toast("Saved"); }, ()=>toast("Couldn’t save."));
+  el.querySelectorAll("[data-f]").forEach(b=>b.onclick = ()=>{ filter = b.dataset.f; fillLeads(el); });
+  el.querySelectorAll("[data-st]").forEach(s=>s.onchange = ()=>save(s.dataset.st, {status:s.value}).then(()=>fillLeads(el)));
+  el.querySelectorAll("[data-note]").forEach(t=>{ const was = t.value; t.onblur = ()=>{ if (t.value!==was) save(t.dataset.note, {admin_note:t.value.slice(0,1000)}); }; });
+  el.querySelectorAll("[data-copy]").forEach(b=>b.onclick = ()=>copyCoachInvite(b.dataset.copy));
+  el.querySelectorAll("[data-send]").forEach(b=>b.onclick = async ()=>{ const x = rows.find(y=>String(y.id)===b.dataset.send); if (!x) return;
+    const c = await makeCoachCode(x.name); if (!c) return;
+    await sb.from("leads").update({code:c, status:"code", updated_at:new Date().toISOString()}).eq("id", x.id);
+    fillLeads(el); copyCoachInvite(c); });
+  el.querySelectorAll("[data-del]").forEach(b=>b.onclick = ()=>confirmBox(T("Remove from the list?"), "Their details are deleted.", "Remove", async ()=>{
+    const x = await sb.from("leads").delete().eq("id", b.dataset.del); if (x.error) toast("Couldn’t remove it."); else toast("Removed"); fillLeads(el); }));
+}
+/* ---------- coach codes: one code lets one new coach join ---------- */
+const coachInvite = code=>lang()==="he"
+  ? "הוזמנת להשתמש ב„עולים בדרגה” כמאמן.\n1. נכנסים ל־"+APP_LINK()+"\n2. יוצרים חשבון עם אימייל\n3. לוחצים על „אני מאמן ויש לי קוד מאמן” ומזינים: "+code
+  : "You're invited to use Rank Up as a coach.\n1. Open "+APP_LINK()+"\n2. Create an account with your email\n3. Tap “I'm a coach and have a coach code” and enter: "+code;
+async function makeCoachCode(note){
+  const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let c = ""; crypto.getRandomValues(new Uint32Array(8)).forEach(n=>{ c += A[n % A.length]; });
+  let x; try { x = await sb.from("coach_codes").insert({code:c, note:String(note||"").trim().slice(0,80)}); } catch(e){ x = {error:e}; }
+  if (x.error){ toast("Couldn’t make the code. Check your connection."); return null; }
+  return c;
+}
+async function fillCoachCodes(el){
+  let r; try { r = await sb.from("coach_codes").select("code,note,made_at,used_by,used_email,used_at").order("made_at", {ascending:false}); } catch(e){ r = {error:e}; }
+  if (!el.isConnected) return;
+  if (r.error){ el.innerHTML = '<p class="small muted">'+esc(T("Couldn’t load the coach codes."))+'</p>'; return; }
+  const rows = r.data||[];
+  el.innerHTML = (rows.length ? '<ul class="list">'+rows.map(x=>'<li><div class="main"><div class="title"><bdi dir="ltr" style="letter-spacing:.08em">'+esc(x.code)+'</bdi>'+(x.note?' · '+esc(x.note):'')+'</div><div class="small muted">'+
+      (x.used_at ? esc(T("Used by"))+' <bdi dir="ltr">'+esc(x.used_email||"")+'</bdi> · '+esc(fmtDate(x.used_at))+(x.used_by ? '' : ' · <span class="tag">'+esc(T("account removed"))+'</span>') : esc(T("Not used yet")))+'</div></div>'+
+      (x.used_at && x.used_by ? '' : '<div class="row-actions">'+(x.used_at ? '' : '<button type="button" class="btn small ghost" data-cc="copy" data-code="'+esc(x.code)+'">'+esc(T("Copy message"))+'</button>')+'<button type="button" class="btn small ghost" data-cc="del" data-code="'+esc(x.code)+'">'+esc(T("Remove"))+'</button></div>')+'</li>').join("")+'</ul>'
+    : '<p class="empty">'+esc(T("No coach codes yet."))+'</p>')+
+    '<div class="row-actions" style="margin-top:12px"><button type="button" class="btn small primary" data-cc="new">'+esc(T("Make a coach code"))+'</button></div>';
+  el.onclick = e=>{ const b = e.target.closest("[data-cc]"); if (!b) return; const k = b.dataset.cc, code = b.dataset.code;
+    if (k==="copy") return copyCoachInvite(code);
+    const used = (rows.find(y=>y.code===code)||{}).used_at; // used by an account that was since deleted
+    if (k==="del") return confirmBox(T(used ? "Remove from the list?" : "Remove this coach code?"), used ? "The account that used it was deleted." : "Nobody will be able to join with it.", "Remove", async ()=>{
+      const x = await sb.from("coach_codes").delete().eq("code", code); if (x.error) toast("Couldn’t remove the code."); else toast("Code removed"); fillCoachCodes(el); });
+    if (k==="new") openForm({title:T("Make a coach code"), submit:"Make code", fields:[{name:"note", label:"Who is it for? (optional)", value:"", placeholder:"e.g. Dan, chess club Haifa"}],
+      onSubmit:d=>{ makeCoachCode(d.note).then(c=>{ if (c){ fillCoachCodes(el); copyCoachInvite(c); } }); }});
+  };
+}
+function copyCoachInvite(code){
+  openForm({title:T("Send this to the new coach"), submit:"Copy", fields:[{name:"msg", label:"Message", type:"textarea", value:coachInvite(code)}],
+    onSubmit:d=>{ (navigator.clipboard ? navigator.clipboard.writeText(d.msg) : Promise.reject()).then(()=>toast("Copied"), ()=>toast("Couldn't copy — select the text and copy it yourself.")); }});
+}
+/* ---------- the coaches who joined: removing one keeps their records (a new code brings them back) or deletes everything ---------- */
+async function fillCoachList(el){
+  let r; try { r = await sb.rpc("coach_list"); } catch(e){ r = {error:e}; }
+  if (!el.isConnected) return;
+  if (r.error){ el.innerHTML = '<p class="small muted">'+esc(T("Couldn’t load the coaches."))+'</p>'; return; }
+  const he = lang()==="he", rows = r.data||[], others = rows.filter(x=>!x.is_admin);
+  const line = x=>esc(fmtDate(x.joined))+' · '+(he ? x.students+" תלמידים" : x.students+(x.students===1?" student":" students"));
+  el.innerHTML = '<ul class="list">'+rows.map(x=>'<li><div class="main"><div class="title">'+esc(x.name||x.email)+(x.is_admin?' <span class="tag">'+esc(T("Your account"))+'</span>':'')+'</div>'+
+      (x.name ? '<div class="small"><bdi dir="ltr">'+esc(x.email)+'</bdi></div>' : '')+'<div class="small muted">'+(he?"הצטרף ":"Joined ")+line(x)+'</div></div>'+
+      (x.is_admin ? '' : '<div class="row-actions"><button type="button" class="btn small ghost danger" data-rc="'+esc(x.user_id)+'">'+esc(T("Remove"))+'</button></div>')+'</li>').join("")+'</ul>'+
+    (others.length ? '' : '<p class="small muted" style="margin:8px 0 0">'+esc(T("No other coaches yet."))+'</p>');
+  el.onclick = e=>{ const b = e.target.closest("[data-rc]"); if (!b) return;
+    const x = rows.find(y=>y.user_id===b.dataset.rc); if (!x) return; const who = x.name||x.email;
+    const go = wipe=>sb.rpc("remove_coach", {target:x.user_id, wipe}).then(res=>{
+      if (res.error || res.data!==true) toast("Couldn’t remove the coach."); else toast("Coach removed"); fillCoachList(el); },
+      ()=>toast("Couldn’t remove the coach."));
+    openForm({title:he ? "להסיר את "+who+"?" : "Remove "+who+"?", submit:"Remove coach",
+      fields:[{name:"wipe", label:"What happens to their students and records?", type:"select", value:"keep",
+        options:[["keep","Keep them — a new coach code brings them back"],["wipe","Delete their account and everything in it"]]}],
+      onSubmit:d=>{ if (d.wipe!=="wipe") return go(false);
+        setTimeout(()=>confirmBox(he ? "למחוק את "+who+" ואת כל המידע?" : "Delete "+who+" and all their data?",
+          "Their account, students, lessons, payments and backups are deleted, and their students and parents are disconnected. This can’t be undone.", "Delete", ()=>go(true))); }}); // after the form has closed its dialog
+  };
+}
+start();
+</script>
+</body>
+</html>
