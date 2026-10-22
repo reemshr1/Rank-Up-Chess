@@ -355,6 +355,12 @@ only the coach and that student or parent can open them, through a link that wor
 for an hour. A student's own book changes never touch the PDF. Deleting the book
 deletes its PDF.
 
+A **player without a coach** attaches PDFs to their own books the same way (**Attach PDF**, **Open PDF**,
+**Replace**, **Remove** on their Books tab); on a parent's board the parent attaches and the child opens. When the
+player connects to a coach, the coach's app copies each book's PDF into the coach's own files, so the book opens as
+before (and is the coach's to replace or remove from then on). If a PDF can't be copied, the book says which one,
+so the coach can attach it again. The admin's **Delete the copy** also deletes the PDFs of their old player board.
+
 ### Book library
 On the Students page, the **Book library** bubble keeps the coach's own books: title,
 author, topic, pages, notes and a PDF (stored as `library/<id>.pdf`). **Give to…** adds a

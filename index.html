@@ -3053,8 +3053,10 @@ function applyOp(s, op, coachSide){
   if (t==="history"){
     const ok = x=>x && typeof x==="object" && typeof x.id==="string" && x.id;
     Object.keys(op.lists||{}).forEach(k=>{ if (!PORTAL_KEYS.includes(k) || !Array.isArray(op.lists[k])) return; const L = list(k);
-      op.lists[k].forEach(x=>{ if (!ok(x) || L.some(y=>y.id===x.id)) return;
-        const y = k==="tournaments" ? (({assist, assistDays, assistFee, assistReason, ...z})=>z)(x) : k==="books" ? (({pdf, ...z})=>z)(x) : x;
+      op.lists[k].forEach(x=>{ if (!ok(x)) return; const had = L.find(y=>y.id===x.id);
+        if (coachSide && k==="books" && x.pdf && x.pdf.path && !(had && had.pdf)) movePdf(s, x.id, x.pdf); // the PDF they attached comes too
+        if (had) return;
+        const y = k==="tournaments" ? (({assist, assistDays, assistFee, assistReason, ...z})=>z)(x) : k==="books" ? (({pdf, pdfLost, ...z})=>z)(x) : x;
         L.push(Object.assign({}, y, {by:"student"})); }); });
     (Array.isArray(op.games) ? op.games : []).forEach(g=>{ if (!ok(g) || !/^gm-/.test(g.id) || state.games.some(x=>x.id===g.id)) return;
       const x = Object.assign({}, g, {studentId:s.id, by:"student"}); state.games.push(x); if (coachSide) saveGame(x); });
@@ -4740,6 +4742,20 @@ function askedFor(o){
   return (it.kind==="cancel" ? "Asked to cancel a lesson" : it.kind==="move" ? "Asked to move a lesson to "+when : "Asked for a lesson on "+when)+(it.note?" — “"+it.note+"”":"")+". ";
 }
 // Why a change from the student or parent app couldn't be applied, in plain words.
+// A PDF a player attached on their own board: the coach's app copies it into the coach's files (the player's
+// account may read it once it is linked to this coach). If it can't, the book says so.
+function movePdf(s, bookId, pdf){
+  if (!WEB || !sb) return;
+  setTimeout(async ()=>{
+    const b = (s.books||[]).find(x=>x.id===bookId); if (!b || b.pdf) return;
+    const to = s.id+"/"+b.id+".pdf";
+    let r; try { await bookFiles().remove([to]).catch(()=>{}); r = await bookFiles().copy(pdf.path, to); } catch(e){ r = {error:e}; }
+    const x = byId(s.id) || s, bk = (x.books||[]).find(y=>y.id===bookId); if (!bk || bk.pdf) return;
+    if (r.error) bk.pdfLost = String(pdf.name||"Book.pdf").slice(0,120);
+    else { bk.pdf = {path:to, name:String(pdf.name||"Book.pdf").slice(0,120), size:+pdf.size||0, at:today()}; delete bk.pdfLost; }
+    saveStudent(x); render();
+  }, 0);
+}
 // A parent's history is about one child: the family's only child, or the one with that name.
 function historyChild(fam, o){
   const kids = (fam.studentIds||[]).map(byId).filter(Boolean), n = x=>String(x||"").trim().toLowerCase().replace(/\s+/g," ");
@@ -6129,13 +6145,16 @@ function editBook(s, b){
    only the coach and that student (or their parent) can open it, through a link that works for an hour ---------- */
 const BOOK_PDF_MAX = 50*1024*1024;
 const bookFiles = ()=>sb.storage.from("books");
+const canAttach = ()=>!STUDENT() || PLAYER; // the coach, or a player on their own board
 const fmtSize = n=>n>=1048576 ? (Math.round(n/104857.6)/10)+" MB" : Math.max(1, Math.round(n/1024))+" KB";
 function bookPdfRow(b){
   if (!b.pdf || !WEB) return "";
   return '<div class="book-pdf"><span aria-hidden="true">📄</span> <span class="small" style="min-width:0;overflow-wrap:anywhere">'+esc(b.pdf.name||"Book.pdf")+(b.pdf.size?' <span class="muted">· '+esc(fmtSize(b.pdf.size))+'</span>':'')+'</span>'+
     '<button class="btn small primary" data-a="pdf" data-id="'+b.id+'">Open PDF</button>'+
-    (!STUDENT() ? '<button class="btn small ghost" data-a="pdfUp" data-id="'+b.id+'">Replace</button><button class="btn small ghost danger" data-a="pdfDel" data-id="'+b.id+'">Remove</button>' : '')+'</div>';
+    (canAttach() ? '<button class="btn small ghost" data-a="pdfUp" data-id="'+b.id+'">Replace</button><button class="btn small ghost danger" data-a="pdfDel" data-id="'+b.id+'">Remove</button>' : '')+'</div>';
 }
+// A PDF from a player's own board that couldn't be copied when they moved to this coach.
+const pdfLostRow = b=>b.pdfLost && !b.pdf && !STUDENT() && WEB ? '<p class="small" style="margin:8px 0 0;color:var(--warn)">The PDF “'+esc(b.pdfLost)+'” from their own board couldn’t be brought over. Attach it again if you have it.</p>' : '';
 const storageErr = e=>/bucket not found|not found/i.test(String(e && (e.message||e.error)||"")) ? "PDF storage isn’t set up yet." : "The PDF couldn’t be uploaded. Check your connection and try again.";
 function uploadBookPdf(s, b){
   if (!b || !WEB) return;
@@ -6147,7 +6166,7 @@ function uploadBookPdf(s, b){
     const path = s.id+"/"+b.id+".pdf"; toast("Uploading “"+f.name+"”…");
     let r; try { r = await bookFiles().upload(path, f, {upsert:true, contentType:"application/pdf"}); } catch(e){ r = {error:e}; }
     if (r.error) return toast(storageErr(r.error));
-    b.pdf = {path, name:f.name.slice(0,120), size:f.size, at:today()}; saveStudent(s); render(); toast("PDF attached — "+firstName(s)+" can open it from Books");
+    b.pdf = {path, name:f.name.slice(0,120), size:f.size, at:today()}; delete b.pdfLost; saveStudent(s); render(); toast(PLAYER && s.setup!=="parent" ? "PDF attached — open it from the book" : "PDF attached — "+firstName(s)+" can open it from Books");
   };
   document.body.appendChild(inp); inp.hidden = true; inp.click(); setTimeout(()=>inp.remove(), 60000);
 }
@@ -6160,7 +6179,7 @@ async function openBookPdf(b){
 }
 function removeBookPdf(s, b){
   if (!b || !b.pdf) return;
-  confirmBox("Remove the PDF?", "“"+(b.pdf.name||"The PDF")+"” is deleted, and "+firstName(s)+" can no longer open it. The book stays.", "Remove", async ()=>{
+  confirmBox("Remove the PDF?", PLAYER && s.setup!=="parent" ? "“"+(b.pdf.name||"The PDF")+"” is deleted. The book stays." : "“"+(b.pdf.name||"The PDF")+"” is deleted, and "+firstName(s)+" can no longer open it. The book stays.", "Remove", async ()=>{
     try { await bookFiles().remove([b.pdf.path]); } catch(e){}
     delete b.pdf; saveStudent(s); render(); toast("PDF removed"); });
 }
@@ -6274,9 +6293,9 @@ function tBooks(el, s){
       '<div class="small muted" style="margin-top:2px">'+meta.map(esc).join(" · ")+'</div>'+
       (b.notes?'<div class="small" style="margin-top:6px">'+esc(b.notes)+'</div>':"")+
       (d.hist.length?'<details class="bhist"><summary class="small">Reading history ('+d.hist.length+')</summary><ul class="list">'+d.hist.map(({w,read})=>'<li><div class="main small"><b>'+esc(fmtDate(w.date))+'</b>'+(w.page!==""&&w.page!=null?(hasFrom(w)?' · p. '+esc(w.pageFrom)+'–'+esc(w.page):' · to p. '+esc(w.page))+(read?' <span class="muted">(+'+read+')</span>':''):'')+(w.minutes?' · '+esc(w.minutes)+' min':'')+(+w.attempted>0?' · '+(+w.correct||0)+'/'+w.attempted+' correct':'')+(w.note?'<div class="muted">'+esc(w.note)+'</div>':'')+'</div><button class="btn small ghost" data-a="editLog" data-id="'+w.id+'">Edit</button></li>').join("")+'</ul></details>':"")+
-      bookPdfRow(b)+
+      bookPdfRow(b)+pdfLostRow(b)+
       '<div class="row-actions" style="margin-top:10px">'+(b.status!=="Finished"?'<button class="btn small primary" data-a="read" data-id="'+b.id+'">Log reading</button>':"")+'<button class="btn small" data-a="edit" data-id="'+b.id+'">Edit</button>'+
-      (!STUDENT() && WEB && !b.pdf ? '<button class="btn small ghost" data-a="pdfUp" data-id="'+b.id+'">Attach PDF</button>' : '')+'</div>'+
+      (canAttach() && WEB && !b.pdf ? '<button class="btn small ghost" data-a="pdfUp" data-id="'+b.id+'">Attach PDF</button>' : '')+'</div>'+
       '</div></article>';
   };
   const section = (title, list, empty)=> list.length || empty ? '<h2 class="shelf-h">'+title+' <span class="muted small">'+list.length+'</span></h2>'+(list.length?'<div class="shelf">'+list.map(card).join("")+'</div>':'<p class="empty">'+empty+'</p>') : "";
@@ -8381,7 +8400,7 @@ Object.assign(HE, {
   "Your child can sign in on their own phone and log practice, games and tournaments. Everything shows here too.":"הילד/ה יכול/ה להתחבר מהטלפון שלו/ה ולרשום תרגול, משחקים ותחרויות. הכל מופיע גם כאן.",
   "They create an account with their own email and a password.":"יוצרים חשבון עם אימייל משלהם וסיסמה.", "They enter this code:":"מזינים את הקוד הזה:",
   "Enter the code your coach (or your parent) gave you to connect your account.":"יש להזין את הקוד שקיבלת מהמאמן (או מההורה) כדי לחבר את החשבון.",
-  "Tips":"טיפים", "Have a coach?":"יש לך מאמן?", "From their own board":"מהלוח האישי", "Connect to a coach":"חיבור למאמן", "Family code from the coach":"קוד משפחה מהמאמן",
+  "Tips":"טיפים", "Have a coach?":"יש לך מאמן?", "PDF attached — open it from the book":"ה־PDF צורף — אפשר לפתוח אותו מתוך הספר", "From their own board":"מהלוח האישי", "Connect to a coach":"חיבור למאמן", "Family code from the coach":"קוד משפחה מהמאמן",
   "Working with a coach? Ask them for a code — they add you as a student in Rank Up. Your practice, games, tasks and tournaments move with you.":"מתחילים ללמוד עם מאמן? בקשו ממנו קוד — הוא מוסיף אתכם כתלמידים ב„עולים בדרגה”. התרגול, המשחקים, המשימות והתחרויות שלכם עוברים איתכם.",
   "Everything you logged moves to your coach, and this app becomes your coach’s student app.":"כל מה שרשמתם עובר אל המאמן, והאפליקציה הזו הופכת לאפליקציית התלמיד שלו.", "Everything you logged moves to your coach.":"כל מה שרשמתם עובר אל המאמן.",
   "Connected! Opening your app…":"מחובר! האפליקציה נפתחת…", "Connected — your coach’s app takes it in next time they open Rank Up":"מחובר — האפליקציה של המאמן תקלוט את זה כשיפתח את „עולים בדרגה”",
@@ -8589,7 +8608,7 @@ const HE_RX = [
   [/^Add the moves \(PGN\) to the games in the Games tab to see which openings (.+) meets and how they score\.$/, "הוספת המסעים (PGN) למשחקים בלשונית משחקים תראה אילו פתיחות $1 פוגש ומה הניקוד בהן."],
   [/^(\d+) openings? without a line$/, (m,n)=>+n===1 ? "פתיחה אחת בלי וריאנט" : n+" פתיחות בלי וריאנט"],
   [/^(\d+) rated games?$/, "$1 משחקים מדורגים"], [/^[Aa]verage opponent (\d+)$/, "יריב ממוצע $1"],
-  [/^(\d+) overdue$/, "$1 באיחור"], [/^Last backup: (\d+) days ago — download a fresh copy\.$/, "הגיבוי האחרון לפני $1 ימים — כדאי להוריד עותק חדש."], [/^Last backup: (.+)$/, "גיבוי אחרון: $1"], [/^Last saved: (.+)$/, "נשמר לאחרונה: $1"], [/^At (.+)$/, "ב־$1"], [/^Your classes \((\d+)\)$/, "החוגים שלך ($1)"], [/^✓ Handled: (.+)$/, "✓ טופל: $1"], [/^Usual time: (.+)$/, "השעה הרגילה: $1"], [/^Time changed for (.+) only: (.+)$/, "השעה שונתה רק ל־$1: $2"], [/^Back to the usual time on (.+)$/, "חזרה לשעה הרגילה ב־$1"], [/^Also in (.+)$/, "גם ב־$1"], [/^Students \((\d+)\)$/, "תלמידים ($1)"], [/^Attendance — (.+)$/, "נוכחות — $1"], [/^(\d+) taught so far$/, "$1 התקיימו עד עכשיו"], [/^(\d+) classes$/, "$1 שיעורים"], [/^(\d+) not taken$/, "$1 בלי נוכחות"], [/^Book library \((\d+)\)$/, "ספריית ספרים ($1)"], [/^Give “(.+)”$/, "מתן „$1”"], [/^“(.+)” given to (.+)$/, "„$1” ניתן ל־$2"], [/^Delete “(.+)” from your library\?$/, "למחוק את „$1” מהספרייה?"], [/^(.+) already has this book\.$/, "ל־$1 כבר יש את הספר הזה."], [/^(\d+) students$/, "$1 תלמידים"], [/^Uploading “(.+)”…$/, "מעלה את „$1”…"], [/^PDF attached — (.+) can open it from Books$/, "ה־PDF צורף — $1 יכול/ה לפתוח אותו מתוך הספרים"], [/^“(.+)” is deleted, and (.+) can no longer open it\. The book stays\.$/, "„$1” יימחק, ו־$2 לא יוכל/תוכל לפתוח אותו יותר. הספר נשאר."], [/^Show (\d+) more$/, "עוד $1"], [/^(\d+)d$/, "$1 ימים"],
+  [/^(\d+) overdue$/, "$1 באיחור"], [/^Last backup: (\d+) days ago — download a fresh copy\.$/, "הגיבוי האחרון לפני $1 ימים — כדאי להוריד עותק חדש."], [/^Last backup: (.+)$/, "גיבוי אחרון: $1"], [/^Last saved: (.+)$/, "נשמר לאחרונה: $1"], [/^At (.+)$/, "ב־$1"], [/^Your classes \((\d+)\)$/, "החוגים שלך ($1)"], [/^✓ Handled: (.+)$/, "✓ טופל: $1"], [/^Usual time: (.+)$/, "השעה הרגילה: $1"], [/^Time changed for (.+) only: (.+)$/, "השעה שונתה רק ל־$1: $2"], [/^Back to the usual time on (.+)$/, "חזרה לשעה הרגילה ב־$1"], [/^Also in (.+)$/, "גם ב־$1"], [/^Students \((\d+)\)$/, "תלמידים ($1)"], [/^Attendance — (.+)$/, "נוכחות — $1"], [/^(\d+) taught so far$/, "$1 התקיימו עד עכשיו"], [/^(\d+) classes$/, "$1 שיעורים"], [/^(\d+) not taken$/, "$1 בלי נוכחות"], [/^Book library \((\d+)\)$/, "ספריית ספרים ($1)"], [/^Give “(.+)”$/, "מתן „$1”"], [/^“(.+)” given to (.+)$/, "„$1” ניתן ל־$2"], [/^Delete “(.+)” from your library\?$/, "למחוק את „$1” מהספרייה?"], [/^(.+) already has this book\.$/, "ל־$1 כבר יש את הספר הזה."], [/^(\d+) students$/, "$1 תלמידים"], [/^Uploading “(.+)”…$/, "מעלה את „$1”…"], [/^PDF attached — (.+) can open it from Books$/, "ה־PDF צורף — $1 יכול/ה לפתוח אותו מתוך הספרים"], [/^“(.+)” is deleted\. The book stays\.$/, "„$1” יימחק. הספר נשאר."], [/^The PDF “(.+)” from their own board couldn’t be brought over\. Attach it again if you have it\.$/, "ה־PDF „$1” מהלוח האישי לא הועבר. אפשר לצרף אותו שוב אם הוא אצלך."], [/^“(.+)” is deleted, and (.+) can no longer open it\. The book stays\.$/, "„$1” יימחק, ו־$2 לא יוכל/תוכל לפתוח אותו יותר. הספר נשאר."], [/^Show (\d+) more$/, "עוד $1"], [/^(\d+)d$/, "$1 ימים"],
   [/^From (.+) until (.+)$/, "מ־$1 עד $2"], [/^From (.+)$/, "מ־$1"],
   [/^(Good morning|Good afternoon|Good evening), (.+)$/, (m,g,n)=>HE[g]+", "+n],
   [/^In (\d+) days$/, "בעוד $1 ימים"],

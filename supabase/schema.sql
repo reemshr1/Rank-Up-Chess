@@ -142,6 +142,9 @@ begin
   if exists (select 1 from public.coaches where user_id = target and kind = 'moved') then
     delete from public.coaches where user_id = target;
     delete from public.docs where col = 'data/users/' || who or col like 'data/users/' || who || '/%';
+    begin -- and the PDFs of their old books (their coach has their own copies)
+      delete from storage.objects where bucket_id = 'books' and owner_id = who;
+    exception when others then null; end;
     return true;
   end if;
   delete from public.coaches where user_id = target;
@@ -381,6 +384,20 @@ create policy "rank-up: students and parents open their book files" on storage.o
     where d.col = 'portal/' || auth.uid()::text || '/view'
       and ((d.id = 'student' and d.data->>'id' = (storage.foldername(name))[1])
         or d.id = 'ch-' || (storage.foldername(name))[1])));
+
+-- A player (who has their own board, like a coach's) attaches PDFs to their own books. When they move to a coach,
+-- that coach's app copies those PDFs into the coach's own files: a coach may open the files of an account linked
+-- to them as a student or parent (only players ever upload, so these are a moving player's own PDFs).
+create or replace function public.my_students_file(owner text) returns boolean
+  language sql stable security definer set search_path = public
+  as $$ select public.is_coach() and exists (select 1 from public.docs d where d.col = 'portal' and d.id = owner
+                                                and d.data->>'coach' = auth.uid()::text) $$;
+revoke execute on function public.my_students_file(text) from public, anon;
+grant execute on function public.my_students_file(text) to authenticated;
+drop policy if exists "rank-up: a coach copies the PDFs of a player who moved to them" on storage.objects;
+create policy "rank-up: a coach copies the PDFs of a player who moved to them" on storage.objects
+  for select to authenticated
+  using (bucket_id = 'books' and owner_id is not null and public.my_students_file(owner_id));
 
 -- Coaches who left their details on the website (welcome/). Anyone can send the form; only the admin can read
 -- the list (Settings → Coaches) and remove rows. Nothing else can be read or changed from outside.
