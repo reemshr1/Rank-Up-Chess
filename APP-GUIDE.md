@@ -157,6 +157,9 @@ Six tabs:
   **Endgames by type** (last 90 days) splits the minutes by type (a session with several types counts evenly
   for each), and the Progress page shows the same split. A player who ticks types gets a tip when rook or pawn
   endgames have been left alone for 3 weeks.
+  **Where** for Endgames: a book, a ChessBase file, **Lichess** or **ChessTempo** (with an optional **Positions
+  done**); the entry reads e.g. "Endgames · Rook · Lichess · 12 positions". Strategy and Calculation stay book or
+  ChessBase file.
 - **Fitness:** workouts this week against the **weekly goal** (the coach
   sets it in workouts per week, minutes per week, or both; with both, a week
   counts when both are reached), the last 8 weeks as bars, the weeks-in-a-row streak, quick-log
