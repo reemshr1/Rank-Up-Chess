@@ -3698,8 +3698,9 @@ function playerProfile(first){
       if (!d.name.trim()) return "Write the player's name.";
       const ids = (d.fideId||"").trim()!==(me.fideId||"") || (d.icfId||"").trim()!==(me.icfId||"");
       Object.assign(me, {setup:d.setup==="parent" ? "parent" : "self", name:d.name.trim().slice(0,80), fullHe:d.fullHe.trim().slice(0,80), birthYear:d.birthYear, fideId:d.fideId.trim(), icfId:d.icfId.trim(), noId:!d.fideId.trim() && !d.icfId.trim()});
+      if (me.fideId) me.ratingType = "FIDE"; else if (me.icfId) me.ratingType = "ICF"; // the rating shown is from the list they gave a number for
       state.settings.coachName = me.name; saveStudent(me); saveSettings(); render(); toast("Profile saved");
-      if (ids && WEB) setTimeout(()=>syncRatings(false), 300);
+      if (ids && WEB && (me.fideId || me.icfId)) setTimeout(()=>{ toast("Checking your rating…"); syncRatings(false); }, 900);
     }});
 }
 /* ---------- tips for a player with no coach: worked out from what they log (no AI, nothing sent anywhere) ---------- */
@@ -4334,13 +4335,15 @@ function pProgress(v, s){
   const tile = (val, lab)=>'<div class="stat"><div class="v num">'+val+'</div><div class="l">'+lab+'</div></div>';
   v.innerHTML = '<div class="page-head"><div><h1>'+(PARENT() ? esc(first)+'’s progress' : 'Your progress')+'</h1>'+freshness(s)+'</div>'+
       '<div class="seg" role="group" aria-label="Period" style="margin:0">'+periods.map(([n,l])=>'<button type="button" class="'+(progPeriod===n?"on":"")+'" data-a="pp" data-id="'+n+'">'+l+'</button>').join("")+'</div></div>'+
-    '<div class="stats">'+tile(lessons.length, "Lessons ("+lessonH.toFixed(1)+" h)")+tile(Math.round(mins/60*10)/10+" h", "Practice")+tile(asDone, "Assignments done")+tile(games.length ? score+"/"+games.length : "—", "Score in games")+'</div>'+
+    '<div class="stats">'+(NOCOACH() ? tile(s.worklog.filter(w=>w.date>=from).length, "Practice sessions") : tile(lessons.length, "Lessons ("+lessonH.toFixed(1)+" h)"))+tile(Math.round(mins/60*10)/10+" h", "Practice")+tile(asDone, "Assignments done")+tile(games.length ? score+"/"+games.length : "—", "Score in games")+'</div>'+
     '<div class="grid g2">'+
+    (NOCOACH() ? '' : // goals and lessons are a coach's
     panel("Goals", (s.goals?'<p class="pre" style="margin:0">'+esc(s.goals)+'</p>':'<p class="empty" style="padding:0">Your coach hasn\'t written goals yet.</p>')+
       (s.notes?'<h3 class="subh">From your coach</h3><p class="pre" style="margin:0">'+esc(s.notes)+'</p>':''))+
-    panel("Recent lessons", progRecent(s).length ? '<ul class="list">'+progRecent(s).map(x=>'<li style="display:block"><div class="title">'+esc(fmtDate(x.date))+(x.topics?' — '+esc(x.topics):'')+'</div>'+(x.notes?'<div class="small pre">'+esc(x.notes)+'</div>':'')+'</li>').join("")+'</ul>' : '<p class="empty">No lessons yet.</p>')+
+    panel("Recent lessons", progRecent(s).length ? '<ul class="list">'+progRecent(s).map(x=>'<li style="display:block"><div class="title">'+esc(fmtDate(x.date))+(x.topics?' — '+esc(x.topics):'')+'</div>'+(x.notes?'<div class="small pre">'+esc(x.notes)+'</div>':'')+'</li>').join("")+'</ul>' : '<p class="empty">No lessons yet.</p>'))+
     panel("Rating", (sources.length>1?'<div class="seg" role="group" aria-label="Rating list">'+sources.map(x=>'<button type="button" class="'+(x===src?"on":"")+'" data-a="ps" data-id="'+esc(x)+'">'+esc(x)+'</button>').join("")+'</div>':"")+
-      (pts.length ? ratingChart(pts)+'<p class="small muted" style="margin:8px 0 0">'+(lang()==="he"?"עכשיו":"Now")+' <b class="num">'+esc(now.value)+'</b>'+(diff!==null?' · '+(diff>=0?"+":"")+diff+(lang()==="he"?" מאז ":" since ")+esc(fmtShort(y1.date)):'')+'</p>' : '<p class="empty">No ratings yet.</p>'))+
+      (pts.length ? ratingChart(pts)+'<p class="small muted" style="margin:8px 0 0">'+(lang()==="he"?"עכשיו":"Now")+' <b class="num">'+esc(now.value)+'</b>'+(diff!==null?' · '+(diff>=0?"+":"")+diff+(lang()==="he"?" מאז ":" since ")+esc(fmtShort(y1.date)):'')+'</p>' : '<p class="empty">No ratings yet.</p>')+
+      (PLAYER ? playerRatingNote(s) : ''), PLAYER ? '<button class="btn small" data-a="addRt">Add rating</button>' : '')+
     panel("Practice per week", '<div class="wbars" style="grid-template-columns:repeat(12,1fr)" role="img" aria-label="Practice minutes per week, last 12 weeks">'+weeks.map((w,i)=>'<div title="'+esc(fmtShort(w.a))+': '+w.m+' min">'+(w.m?'<span class="pct">'+w.m+'</span>':'')+'<span class="bar" style="height:'+Math.round(w.m/maxM*100)+'px;'+(i===11?'background:var(--green)':'')+'"></span><span class="wl">'+esc(new Date(w.a+"T00:00").toLocaleDateString(LOCALE(),{day:"numeric",month:"numeric"}))+'</span></div>').join("")+'</div>'+
       '<p class="small muted" style="margin:10px 0 0">'+(lang()==="he" ? 'בערך <b class="num">'+avg+'</b> דק׳ בשבוע'+(streak>1?' · רצף של <b class="num">'+streak+'</b> ימים':'') : 'About <b class="num">'+avg+'</b> min a week'+(streak>1?' · <b class="num">'+streak+'</b>-day streak':''))+'</p>')+
     panel("What the practice went on", whatList.length ? '<div style="display:flex;height:14px;border-radius:7px;overflow:hidden;margin:4px 0 12px">'+whatList.map(([k,m],i)=>'<span title="'+esc(k)+'" style="width:'+(m/whatTot*100)+'%;background:'+COL[i%COL.length]+'"></span>').join("")+'</div><ul class="list">'+
@@ -4350,7 +4353,21 @@ function pProgress(v, s){
     panel("Tactics & puzzles", tacticsStats(s, progPeriod))+
     medalsPanel(s)+
     '</div>';
-  bindActions(v,{ pp:id=>{ progPeriod = +id; render(); }, ps:id=>{ progSource = id; render(); } });
+  bindActions(v,{ pp:id=>{ progPeriod = +id; render(); }, ps:id=>{ progSource = id; render(); },
+    addRt:()=>playerAddRating(s, src), rtNow:()=>syncRatings(true) });
+}
+// A player's Rating card: where the rating comes from, and checking it now.
+function playerRatingNote(s){
+  const ids = [s.fideId ? "FIDE" : "", s.icfId ? "ICF" : ""].filter(Boolean), when = [s.fide && s.fide.updated, s.icf && s.icf.updated].filter(Boolean).sort().pop();
+  if (!ids.length) return '<p class="small muted" style="margin:8px 0 0">With a FIDE or ICF number in My profile, the rating fills in by itself, once a month. Without one, add it here.</p>';
+  return '<p class="small muted" style="margin:8px 0 0">'+esc("From your "+ids.join(" and ")+" number, checked once a month"+(when ? " (last: "+fmtShort(when)+")" : ""))+'.</p>'+
+    '<div class="row-actions" style="margin-top:6px"><button class="btn small ghost" data-a="rtNow"'+(ratingsBusy?' disabled':'')+'>'+(ratingsBusy?"Checking…":"Check now")+'</button></div>';
+}
+function playerAddRating(s, src){
+  openForm({title:"Add rating", submit:"Add", parentOk:true, fields:[{name:"source",label:"Rating list",type:"select",options:RATING_SOURCES,value:src||mainSource(s)},{name:"date",label:"Date",type:"date",value:today()},{name:"value",label:"Rating",type:"number",value:"",min:0}],
+    onSubmit:d=>{ if (d.value==="" || !(+d.value>0)) return "Enter a rating.";
+      if (!s.ratings.length) s.ratingType = d.source==="ICF" ? "ICF" : d.source==="Online" ? "Online" : "FIDE"; // the first one sets the main list
+      addRating(s, d.source, d.value, d.date||today()); progSource = d.source; saveStudent(s); render(); toast("Rating added"); }});
 }
 // The parent's money page: balance and statement for the child shown.
 // The parent's reported payments: waiting for the coach, or not received.
@@ -5125,10 +5142,10 @@ document.addEventListener("keydown", e=>{
 let ratingsBusy = false;
 const hasVal = v=>v!=="" && v!=null;
 async function syncRatings(manual){
-  if (!WEB || !sb || STUDENT() || ratingsBusy) return;
-  const list = state.students.filter(s=>s.active && (s.fideId || s.icfId));
-  if (!list.length){ if (manual) toast("No active students with a FIDE or ICF ID yet."); return; }
-  ratingsBusy = true; if (manual){ toast("Checking ratings… this can take up to two minutes"); render(); }
+  if (!WEB || !sb || (STUDENT() && !PLAYER) || ratingsBusy) return; // a player checks their own board's rating
+  const list = state.students.filter(s=>s.active!==false && (s.fideId || s.icfId));
+  if (!list.length){ if (manual) toast(PLAYER ? "Add your FIDE or ICF number in My profile first." : "No active students with a FIDE or ICF ID yet."); return; }
+  ratingsBusy = true; if (manual){ toast(PLAYER ? "Checking your rating… this can take up to two minutes" : "Checking ratings… this can take up to two minutes"); render(); }
   try {
     const body = {fide:list.map(s=>s.fideId).filter(Boolean), icf:list.map(s=>s.icfId).filter(Boolean)};
     // the current sign-in token; getSession renews it first if it has expired (never forced: renewing twice
@@ -5152,13 +5169,17 @@ async function syncRatings(manual){
       if (touched){ saveStudent(s); changed++; }
     });
     state.settings.ratingsSyncedAt = t; state.settings.ratingsTriedAt = t; state.settings.ratingsFailed = failed.map(f=>f.name+" ("+f.list+")"); saveSettings();
-    if (failed.length && manual) ratingProblems(failed, changed);
+    if (PLAYER){ const me = list[0]; // a player hears about their own rating, also when it couldn't be read
+      if (failed.length) toast("Couldn't read the rating for "+failed.map(f=>f.list+" "+f.id).join(" and ")+". Check the number in My profile.");
+      else if (changed && me) toast(me.rating ? "Rating updated — "+me.rating+" "+mainSource(me) : "Rating checked"); }
+    else if (failed.length && manual) ratingProblems(failed, changed);
     else if (changed) toast("Ratings updated for "+changed+" student"+(changed===1?"":"s"));
   } catch(e){
     // keep the technical reason, so a failure can be diagnosed
     let why = e && e.message || String(e);
     try { const r = e && e.context; if (r && typeof r.status==="number"){ why = "HTTP "+r.status; const body = await r.text(); if (body) why += " — "+body.slice(0,300); } } catch(e2){}
-    if (manual) ratingProblems(null, 0, why, /session_not_found|session_expired|refresh_token/.test(why));
+    if (PLAYER && manual) toast("Couldn't check the rating right now. Try again later.");
+    else if (manual) ratingProblems(null, 0, why, /session_not_found|session_expired|refresh_token/.test(why));
   } finally { ratingsBusy = false; render(); }
 }
 // What couldn't be read, with what the page showed, so it can be fixed.
@@ -8463,7 +8484,10 @@ Object.assign(HE, {
   "Your child can sign in on their own phone and log practice, games and tournaments. Everything shows here too.":"הילד/ה יכול/ה להתחבר מהטלפון שלו/ה ולרשום תרגול, משחקים ותחרויות. הכל מופיע גם כאן.",
   "They create an account with their own email and a password.":"יוצרים חשבון עם אימייל משלהם וסיסמה.", "They enter this code:":"מזינים את הקוד הזה:",
   "Enter the code your coach (or your parent) gave you to connect your account.":"יש להזין את הקוד שקיבלת מהמאמן (או מההורה) כדי לחבר את החשבון.",
-  "Tips":"טיפים", "Have a coach?":"יש לך מאמן?", "Which endgames":"אילו סיומים", "Positions done":"עמדות שנפתרו", "Optional":"לא חובה", "Tick everything this session covered.":"אפשר לסמן את כל מה שתורגל באימון.", "Choose — optional":"בחירה — לא חובה", "Choose…":"בחירה…", "Endgames by type":"סיומים לפי סוג", "Last 90 days":"90 הימים האחרונים",
+  "Tips":"טיפים", "Have a coach?":"יש לך מאמן?", "Which endgames":"אילו סיומים", "Positions done":"עמדות שנפתרו", "Practice sessions":"אימונים", "Add rating":"הוספת דירוג", "Check now":"בדיקה עכשיו", "Checking…":"בודק…", "Rating added":"הדירוג נוסף", "Rating checked":"הדירוג נבדק", "Checking your rating…":"בודק את הדירוג שלך…",
+  "Checking your rating… this can take up to two minutes":"בודק את הדירוג שלך… זה יכול לקחת עד שתי דקות", "Add your FIDE or ICF number in My profile first.":"קודם יש להוסיף מספר FIDE או מספר התאחדות בפרופיל שלי.",
+  "Couldn't check the rating right now. Try again later.":"לא ניתן לבדוק את הדירוג כרגע. אפשר לנסות שוב מאוחר יותר.", "Rating list":"רשימת דירוג",
+  "With a FIDE or ICF number in My profile, the rating fills in by itself, once a month. Without one, add it here.":"עם מספר FIDE או מספר התאחדות בפרופיל שלי, הדירוג מתעדכן לבד פעם בחודש. בלי מספר, אפשר להוסיף אותו כאן.", "Optional":"לא חובה", "Tick everything this session covered.":"אפשר לסמן את כל מה שתורגל באימון.", "Choose — optional":"בחירה — לא חובה", "Choose…":"בחירה…", "Endgames by type":"סיומים לפי סוג", "Last 90 days":"90 הימים האחרונים",
   "Only sessions where the endgame type was ticked. A session with several types counts evenly for each.":"רק אימונים שבהם סומן סוג הסיום. אימון עם כמה סוגים נספר בחלקים שווים לכל אחד.",
   "Pawn endgames":"סיומי רגלים", "Rook endgames":"סיומי צריחים", "Bishop endgames":"סיומי רצים", "Knight endgames":"סיומי פרשים", "Bishop vs knight":"רץ מול פרש", "Rook vs minor piece":"צריח מול כלי קל", "Queen endgames":"סיומי מלכות", "Basic checkmates":"מטים בסיסיים", "Theoretical positions (Lucena, Philidor…)":"עמדות תיאורטיות (לוסנה, פילידור…)", "Mixed / other":"מעורב / אחר", "PDF attached — open it from the book":"ה־PDF צורף — אפשר לפתוח אותו מתוך הספר", "From their own board":"מהלוח האישי", "Connect to a coach":"חיבור למאמן", "Family code from the coach":"קוד משפחה מהמאמן",
   "Working with a coach? Ask them for a code — they add you as a student in Rank Up. Your practice, games, tasks and tournaments move with you.":"מתחילים ללמוד עם מאמן? בקשו ממנו קוד — הוא מוסיף אתכם כתלמידים ב„עולים בדרגה”. התרגול, המשחקים, המשימות והתחרויות שלכם עוברים איתכם.",
@@ -8638,7 +8662,8 @@ const HE_RX = [
   [/^Green weeks reached the goal of (\d+) minutes\.$/, "בשבועות הירוקים הושג היעד של $1 דקות."],
   [/^Green weeks reached the goal of (\d+) workouts? and (\d+) minutes\.$/, "בשבועות הירוקים הושג היעד של $1 אימונים ו־$2 דקות."],
   [/^Notifications disappear from the app (\d+) days after they’re sent\.$/, "ההתראות נעלמות מהאפליקציה $1 ימים אחרי שנשלחו."],
-  [/^This is (.+)’s copy\. Use \{name\} for each child’s name\.$/, "זה הנוסח ש־$1 קיבל/ה. כתבו {name} במקום שם הילד/ה."], [/^Read (\d+) of (\d+)$/, "נקרא $1 מתוך $2"], [/^\+(\d+) new$/, "+$1 חדשים"], [/^(\d+) students$/, "$1 תלמידים"], [/^(\d+) parents?$/, (m,n)=>+n===1?"הורה אחד":n+" הורים"], [/^Notification sent — (.+)$/, (m,x)=>"ההתראה נשלחה — "+x.split(" · ").map(heT).join(" · ")], [/^Notification sent to (\d+) students?(.*)$/, (m,n,r)=>"ההתראה נשלחה ל־"+n+" תלמידים"+(r.includes("and")?" ולהורים שלהם":r?" (להורים)":"")], [/^(\d+) more workouts? this week to keep your streak$/, (m,n)=>(+n===1?"עוד אימון אחד":"עוד "+n+" אימונים")+" השבוע כדי לשמור על הרצף"], [/^Now: (\d+ days?) in a row$/, (m,x)=>"עכשיו: "+heT(x)+" ברצף"], [/^Highest: (Pawn|Knight|Bishop|Rook|Queen|King)$/, (m,p)=>"הכי גבוה: "+heT(p)], [/^No practice logged for (\d+) days$/, "לא נרשם תרגול כבר $1 ימים"], [/^(.+) says:$/, "התשובה של $1:"], [/^(.+)’s coach$/, "מאמן ל־$1"], [/^(.+) brought what they logged in Rank Up before you \(practice, games, tasks, tournaments\) on (.+)\.$/, (m,w,d)=>(w==="Their parent"?"ההורה הביא/ה":w+" הביא/ה")+" את מה שנרשם ב„עולים בדרגה” לפני שהגיע/ה אליך (תרגול, משחקים, משימות, תחרויות) ב־"+d+"."], [/^(.+)’s history moves to the coach, and this account becomes your parent account with them\. Then (.+) enters their own code from the coach in their app\.$/, "ההיסטוריה של $1 עוברת אל המאמן, והחשבון הזה הופך לחשבון ההורה אצלו. אחר כך מזינים באפליקציה של $2 את הקוד האישי מהמאמן."], [/^Nudge — (.+)$/, "תזכורת — $1"], [/^(\d+)-day practice streak$/, "רצף תרגול של $1 ימים"], [/^(\d+)-week fitness streak$/, "רצף כושר של $1 שבועות"], [/^(.+)’s medals$/, "המדליות של $1"],
+  [/^This is (.+)’s copy\. Use \{name\} for each child’s name\.$/, "זה הנוסח ש־$1 קיבל/ה. כתבו {name} במקום שם הילד/ה."], [/^Read (\d+) of (\d+)$/, "נקרא $1 מתוך $2"], [/^\+(\d+) new$/, "+$1 חדשים"], [/^(\d+) students$/, "$1 תלמידים"], [/^(\d+) parents?$/, (m,n)=>+n===1?"הורה אחד":n+" הורים"], [/^Notification sent — (.+)$/, (m,x)=>"ההתראה נשלחה — "+x.split(" · ").map(heT).join(" · ")], [/^Notification sent to (\d+) students?(.*)$/, (m,n,r)=>"ההתראה נשלחה ל־"+n+" תלמידים"+(r.includes("and")?" ולהורים שלהם":r?" (להורים)":"")], [/^(\d+) more workouts? this week to keep your streak$/, (m,n)=>(+n===1?"עוד אימון אחד":"עוד "+n+" אימונים")+" השבוע כדי לשמור על הרצף"], [/^Now: (\d+ days?) in a row$/, (m,x)=>"עכשיו: "+heT(x)+" ברצף"], [/^Highest: (Pawn|Knight|Bishop|Rook|Queen|King)$/, (m,p)=>"הכי גבוה: "+heT(p)], [/^No practice logged for (\d+) days$/, "לא נרשם תרגול כבר $1 ימים"], [/^(.+) says:$/, "התשובה של $1:"], [/^Rating updated — (\d+) (.+)$/, "הדירוג עודכן — $1 $2"], [/^From your (.+) number, checked once a month(?: \(last: (.+)\))?\.$/, (m,a,w)=>"לפי מספר ה־"+a.replace(" and "," וה־")+", נבדק פעם בחודש"+(w?" (לאחרונה: "+w+")":"")+"."],
+  [/^Couldn't read the rating for (.+)\. Check the number in My profile\.$/, "לא ניתן לקרוא את הדירוג של $1. כדאי לבדוק את המספר בפרופיל שלי."], [/^(.+)’s coach$/, "מאמן ל־$1"], [/^(.+) brought what they logged in Rank Up before you \(practice, games, tasks, tournaments\) on (.+)\.$/, (m,w,d)=>(w==="Their parent"?"ההורה הביא/ה":w+" הביא/ה")+" את מה שנרשם ב„עולים בדרגה” לפני שהגיע/ה אליך (תרגול, משחקים, משימות, תחרויות) ב־"+d+"."], [/^(.+)’s history moves to the coach, and this account becomes your parent account with them\. Then (.+) enters their own code from the coach in their app\.$/, "ההיסטוריה של $1 עוברת אל המאמן, והחשבון הזה הופך לחשבון ההורה אצלו. אחר כך מזינים באפליקציה של $2 את הקוד האישי מהמאמן."], [/^Nudge — (.+)$/, "תזכורת — $1"], [/^(\d+)-day practice streak$/, "רצף תרגול של $1 ימים"], [/^(\d+)-week fitness streak$/, "רצף כושר של $1 שבועות"], [/^(.+)’s medals$/, "המדליות של $1"],
   [/^(\d+) (days?|weeks?)$/, (m,n,u)=>(+n===1 ? (u[0]==="d"?"יום אחד":"שבוע אחד") : n+(u[0]==="d"?" ימים":" שבועות"))], [/^Now: (.+)$/, (m,x)=>"עכשיו: "+heT(x)], [/^Best: (.+)$/, (m,x)=>"הכי טוב: "+heT(x)],
   [/^(\d+ (?:days?|weeks?)) more to (Pawn|Knight|Bishop|Rook|Queen|King)$/, (m,x,t)=>"עוד "+heT(x)+" ל"+heT(t)], [/^Switch to online$/, "מעבר לאונליין"], [/^Switch to in person$/, "מעבר לפרונטלי"], [/^The lesson on (.+) is now online$/, "השיעור ב־$1 יהיה אונליין"], [/^The lesson on (.+) is now in person$/, "השיעור ב־$1 יהיה פרונטלי"], [/^(In person|Online) → (In person|Online)$/, (m,a,b)=>({"In person":"פרונטלי","Online":"אונליין"})[a]+" → "+({"In person":"פרונטלי","Online":"אונליין"})[b]], [/^Notes from your lesson on (.+)$/, "הערות מהשיעור ב־$1"], [/^(.+) challenge$/, "האתגר של $1"], [/^(\d+) to go$/, "עוד $1"], [/^You added (\d+) this month$/, "הוספת $1 החודש"], [/^(.+) added (\d+) this month$/, "$1 הוסיף/ה $2 החודש"], [/^(\d+) of (\d+) group workouts this month$/, "$1 מתוך $2 אימונים קבוצתיים החודש"],
   [/^Logged: (.+)$/, "תועד: $1"], [/^🔥 (\d+) weeks in a row reaching the fitness goal$/, "🔥 $1 שבועות ברצף ביעד הכושר"], [/^Points scored after 8 h or more:$/, "נקודות אחרי 8 שעות שינה ומעלה:"], [/^after less:$/, "אחרי פחות:"], [/^([\d.]+) h$/, "$1 ש׳"], [/^of (\d+) pages read$/, "מתוך $1 עמודים נקראו"], [/^(\d+) of (\d+) pages read$/, "$1 מתוך $2 עמודים נקראו"], [/^(\d+) pages read$/, "$1 עמודים נקראו"], [/^p\. ([\d–, ]+)$/, "עמ׳ $1"], [/^last stop p\. (\d+)$/, "עצירה אחרונה בעמ׳ $1"], [/^p\. (\d+)–(\d+)$/, "עמ׳ $1–$2"], [/^pages read$/, "עמודים נקראו"], [/^Whole group: (.+) \((\d+)\)$/, "כל הקבוצה: $1 ($2)"], [/^Assignment given to (\d+) students?$/, (m,n)=>+n===1 ? "המשימה ניתנה לתלמיד אחד" : "המשימה ניתנה ל־"+n+" תלמידים"], [/^(\d+) students?$/, (m,n)=>+n===1 ? "תלמיד אחד" : n+" תלמידים"], [/^(\d+) of (\d+) workouts this week$/, "$1 מתוך $2 אימונים השבוע"], [/^(\d+) more to reach the weekly goal$/, "עוד $1 כדי להגיע ליעד השבועי"], [/^(\d+) weeks in a row$/, "$1 שבועות ברצף"],
