@@ -499,6 +499,16 @@ dialog.wide{width:min(960px,calc(100vw - 24px))}
 .club-facts{display:flex;flex-wrap:wrap;gap:4px 20px;margin:0 0 4px}
 .club-h{font-size:1rem;margin:16px 0 8px}
 .checks{display:flex;flex-wrap:wrap;gap:6px}
+.multi{position:relative}
+.multi>summary{display:block;list-style:none;cursor:pointer;box-sizing:border-box;height:38px;line-height:1.4;padding:8px 32px 8px 10px;background:var(--tint-blue);border-bottom:2px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:6px 6px 0 0;position:relative;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.multi>summary::-webkit-details-marker{display:none}
+.multi>summary::after{content:"";position:absolute;inset-inline-end:12px;top:50%;width:7px;height:7px;border:solid currentColor;border-width:0 2px 2px 0;transform:translateY(-70%) rotate(45deg)}
+.multi[open]>summary::after{transform:translateY(-20%) rotate(225deg)}
+.multi-list{position:absolute;z-index:5;inset-inline:0;top:100%;margin-top:2px;max-height:260px;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);box-shadow:0 8px 24px rgba(0,0,0,.15);padding:4px 0}
+.multi-row,.field .multi-row,.field .multi-row span{display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;font-weight:400;margin:0}
+.field .multi-row span{display:inline;padding:0}
+.multi-row:hover{background:var(--tint-blue)}
+.modal-form .multi-row input{width:auto;height:auto;min-height:0;margin:0;padding:0;box-shadow:none;accent-color:var(--accent)}
 .check-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface);cursor:pointer;font-weight:400}
 .modal-form .check-chip input{width:auto;height:auto;min-height:0;margin:0;padding:0;box-shadow:none;accent-color:var(--accent)}
 .check-chip{white-space:nowrap}
@@ -2450,6 +2460,24 @@ if (typeof define !== 'undefined')
 
 /* ---------- constants ---------- */
 const TASK_CATS = ["Tactics","Endgames","Openings","Calculation","Game analysis","Strategy","Reading","Other"];
+// Which endgames a session was about (optional, one or more): [key, label in the form, short English, short Hebrew].
+const EG_TYPES = [["pawn","Pawn endgames","Pawn","רגלים"],["rook","Rook endgames","Rook","צריחים"],["bishop","Bishop endgames","Bishop","רצים"],["knight","Knight endgames","Knight","פרשים"],
+  ["bn","Bishop vs knight","Bishop vs knight","רץ מול פרש"],["rminor","Rook vs minor piece","Rook vs minor piece","צריח מול כלי קל"],["queen","Queen endgames","Queen","מלכות"],
+  ["mates","Basic checkmates","Basic checkmates","מטים בסיסיים"],["theory","Theoretical positions (Lucena, Philidor…)","Theoretical positions","עמדות תיאורטיות"],["mixed","Mixed / other","Mixed / other","מעורב / אחר"]];
+const egOf = w=>w && w.what==="Endgames" && Array.isArray(w.eg) ? w.eg.filter(k=>EG_TYPES.some(e=>e[0]===k)) : [];
+const egName = k=>{ const e = EG_TYPES.find(x=>x[0]===k)||[k,k,k,k]; return lang()==="he" ? e[3] : e[2]; };
+const egNames = w=>egOf(w).map(egName).join(", ");
+// Endgame minutes by type since `from` (a session with several types counts evenly for each), most first.
+function egBreakdown(s, from){
+  const m = {}; (s.worklog||[]).filter(w=>w.date>=from).forEach(w=>{ const ks = egOf(w); ks.forEach(k=>{ m[k] = (m[k]||0) + (+w.minutes||0)/ks.length; }); });
+  return Object.entries(m).map(([k,v])=>[k, Math.round(v)]).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]);
+}
+function egList(s, from){
+  const L = egBreakdown(s, from); if (!L.length) return "";
+  const tot = L.reduce((x,e)=>x+e[1], 0)||1;
+  return '<ul class="list eg-list">'+L.map(([k,m])=>'<li><span>'+esc(egName(k))+'</span><span class="num">'+Math.round(m/tot*100)+'% · '+m+' min</span></li>').join("")+'</ul>'+
+    '<p class="small muted" style="margin:6px 0 0">Only sessions where the endgame type was ticked. A session with several types counts evenly for each.</p>';
+}
 // Tactics sources: each exercise has a kind that decides what result is recorded.
 // rated = puzzles solved + puzzle rating after; score = best score in the mode; count = number of exercises.
 const TACTICS_SITES = {
@@ -2464,9 +2492,11 @@ const TACTICS_SITES = {
 const exKind = (site, ex) => ((TACTICS_SITES[site]||[]).find(e=>e[0]===ex)||[,"count"])[1];
 function practiceLabel(w, s){
   const b = w.bookId && s ? s.books.find(x=>x.id===w.bookId) : null; const bt = b ? b.title : w.bookTitle;
-  if (bt) return esc(w.what||"Reading")+' · <i>'+esc(bt)+'</i>';
+  const eg = egOf(w).length ? ' · '+esc(egNames(w)) : ''; // which endgames, when ticked
+  if (bt) return esc(w.what||"Reading")+eg+' · <i>'+esc(bt)+'</i>';
+  if (eg && !w.cbFile) return esc(w.what)+eg;
   if (w.what==="Game analysis" && w.gameId){ const g = state.games.find(x=>x.id===w.gameId); if (g) return 'Game analysis · '+esc(g.kind==="study"?studyTitle(g):gameTitle(g))+' <span class="muted num">'+esc(g.result||"")+'</span>'+(g.kind==="study"?' <span class="tag">Studied game</span>':''); }
-  if (w.cbFile) return esc(w.what)+' · ChessBase: '+esc(w.cbFile);
+  if (w.cbFile) return esc(w.what)+eg+' · ChessBase: '+esc(w.cbFile);
   if (w.what!=="Tactics" || !w.site) return esc(w.what||"Practice");
   return 'Tactics · '+esc(w.site)+(w.exercise?' '+esc(w.exercise):'');
 }
@@ -3708,6 +3738,18 @@ function playerTips(s){
         w ? "אין תרגול "+c+" כבר "+w+" שבועות — כדאי להוסיף אימון קצר השבוע." : "עוד לא נרשם תרגול "+c+" — כדאי להוסיף אימון קצר השבוע.",
         w ? "No "+c+" for "+n+" in "+w+" weeks — a short session this week would help." : n+" hasn't logged any "+c+" yet — a short "+c+" session this week would help.",
         w ? to("ל")+" אין תרגול "+c+" כבר "+w+" שבועות — כדאי להוסיף אימון קצר השבוע." : "עוד לא נרשם "+to("ל")+" תרגול "+c+" — כדאי להוסיף אימון קצר השבוע."); }
+    // within endgames: rook and pawn endgames, once they tick endgame types (3 sessions or more)
+    const typed = log.filter(w=>egOf(w).length);
+    if (typed.length>=3 && !(gapCat && gapCat.c==="Endgames")){
+      const last = k=>typed.filter(w=>egOf(w).includes(k)).reduce((m,w)=>w.date>m?w.date:m, "");
+      const miss = ["rook","pawn"].map(k=>{ const d = last(k); return {k, days:d ? daysBetween(d, t) : null}; }).filter(o=>o.days===null || o.days>=21)
+        .sort((a,b)=>(b.days===null?999:b.days)-(a.days===null?999:a.days))[0];
+      if (miss){ const w = miss.days===null ? 0 : Math.floor(miss.days/7), rook = miss.k==="rook";
+        const en = rook ? "rook endgames" : "pawn endgames", hb = rook ? "סיומי צריחים" : "סיומי רגלים";
+        const why = rook ? " — they come up most in real games." : " — every endgame can turn into one.", whyHe = rook ? " — הם הנפוצים ביותר במשחקים אמיתיים." : " — כל סיום יכול להפוך לאחד כזה.";
+        add("warn", (w ? "No "+en+" for "+w+" weeks" : "No "+en+" logged yet")+why, (w ? "אין "+hb+" כבר "+w+" שבועות" : "עוד לא נרשמו "+hb)+whyHe,
+          (w ? "No "+en+" for "+n+" in "+w+" weeks" : n+" hasn't logged any "+en+" yet")+why, (w ? to("ל")+" אין "+hb+" כבר "+w+" שבועות" : "עוד לא נרשמו "+to("ל")+" "+hb)+whyHe); }
+    }
     // one topic taking over
     const month = log.filter(w=>daysBetween(w.date, t)<=30), mins = {}; month.forEach(w=>{ mins[w.what] = (mins[w.what]||0) + (+w.minutes||0); });
     const total = Object.values(mins).reduce((a,b)=>a+b, 0), top = Object.keys(mins).sort((a,b)=>mins[b]-mins[a])[0], pc = total ? Math.round(mins[top]/total*100) : 0;
@@ -4013,6 +4055,8 @@ function dateFields(root){
   });
 }
 const syncDates = root=>root && root.querySelectorAll('input[data-dmy]').forEach(n=>n._dmyShow && n._dmyShow());
+// What a compact tick list shows while closed: the short names of what's ticked (options are [value, label, short]).
+const multiSum = (f, on)=>{ const L = f.options.filter(o=>on.includes(String(o[0]))).map(o=>o[2]||o[1]); return L.length ? L.join(", ") : (lang()==="he" ? heT(f.placeholder||"Choose…") : f.placeholder||"Choose…"); };
 function openForm({title, fields, submit="Save", onSubmit, danger, parentOk}){
   // Parents view their child's records; only lesson requests and changes are open to them.
   if (PARENT() && !parentOk){ toast("View only — "+(state.students[0]?firstName(state.students[0]):"your child")+" or the coach can change this"); return; }
@@ -4024,6 +4068,9 @@ function openForm({title, fields, submit="Save", onSubmit, danger, parentOk}){
       if (f.type==="select" && typeof f.options==="function") input = '<select id="'+id+'" name="'+f.name+'"></select>';
       else if (f.type==="select") input = '<select id="'+id+'" name="'+f.name+'">'+f.options.map(o=>{ const [val,lab] = Array.isArray(o)?o:[o,o]; return '<option value="'+esc(val)+'"'+(String(val)===String(v)?" selected":"")+'>'+esc(lab)+'</option>'; }).join("")+'</select>';
       else if (f.type==="textarea") input = '<textarea id="'+id+'" name="'+f.name+'" placeholder="'+esc(f.placeholder||"")+'">'+esc(v)+'</textarea>';
+      else if (f.type==="checks" && f.compact){ const on = String(v).split(",").filter(Boolean);
+        input = '<input type="hidden" id="'+id+'" name="'+f.name+'" value="'+esc(on.join(","))+'"><details class="multi"><summary data-multi-sum="'+f.name+'" data-none="'+esc(f.placeholder||"Choose…")+'">'+esc(multiSum(f, on))+'</summary>'+
+          '<div class="multi-list" data-checks="'+f.name+'">'+f.options.map(([val,lab])=>'<label class="multi-row"><input type="checkbox" value="'+esc(val)+'"'+(on.includes(String(val))?' checked':'')+'> <span>'+esc(lab)+'</span></label>').join("")+'</div></details>'; }
       else if (f.type==="checks"){ const on = String(v).split(",").filter(Boolean);
         input = '<input type="hidden" id="'+id+'" name="'+f.name+'" value="'+esc(on.join(","))+'"><div class="checks" data-checks="'+f.name+'">'+(f.options.length ? f.options.map(([val,lab])=>'<label class="check-chip"><input type="checkbox" value="'+esc(val)+'"'+(on.includes(String(val))?' checked':'')+'> '+esc(lab)+'</label>').join("") : '<span class="small muted">'+esc(f.empty||"Nothing to choose yet.")+'</span>')+'</div>'; }
       else if (f.type==="dates") input = '<input type="hidden" id="'+id+'" name="'+f.name+'" value="'+esc(v)+'"><div class="dates-list" data-dates="'+f.name+'"></div><button type="button" class="btn small" data-adddate="'+f.name+'">'+esc(f.addLabel||"Add a date")+'</button>';
@@ -4036,8 +4083,12 @@ function openForm({title, fields, submit="Save", onSubmit, danger, parentOk}){
   // Several choices (checkboxes), kept in a hidden field as "a,b".
   fields.filter(f=>f.type==="checks").forEach(f=>{
     const hid = form.elements[f.name], box = form.querySelector('[data-checks="'+f.name+'"]');
-    box.addEventListener("change", e=>{ e.stopPropagation(); hid.value = [...box.querySelectorAll("input:checked")].map(c=>c.value).join(","); form.dispatchEvent(new Event("change")); });
+    box.addEventListener("change", e=>{ e.stopPropagation(); hid.value = [...box.querySelectorAll("input:checked")].map(c=>c.value).join(",");
+      const sum = form.querySelector('[data-multi-sum="'+f.name+'"]'); if (sum) sum.textContent = multiSum(f, hid.value.split(",").filter(Boolean));
+      form.dispatchEvent(new Event("change")); });
   });
+  // a compact list closes when the form is clicked elsewhere
+  form.addEventListener("click", e=>{ form.querySelectorAll("details.multi[open]").forEach(d=>{ if (!d.contains(e.target)) d.open = false; }); });
   // A list of dates (one per row), kept in a hidden field as "2026-10-05,2026-10-12".
   fields.filter(f=>f.type==="dates").forEach(f=>{
     const hid = form.elements[f.name], box = form.querySelector('[data-dates="'+f.name+'"]');
@@ -4234,6 +4285,7 @@ function coachCodeForm(player){
 }
 // "Updated by your coach 2 hours ago", and changes still waiting for the coach's app.
 function freshness(s){
+  if (NOCOACH()) return ""; // no coach's app writes a player's board (or the child's, from their parent's)
   const ago = s.syncedAt ? Math.max(0, Date.now()-Date.parse(s.syncedAt)) : null;
   const when = ago===null ? "" : ago<5*60000 ? "just now" : ago<3600000 ? Math.round(ago/60000)+" minutes ago" : ago<86400000 ? Math.round(ago/3600000)+" hours ago" : Math.round(ago/86400000)+" days ago";
   const old = ago!==null && ago>2*86400000;
@@ -4287,7 +4339,7 @@ function pProgress(v, s){
     panel("Practice per week", '<div class="wbars" style="grid-template-columns:repeat(12,1fr)" role="img" aria-label="Practice minutes per week, last 12 weeks">'+weeks.map((w,i)=>'<div title="'+esc(fmtShort(w.a))+': '+w.m+' min">'+(w.m?'<span class="pct">'+w.m+'</span>':'')+'<span class="bar" style="height:'+Math.round(w.m/maxM*100)+'px;'+(i===11?'background:var(--green)':'')+'"></span><span class="wl">'+esc(new Date(w.a+"T00:00").toLocaleDateString(LOCALE(),{day:"numeric",month:"numeric"}))+'</span></div>').join("")+'</div>'+
       '<p class="small muted" style="margin:10px 0 0">'+(lang()==="he" ? 'בערך <b class="num">'+avg+'</b> דק׳ בשבוע'+(streak>1?' · רצף של <b class="num">'+streak+'</b> ימים':'') : 'About <b class="num">'+avg+'</b> min a week'+(streak>1?' · <b class="num">'+streak+'</b>-day streak':''))+'</p>')+
     panel("What the practice went on", whatList.length ? '<div style="display:flex;height:14px;border-radius:7px;overflow:hidden;margin:4px 0 12px">'+whatList.map(([k,m],i)=>'<span title="'+esc(k)+'" style="width:'+(m/whatTot*100)+'%;background:'+COL[i%COL.length]+'"></span>').join("")+'</div><ul class="list">'+
-      whatList.map(([k,m],i)=>'<li><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+COL[i%COL.length]+';margin-inline-end:8px"></i>'+esc(k)+'</span><span class="num">'+Math.round(m/whatTot*100)+'% · '+m+' min</span></li>').join("")+'</ul>' : '<p class="empty">No practice logged in this period.</p>')+
+      whatList.map(([k,m],i)=>'<li><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+COL[i%COL.length]+';margin-inline-end:8px"></i>'+esc(k)+'</span><span class="num">'+Math.round(m/whatTot*100)+'% · '+m+' min</span></li>').join("")+'</ul>'+(egBreakdown(s, from).length ? '<h3 class="subh">Endgames by type</h3>'+egList(s, from) : '') : '<p class="empty">No practice logged in this period.</p>')+
     panel("Assignments and reading", '<dl class="kv"><dt>Done in this period</dt><dd class="num">'+asDone+'</dd><dt>Still open</dt><dd class="num">'+asOpen+'</dd><dt>Books finished</dt><dd class="num">'+booksDone+'</dd>'+
       (s.books.some(b=>b.status==="Reading")?'<dt>Reading now</dt><dd>'+s.books.filter(b=>b.status==="Reading").map(b=>esc(b.title)+(b.pages?' · '+bookPct(s,b)+'%':'')).join('<br>')+'</dd>':'')+'</dl>')+
     panel("Tactics & puzzles", tacticsStats(s, progPeriod))+
@@ -5808,6 +5860,7 @@ function tWork(el, s){
       (()=>{ const n = s.worklog.length, shown = Math.min(n, workShown[s.id]||25); return n>shown ? '<div class="row-actions" style="margin-top:8px;align-items:center"><span class="small muted" style="margin-inline-end:auto">Showing '+shown+' of '+n+'</span><button class="btn small" data-a="more">Show 25 more</button><button class="btn small ghost" data-a="all">Show all</button></div>' : ""; })(),
       '<button class="btn small primary" data-a="addLog">Log practice</button>')+
     panel("Tactics statistics", '<div class="seg" role="group" aria-label="Period">'+periods.map(([n,l])=>'<button type="button" class="'+(tacPeriod===n?"on":"")+'" data-a="period" data-id="'+n+'">'+l+'</button>').join("")+'</div>'+tacticsStats(s, tacPeriod))+
+    (egBreakdown(s, addDays(t,-89)).length ? panel("Endgames by type", '<p class="small muted" style="margin:0 0 6px">Last 90 days</p>'+egList(s, addDays(t,-89))) : '')+
   '</div>'+linksPanel(STUDENT() ? state.settings.links||[] : coachLinks(), s);
   bindUsernames(el, s, STUDENT() ? state.settings.links||[] : coachLinks());
   bindActions(el,{
@@ -6003,6 +6056,7 @@ function openPractice(s, entry, preset){
     {name:"what",label:STUDENT()?"What you worked on":"What they worked on",type:"select",options:TASK_CATS,value:x?.what||"Tactics",full:true},
     {name:"site",label:"Where",type:"select",options:Object.keys(TACTICS_SITES),value:x?.site||"Chess.com",show:isTac},
     {name:"exercise",label:"Type of exercise",type:"select",options:v=>(TACTICS_SITES[v.site]||[]).map(e=>e[0]),value:x?.exercise||"",show:isTac},
+    {name:"eg",label:"Which endgames",type:"checks",compact:true,placeholder:"Choose — optional",options:EG_TYPES.map(e=>[e[0], e[1], egName(e[0])]),value:egOf(x).join(","),full:true,show:v=>v.what==="Endgames",hint:"Tick everything this session covered."},
     {name:"src",label:"Where",type:"select",options:SOURCES,value:x?.src||"Book",show:isSrc},
     {name:"cbFile",label:"ChessBase file",value:x?.cbFile||"",full:true,placeholder:"e.g. Rook endings.cbv",suggest:cbFiles,show:isCB},
     {name:"cbSection",label:"Chapter or section",value:x?.cbSection||"",placeholder:"e.g. Lucena position",show:isCB},
@@ -6035,6 +6089,7 @@ function openPractice(s, entry, preset){
     if (+d.correct > +d.attempted) return "Solved correctly can't be more than puzzles attempted.";
   };
   const clean = d=>{ d.count = "";
+    d.eg = d.what==="Endgames" ? String(d.eg||"").split(",").filter(k=>EG_TYPES.some(e=>e[0]===k)) : [];
     if (d.what==="Tactics" && exKind(d.site,d.exercise)==="score"){ d.scores = parseScores(d.scores); d.score = Math.max(...d.scores); d.attempted = ""; d.correct = ""; }
     else { d.scores = []; d.score = ""; }
     if (!d.bookId){ d.page = ""; d.pageFrom = ""; } else if (d.pageFrom!=="") d.pageFrom = +d.pageFrom;
@@ -8400,7 +8455,9 @@ Object.assign(HE, {
   "Your child can sign in on their own phone and log practice, games and tournaments. Everything shows here too.":"הילד/ה יכול/ה להתחבר מהטלפון שלו/ה ולרשום תרגול, משחקים ותחרויות. הכל מופיע גם כאן.",
   "They create an account with their own email and a password.":"יוצרים חשבון עם אימייל משלהם וסיסמה.", "They enter this code:":"מזינים את הקוד הזה:",
   "Enter the code your coach (or your parent) gave you to connect your account.":"יש להזין את הקוד שקיבלת מהמאמן (או מההורה) כדי לחבר את החשבון.",
-  "Tips":"טיפים", "Have a coach?":"יש לך מאמן?", "PDF attached — open it from the book":"ה־PDF צורף — אפשר לפתוח אותו מתוך הספר", "From their own board":"מהלוח האישי", "Connect to a coach":"חיבור למאמן", "Family code from the coach":"קוד משפחה מהמאמן",
+  "Tips":"טיפים", "Have a coach?":"יש לך מאמן?", "Which endgames":"אילו סיומים", "Tick everything this session covered.":"אפשר לסמן את כל מה שתורגל באימון.", "Choose — optional":"בחירה — לא חובה", "Choose…":"בחירה…", "Endgames by type":"סיומים לפי סוג", "Last 90 days":"90 הימים האחרונים",
+  "Only sessions where the endgame type was ticked. A session with several types counts evenly for each.":"רק אימונים שבהם סומן סוג הסיום. אימון עם כמה סוגים נספר בחלקים שווים לכל אחד.",
+  "Pawn endgames":"סיומי רגלים", "Rook endgames":"סיומי צריחים", "Bishop endgames":"סיומי רצים", "Knight endgames":"סיומי פרשים", "Bishop vs knight":"רץ מול פרש", "Rook vs minor piece":"צריח מול כלי קל", "Queen endgames":"סיומי מלכות", "Basic checkmates":"מטים בסיסיים", "Theoretical positions (Lucena, Philidor…)":"עמדות תיאורטיות (לוסנה, פילידור…)", "Mixed / other":"מעורב / אחר", "PDF attached — open it from the book":"ה־PDF צורף — אפשר לפתוח אותו מתוך הספר", "From their own board":"מהלוח האישי", "Connect to a coach":"חיבור למאמן", "Family code from the coach":"קוד משפחה מהמאמן",
   "Working with a coach? Ask them for a code — they add you as a student in Rank Up. Your practice, games, tasks and tournaments move with you.":"מתחילים ללמוד עם מאמן? בקשו ממנו קוד — הוא מוסיף אתכם כתלמידים ב„עולים בדרגה”. התרגול, המשחקים, המשימות והתחרויות שלכם עוברים איתכם.",
   "Everything you logged moves to your coach, and this app becomes your coach’s student app.":"כל מה שרשמתם עובר אל המאמן, והאפליקציה הזו הופכת לאפליקציית התלמיד שלו.", "Everything you logged moves to your coach.":"כל מה שרשמתם עובר אל המאמן.",
   "Connected! Opening your app…":"מחובר! האפליקציה נפתחת…", "Connected — your coach’s app takes it in next time they open Rank Up":"מחובר — האפליקציה של המאמן תקלוט את זה כשיפתח את „עולים בדרגה”",
