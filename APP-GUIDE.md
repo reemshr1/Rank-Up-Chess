@@ -411,6 +411,11 @@ A player follows their own chess with no coach. They get a **player code** from 
 - The first time, **Welcome to Rank Up** asks for their name (and optionally a Hebrew name, year of birth,
   FIDE and Israel Chess Federation numbers). **My profile** on Home changes it later; with a player number
   the rating fills in by itself (and is checked once a month).
+- **Rating:** with a FIDE or ICF number the rating is fetched when the profile is saved and once a month after
+  ("Rating updated — 1650 FIDE"; a number that can't be read says so). On **Progress**, the Rating card says where
+  it comes from, with **Check now**; without a number, **Add rating** records one by hand (FIDE, FIDE Rapid, FIDE
+  Blitz, ICF or Online), and the first one sets which list is theirs. A player's Progress shows practice sessions
+  instead of lessons, and no coach goals or recent lessons.
 - They use the student app: Home, **Tasks**, Practice (practice, fitness, sleep, books), Games (games and
   tournaments) and Progress. There's no Schedule, no lesson requests, no payments and nothing from a coach.
   Home's first tile is their **next tournament**.
