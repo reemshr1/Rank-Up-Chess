@@ -151,6 +151,12 @@ Six tabs:
   streak, every practice entry (tactics with site and score, game analysis,
   reading, openings, ChessBase files…), and **Tactics statistics** for 7 / 30
   / 90 days / all time. Entries the student logged are tagged "by student".
+  **Endgame types:** logging **Endgames**, tick which endgames the session covered (optional, one or more):
+  pawn, rook, bishop, knight, bishop vs knight, rook vs minor piece, queen, basic checkmates, theoretical
+  positions (Lucena, Philidor…), mixed / other. The entry reads e.g. "Endgames · Pawn, Rook · *book*",
+  **Endgames by type** (last 90 days) splits the minutes by type (a session with several types counts evenly
+  for each), and the Progress page shows the same split. A player who ticks types gets a tip when rook or pawn
+  endgames have been left alone for 3 weeks.
 - **Fitness:** workouts this week against the **weekly goal** (the coach
   sets it in workouts per week, minutes per week, or both; with both, a week
   counts when both are reached), the last 8 weeks as bars, the weeks-in-a-row streak, quick-log
