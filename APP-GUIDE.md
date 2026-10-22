@@ -415,6 +415,18 @@ A player follows their own chess with no coach. They get a **player code** from 
   alone for 2+ weeks (endgames, tactics, calculation), a month spent almost all on one topic, puzzle accuracy
   (too low → easier puzzles, very high → harder ones) and practice streaks. The child and the parent both see it;
   coach boards don't. On a parent's board they talk about the child by name ("Maya hasn't practiced for 5 days").
+- **Connect to a coach.** When a player starts with a coach, the coach adds them like any student (Students →
+  New student → **Invite to the app**) and gives them the code. On Home, **Have a coach?** → **Connect to a coach**
+  → enter the code. Everything they logged (practice, workouts, sleep, books, tournaments, games, tasks, ratings,
+  FIDE/ICF numbers) moves to the coach's records, and their app becomes the coach's student app. On the coach's
+  side it arrives when the coach's app is open; the student's page says **From their own board**. Whatever the
+  coach had already entered stays as it was. A wrong code changes nothing.
+  - **A parent's board:** the coach adds the child and makes a **family** for the parent, as today. The parent
+    enters the **family code** ("Maya's coach" on Home) and becomes the parent account with the coach; the child
+    enters their own student code in their app (**Have a coach?** shows there too). Both can send the history —
+    the coach's records take each entry once.
+  - The old player board stays in the database as a **hidden copy**. On the admin page, **Accounts** shows them as
+    **Moved to a coach**, with **Delete the copy** (their account and link to the coach stay).
 
 ## 2. Student view
 
