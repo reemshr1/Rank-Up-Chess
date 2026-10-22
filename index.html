@@ -499,6 +499,16 @@ dialog.wide{width:min(960px,calc(100vw - 24px))}
 .club-facts{display:flex;flex-wrap:wrap;gap:4px 20px;margin:0 0 4px}
 .club-h{font-size:1rem;margin:16px 0 8px}
 .checks{display:flex;flex-wrap:wrap;gap:6px}
+.multi{position:relative}
+.multi>summary{display:block;list-style:none;cursor:pointer;box-sizing:border-box;height:38px;line-height:1.4;padding:8px 32px 8px 10px;background:var(--tint-blue);border-bottom:2px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:6px 6px 0 0;position:relative;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.multi>summary::-webkit-details-marker{display:none}
+.multi>summary::after{content:"";position:absolute;inset-inline-end:12px;top:50%;width:7px;height:7px;border:solid currentColor;border-width:0 2px 2px 0;transform:translateY(-70%) rotate(45deg)}
+.multi[open]>summary::after{transform:translateY(-20%) rotate(225deg)}
+.multi-list{position:absolute;z-index:5;inset-inline:0;top:100%;margin-top:2px;max-height:260px;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);box-shadow:0 8px 24px rgba(0,0,0,.15);padding:4px 0}
+.multi-row,.field .multi-row,.field .multi-row span{display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;font-weight:400;margin:0}
+.field .multi-row span{display:inline;padding:0}
+.multi-row:hover{background:var(--tint-blue)}
+.modal-form .multi-row input{width:auto;height:auto;min-height:0;margin:0;padding:0;box-shadow:none;accent-color:var(--accent)}
 .check-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface);cursor:pointer;font-weight:400}
 .modal-form .check-chip input{width:auto;height:auto;min-height:0;margin:0;padding:0;box-shadow:none;accent-color:var(--accent)}
 .check-chip{white-space:nowrap}
@@ -4045,6 +4055,8 @@ function dateFields(root){
   });
 }
 const syncDates = root=>root && root.querySelectorAll('input[data-dmy]').forEach(n=>n._dmyShow && n._dmyShow());
+// What a compact tick list shows while closed: the short names of what's ticked (options are [value, label, short]).
+const multiSum = (f, on)=>{ const L = f.options.filter(o=>on.includes(String(o[0]))).map(o=>o[2]||o[1]); return L.length ? L.join(", ") : (lang()==="he" ? heT(f.placeholder||"Choose…") : f.placeholder||"Choose…"); };
 function openForm({title, fields, submit="Save", onSubmit, danger, parentOk}){
   // Parents view their child's records; only lesson requests and changes are open to them.
   if (PARENT() && !parentOk){ toast("View only — "+(state.students[0]?firstName(state.students[0]):"your child")+" or the coach can change this"); return; }
@@ -4056,6 +4068,9 @@ function openForm({title, fields, submit="Save", onSubmit, danger, parentOk}){
       if (f.type==="select" && typeof f.options==="function") input = '<select id="'+id+'" name="'+f.name+'"></select>';
       else if (f.type==="select") input = '<select id="'+id+'" name="'+f.name+'">'+f.options.map(o=>{ const [val,lab] = Array.isArray(o)?o:[o,o]; return '<option value="'+esc(val)+'"'+(String(val)===String(v)?" selected":"")+'>'+esc(lab)+'</option>'; }).join("")+'</select>';
       else if (f.type==="textarea") input = '<textarea id="'+id+'" name="'+f.name+'" placeholder="'+esc(f.placeholder||"")+'">'+esc(v)+'</textarea>';
+      else if (f.type==="checks" && f.compact){ const on = String(v).split(",").filter(Boolean);
+        input = '<input type="hidden" id="'+id+'" name="'+f.name+'" value="'+esc(on.join(","))+'"><details class="multi"><summary data-multi-sum="'+f.name+'" data-none="'+esc(f.placeholder||"Choose…")+'">'+esc(multiSum(f, on))+'</summary>'+
+          '<div class="multi-list" data-checks="'+f.name+'">'+f.options.map(([val,lab])=>'<label class="multi-row"><input type="checkbox" value="'+esc(val)+'"'+(on.includes(String(val))?' checked':'')+'> <span>'+esc(lab)+'</span></label>').join("")+'</div></details>'; }
       else if (f.type==="checks"){ const on = String(v).split(",").filter(Boolean);
         input = '<input type="hidden" id="'+id+'" name="'+f.name+'" value="'+esc(on.join(","))+'"><div class="checks" data-checks="'+f.name+'">'+(f.options.length ? f.options.map(([val,lab])=>'<label class="check-chip"><input type="checkbox" value="'+esc(val)+'"'+(on.includes(String(val))?' checked':'')+'> '+esc(lab)+'</label>').join("") : '<span class="small muted">'+esc(f.empty||"Nothing to choose yet.")+'</span>')+'</div>'; }
       else if (f.type==="dates") input = '<input type="hidden" id="'+id+'" name="'+f.name+'" value="'+esc(v)+'"><div class="dates-list" data-dates="'+f.name+'"></div><button type="button" class="btn small" data-adddate="'+f.name+'">'+esc(f.addLabel||"Add a date")+'</button>';
@@ -4068,8 +4083,12 @@ function openForm({title, fields, submit="Save", onSubmit, danger, parentOk}){
   // Several choices (checkboxes), kept in a hidden field as "a,b".
   fields.filter(f=>f.type==="checks").forEach(f=>{
     const hid = form.elements[f.name], box = form.querySelector('[data-checks="'+f.name+'"]');
-    box.addEventListener("change", e=>{ e.stopPropagation(); hid.value = [...box.querySelectorAll("input:checked")].map(c=>c.value).join(","); form.dispatchEvent(new Event("change")); });
+    box.addEventListener("change", e=>{ e.stopPropagation(); hid.value = [...box.querySelectorAll("input:checked")].map(c=>c.value).join(",");
+      const sum = form.querySelector('[data-multi-sum="'+f.name+'"]'); if (sum) sum.textContent = multiSum(f, hid.value.split(",").filter(Boolean));
+      form.dispatchEvent(new Event("change")); });
   });
+  // a compact list closes when the form is clicked elsewhere
+  form.addEventListener("click", e=>{ form.querySelectorAll("details.multi[open]").forEach(d=>{ if (!d.contains(e.target)) d.open = false; }); });
   // A list of dates (one per row), kept in a hidden field as "2026-10-05,2026-10-12".
   fields.filter(f=>f.type==="dates").forEach(f=>{
     const hid = form.elements[f.name], box = form.querySelector('[data-dates="'+f.name+'"]');
@@ -6037,7 +6056,7 @@ function openPractice(s, entry, preset){
     {name:"what",label:STUDENT()?"What you worked on":"What they worked on",type:"select",options:TASK_CATS,value:x?.what||"Tactics",full:true},
     {name:"site",label:"Where",type:"select",options:Object.keys(TACTICS_SITES),value:x?.site||"Chess.com",show:isTac},
     {name:"exercise",label:"Type of exercise",type:"select",options:v=>(TACTICS_SITES[v.site]||[]).map(e=>e[0]),value:x?.exercise||"",show:isTac},
-    {name:"eg",label:"Which endgames",type:"checks",options:EG_TYPES.map(e=>[e[0], e[1]]),value:egOf(x).join(","),full:true,show:v=>v.what==="Endgames",hint:"Optional — tick everything this session covered."},
+    {name:"eg",label:"Which endgames",type:"checks",compact:true,placeholder:"Choose — optional",options:EG_TYPES.map(e=>[e[0], e[1], egName(e[0])]),value:egOf(x).join(","),full:true,show:v=>v.what==="Endgames",hint:"Tick everything this session covered."},
     {name:"src",label:"Where",type:"select",options:SOURCES,value:x?.src||"Book",show:isSrc},
     {name:"cbFile",label:"ChessBase file",value:x?.cbFile||"",full:true,placeholder:"e.g. Rook endings.cbv",suggest:cbFiles,show:isCB},
     {name:"cbSection",label:"Chapter or section",value:x?.cbSection||"",placeholder:"e.g. Lucena position",show:isCB},
@@ -8436,7 +8455,7 @@ Object.assign(HE, {
   "Your child can sign in on their own phone and log practice, games and tournaments. Everything shows here too.":"הילד/ה יכול/ה להתחבר מהטלפון שלו/ה ולרשום תרגול, משחקים ותחרויות. הכל מופיע גם כאן.",
   "They create an account with their own email and a password.":"יוצרים חשבון עם אימייל משלהם וסיסמה.", "They enter this code:":"מזינים את הקוד הזה:",
   "Enter the code your coach (or your parent) gave you to connect your account.":"יש להזין את הקוד שקיבלת מהמאמן (או מההורה) כדי לחבר את החשבון.",
-  "Tips":"טיפים", "Have a coach?":"יש לך מאמן?", "Which endgames":"אילו סיומים", "Optional — tick everything this session covered.":"לא חובה — אפשר לסמן את כל מה שתורגל באימון.", "Endgames by type":"סיומים לפי סוג", "Last 90 days":"90 הימים האחרונים",
+  "Tips":"טיפים", "Have a coach?":"יש לך מאמן?", "Which endgames":"אילו סיומים", "Tick everything this session covered.":"אפשר לסמן את כל מה שתורגל באימון.", "Choose — optional":"בחירה — לא חובה", "Choose…":"בחירה…", "Endgames by type":"סיומים לפי סוג", "Last 90 days":"90 הימים האחרונים",
   "Only sessions where the endgame type was ticked. A session with several types counts evenly for each.":"רק אימונים שבהם סומן סוג הסיום. אימון עם כמה סוגים נספר בחלקים שווים לכל אחד.",
   "Pawn endgames":"סיומי רגלים", "Rook endgames":"סיומי צריחים", "Bishop endgames":"סיומי רצים", "Knight endgames":"סיומי פרשים", "Bishop vs knight":"רץ מול פרש", "Rook vs minor piece":"צריח מול כלי קל", "Queen endgames":"סיומי מלכות", "Basic checkmates":"מטים בסיסיים", "Theoretical positions (Lucena, Philidor…)":"עמדות תיאורטיות (לוסנה, פילידור…)", "Mixed / other":"מעורב / אחר", "PDF attached — open it from the book":"ה־PDF צורף — אפשר לפתוח אותו מתוך הספר", "From their own board":"מהלוח האישי", "Connect to a coach":"חיבור למאמן", "Family code from the coach":"קוד משפחה מהמאמן",
   "Working with a coach? Ask them for a code — they add you as a student in Rank Up. Your practice, games, tasks and tournaments move with you.":"מתחילים ללמוד עם מאמן? בקשו ממנו קוד — הוא מוסיף אתכם כתלמידים ב„עולים בדרגה”. התרגול, המשחקים, המשימות והתחרויות שלכם עוברים איתכם.",
