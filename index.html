@@ -2494,6 +2494,7 @@ function practiceLabel(w, s){
   const b = w.bookId && s ? s.books.find(x=>x.id===w.bookId) : null; const bt = b ? b.title : w.bookTitle;
   const eg = egOf(w).length ? ' · '+esc(egNames(w)) : ''; // which endgames, when ticked
   if (bt) return esc(w.what||"Reading")+eg+' · <i>'+esc(bt)+'</i>';
+  if (onlineSrc(w)) return esc(w.what)+eg+' · '+esc(w.src);
   if (eg && !w.cbFile) return esc(w.what)+eg;
   if (w.what==="Game analysis" && w.gameId){ const g = state.games.find(x=>x.id===w.gameId); if (g) return 'Game analysis · '+esc(g.kind==="study"?studyTitle(g):gameTitle(g))+' <span class="muted num">'+esc(g.result||"")+'</span>'+(g.kind==="study"?' <span class="tag">Studied game</span>':''); }
   if (w.cbFile) return esc(w.what)+eg+' · ChessBase: '+esc(w.cbFile);
@@ -2518,6 +2519,7 @@ function practiceResult(w){
   const out = [];
   if (w.page!==""&&w.page!=null&&w.page!==undefined&&(w.bookId||w.bookTitle)) out.push(hasFrom(w) ? "p. "+w.pageFrom+"–"+w.page : "to p. "+w.page);
   if (w.cbFile){ if (w.cbSection) out.push(w.cbSection); if (w.cbCount!==""&&w.cbCount!=null) out.push(w.cbCount+" positions"); }
+  if (onlineSrc(w) && w.srcCount!=="" && w.srcCount!=null) out.push(w.srcCount+" positions");
   if (w.what==="Game analysis" && w.gameId){ const g = state.games.find(x=>x.id===w.gameId); const s = g && byId(g.studentId); if (g && g.kind==="study"){ if (g.event) out.push(g.event); if (g.theme) out.push(g.theme); }
     else if (g){ const ev = gameEvent(g,s); if (ev) out.push(ev+(g.round?" R"+g.round:"")); if (g.date) out.push("played "+fmtShort(g.date)); } if (w.gStatus) out.push(w.gStatus); }
   if (w.what!=="Tactics" || !w.site) return out.join(" · ");
@@ -2530,6 +2532,9 @@ function practiceResult(w){
 }
 const SOURCE_CATS = ["Endgames","Strategy","Calculation"];
 const SOURCES = ["Book","ChessBase file"];
+const SRC_ONLINE = {Endgames:["Lichess","ChessTempo"]}; // sites a topic can also be practised on
+const srcOptions = what=>SOURCES.concat(SRC_ONLINE[what]||[]);
+const onlineSrc = w=>!!w && (SRC_ONLINE[w.what]||[]).includes(w.src);
 const ANALYSIS_STATUS = ["Not analysed","In progress","Analysed by student","Reviewed with coach"];
 const gameKey = w => [(w.gWhite||"").trim().toLowerCase(),(w.gBlack||"").trim().toLowerCase(),w.gDate||""].join("|");
 const SESSION_STATUS = [["planned","Planned"],["done","Done"],["cancelled","Cancelled"]];
@@ -6057,7 +6062,8 @@ function openPractice(s, entry, preset){
     {name:"site",label:"Where",type:"select",options:Object.keys(TACTICS_SITES),value:x?.site||"Chess.com",show:isTac},
     {name:"exercise",label:"Type of exercise",type:"select",options:v=>(TACTICS_SITES[v.site]||[]).map(e=>e[0]),value:x?.exercise||"",show:isTac},
     {name:"eg",label:"Which endgames",type:"checks",compact:true,placeholder:"Choose — optional",options:EG_TYPES.map(e=>[e[0], e[1], egName(e[0])]),value:egOf(x).join(","),full:true,show:v=>v.what==="Endgames",hint:"Tick everything this session covered."},
-    {name:"src",label:"Where",type:"select",options:SOURCES,value:x?.src||"Book",show:isSrc},
+    {name:"src",label:"Where",type:"select",options:v=>srcOptions(v.what),value:x?.src||"Book",show:isSrc},
+    {name:"srcCount",label:"Positions done",type:"number",value:x?.srcCount??"",min:0,show:v=>isSrc(v) && onlineSrc(v),hint:"Optional"},
     {name:"cbFile",label:"ChessBase file",value:x?.cbFile||"",full:true,placeholder:"e.g. Rook endings.cbv",suggest:cbFiles,show:isCB},
     {name:"cbSection",label:"Chapter or section",value:x?.cbSection||"",placeholder:"e.g. Lucena position",show:isCB},
     {name:"cbCount",label:"Positions / games covered",type:"number",value:x?.cbCount??"",min:0,show:isCB},
@@ -6090,6 +6096,8 @@ function openPractice(s, entry, preset){
   };
   const clean = d=>{ d.count = "";
     d.eg = d.what==="Endgames" ? String(d.eg||"").split(",").filter(k=>EG_TYPES.some(e=>e[0]===k)) : [];
+    if (!onlineSrc(d)) d.srcCount = "";
+    if (SOURCE_CATS.includes(d.what) && d.src!=="ChessBase file"){ d.cbFile = ""; d.cbSection = ""; d.cbCount = ""; } // only for a ChessBase file
     if (d.what==="Tactics" && exKind(d.site,d.exercise)==="score"){ d.scores = parseScores(d.scores); d.score = Math.max(...d.scores); d.attempted = ""; d.correct = ""; }
     else { d.scores = []; d.score = ""; }
     if (!d.bookId){ d.page = ""; d.pageFrom = ""; } else if (d.pageFrom!=="") d.pageFrom = +d.pageFrom;
@@ -8455,7 +8463,7 @@ Object.assign(HE, {
   "Your child can sign in on their own phone and log practice, games and tournaments. Everything shows here too.":"הילד/ה יכול/ה להתחבר מהטלפון שלו/ה ולרשום תרגול, משחקים ותחרויות. הכל מופיע גם כאן.",
   "They create an account with their own email and a password.":"יוצרים חשבון עם אימייל משלהם וסיסמה.", "They enter this code:":"מזינים את הקוד הזה:",
   "Enter the code your coach (or your parent) gave you to connect your account.":"יש להזין את הקוד שקיבלת מהמאמן (או מההורה) כדי לחבר את החשבון.",
-  "Tips":"טיפים", "Have a coach?":"יש לך מאמן?", "Which endgames":"אילו סיומים", "Tick everything this session covered.":"אפשר לסמן את כל מה שתורגל באימון.", "Choose — optional":"בחירה — לא חובה", "Choose…":"בחירה…", "Endgames by type":"סיומים לפי סוג", "Last 90 days":"90 הימים האחרונים",
+  "Tips":"טיפים", "Have a coach?":"יש לך מאמן?", "Which endgames":"אילו סיומים", "Positions done":"עמדות שנפתרו", "Optional":"לא חובה", "Tick everything this session covered.":"אפשר לסמן את כל מה שתורגל באימון.", "Choose — optional":"בחירה — לא חובה", "Choose…":"בחירה…", "Endgames by type":"סיומים לפי סוג", "Last 90 days":"90 הימים האחרונים",
   "Only sessions where the endgame type was ticked. A session with several types counts evenly for each.":"רק אימונים שבהם סומן סוג הסיום. אימון עם כמה סוגים נספר בחלקים שווים לכל אחד.",
   "Pawn endgames":"סיומי רגלים", "Rook endgames":"סיומי צריחים", "Bishop endgames":"סיומי רצים", "Knight endgames":"סיומי פרשים", "Bishop vs knight":"רץ מול פרש", "Rook vs minor piece":"צריח מול כלי קל", "Queen endgames":"סיומי מלכות", "Basic checkmates":"מטים בסיסיים", "Theoretical positions (Lucena, Philidor…)":"עמדות תיאורטיות (לוסנה, פילידור…)", "Mixed / other":"מעורב / אחר", "PDF attached — open it from the book":"ה־PDF צורף — אפשר לפתוח אותו מתוך הספר", "From their own board":"מהלוח האישי", "Connect to a coach":"חיבור למאמן", "Family code from the coach":"קוד משפחה מהמאמן",
   "Working with a coach? Ask them for a code — they add you as a student in Rank Up. Your practice, games, tasks and tournaments move with you.":"מתחילים ללמוד עם מאמן? בקשו ממנו קוד — הוא מוסיף אתכם כתלמידים ב„עולים בדרגה”. התרגול, המשחקים, המשימות והתחרויות שלכם עוברים איתכם.",
