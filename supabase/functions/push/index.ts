@@ -9,7 +9,8 @@
 //   {action:"subscribe", sub}           → {ok}   remember this device for the signed-in account
 //   {action:"unsubscribe", endpoint}    → {ok}   forget this device
 //   {action:"send", messages:[{to, title, body, tag?, url?}]}   coaches only, to their own students and parents (or themselves)
-//                                       → {sent, failed, devices, errors}  `to` is an account id; errors: the first few, for checking
+//                                       → {sent, failed, devices, errors}  `to` is an account id, or one of its links
+//                                         (<account id>.<key>, a student with more than one coach); errors: the first few
 import webpush from "npm:web-push@3.6.7";
 
 const CORS = {
@@ -39,7 +40,7 @@ async function isCoach(uid: string) {
 // The accounts a coach may alert: their own devices, and their own students and parents.
 async function mine(coach: string, ids: string[]) {
   if (!ids.length) return new Set<string>();
-  const r = await rest("docs?select=id&col=eq.portal&data->>coach=eq." + encodeURIComponent(coach) + "&id=in.(" + ids.join(",") + ")");
+  const r = await rest("docs?select=id&col=eq.portal&data->>coach=eq." + encodeURIComponent(coach) + "&id=in.(" + ids.map(x => '"' + x + '"').join(",") + ")");
   const rows: any[] = r.ok ? await r.json() : [];
   return new Set<string>([coach, ...rows.map(x => String(x.id))]);
 }
@@ -87,15 +88,17 @@ Deno.serve(async (req) => {
       const subject = /^https:\/\//.test(req.headers.get("Origin") || "") ? req.headers.get("Origin")! : "https://reemshr1.github.io";
       webpush.setVapidDetails(subject, k.pub, k.priv);
       // every device of every account in the list, fetched at once
-      const asked = [...new Set(list.map((m: any) => String(m && m.to || "")).filter((x: string) => /^[0-9a-f-]{36}$/i.test(x)))];
-      const allowed = await mine(me, asked), ids = asked.filter(x => allowed.has(x));
+      const asked = [...new Set(list.map((m: any) => String(m && m.to || "")).filter((x: string) => /^[0-9a-f-]{36}([.][A-Za-z0-9_-]{1,40})?$/i.test(x)))];
+      const allowed = await mine(me, asked), acct = (x: string) => x.split(".")[0];
+      const ids = [...new Set(asked.filter(x => allowed.has(x)).map(acct))]; // the accounts behind the links this coach has
       if (!ids.length) return json({ sent: 0, failed: 0, devices: 0 });
       const r = await rest("push_subs?select=endpoint,user_id,sub&user_id=in.(" + ids.join(",") + ")");
       const subs: any[] = r.ok ? await r.json() : [];
       let sent = 0, failed = 0; const errors: string[] = [];
       await Promise.all(list.map(async (m: any) => {
         const payload = JSON.stringify({ title: short(m.title, 80) || "Rank Up", body: short(m.body, 400), tag: short(m.tag, 80), url: short(m.url, 200) });
-        await Promise.all(subs.filter(s => s.user_id === String(m.to)).map(async s => {
+        if (!allowed.has(String(m.to))) return;
+        await Promise.all(subs.filter(s => s.user_id === acct(String(m.to))).map(async s => {
           try { await webpush.sendNotification(s.sub, payload, { TTL: 86400 }); sent++; }
           catch (e: any) {
             failed++; if (errors.length < 3) errors.push(String(e && (e.statusCode ? e.statusCode + " " + (e.body || "") : e.message || e)).slice(0, 200));

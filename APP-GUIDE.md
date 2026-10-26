@@ -534,6 +534,23 @@ list, **Turn on phone alerts** (see Phone alerts below).
 
 ---
 
+### A student with two coaches
+A student can work with more than one coach (up to 5) in one app. The other coach adds them as a student and
+gives them an invite code; on Home, **Working with another coach too? → Add a coach** (or **Your coaches → Add a
+coach**) takes the code, with **Send them what you logged so far** (their own practice, games, tournaments,
+fitness, sleep and books, never another coach's entries, tasks or book PDFs).
+- One app: Home, Schedule and Tasks show every coach's lessons, requests and tasks, each marked "with Raem" /
+  "from Dana". **Request a lesson** asks which coach first; **Payments** has one tab per coach; Progress shows
+  each coach's goals with their name.
+- What the student logs (practice, games, tournaments, fitness, sleep, books, training, openings) goes to every
+  coach they share with; **Your coaches** has a **Share** tick per coach to stop it. A lesson, task, request or
+  notification goes back only to its own coach.
+- Each coach keeps their own record of the student, as before, and sees only the other coach's name: the student's
+  Student app box says **Also works with: Dana Cohen**. No coach sees another's lessons, tasks, notes or payments.
+- Technical: each coach is one link (`portal/<account>` for the first, `portal/<account>.2` … `.5` for more),
+  each with its own board and messages; run `supabase/two-coaches.sql` once, and update the `push` function so
+  phone alerts from a second coach reach the student.
+
 ## 3. Parent view
 
 The same pages as the student, for one child at a time; a family with
