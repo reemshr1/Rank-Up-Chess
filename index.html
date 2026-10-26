@@ -3976,6 +3976,7 @@ function bindCoaches(v){
   v.querySelectorAll("[data-share]").forEach(b=>b.onchange = ()=>{ store.setShare(b.dataset.share, b.checked).then(()=>toast(b.checked ? "Sharing turned on" : "Sharing turned off")); });
 }
 function addCoach(s){
+  if (PREVIEW) return toast("Preview — nothing was sent");
   openForm({title:"Add a coach", submit:"Connect", parentOk:true, noName:true, fields:[
       {name:"code", label:"Code from the coach", value:"", full:true, placeholder:"ABC123", hint:"The coach adds you as a student in Rank Up and gives you this code."},
       {name:"history", label:"Send them what you logged so far", type:"select", full:true, value:"yes", options:[["yes","Yes — practice, games, tournaments, fitness, sleep and books"],["no","No, only from now on"]]}],
@@ -4622,7 +4623,7 @@ function pHome(v, s){
     panel("Assignments", hw.length ? '<ul class="list">'+hw.map(a=>'<li><div class="main"><div class="title"><a href="#/assignment/'+a.id+'">'+esc(a.title)+'</a></div><div class="small muted">'+esc(a.type)+(fromCoach(a)?' · '+esc(fromCoach(a)):'')+(a.due?' · due '+esc(fmtShort(a.due)):'')+'</div></div>'+(a.status==="Assigned"?'<button class="btn small" data-a="hwdone" data-id="'+a.id+'">Mark done</button>':'<span class="tag warn">Done · to review</span>')+'</li>').join("")+'</ul>' : '<p class="empty">No assignments right now.</p>')+
     '</div>'+
     (NOCOACH() && !PARENT() && ACCOUNT && WEB ? connectPanel(s) : '')+
-    (!NOCOACH() && !PARENT() && !PREVIEW && store && store.addCoach && WEB ? coachesPanel(s) : '');
+    (!NOCOACH() && !PARENT() && store && store.addCoach && WEB ? coachesPanel(s) : ''); // in the coach's Student view too, to see it as the student does
   bindCoaches(v);
   bindActions(v,{ toCoach:()=>connectCoach(s), addCoach:()=>addCoach(s), ans:id=>{ const [rid, c] = id.split("|"), r = (s.requests||[]).find(x=>x.id===rid); if (r) answerMove(s, r, c); },
     offer:id=>{ const [oid, c] = id.split("|"), o = (s.offers||[]).find(x=>x.id===oid && x.status==="pending"); if (o) answerOffer(s, o, c); },
