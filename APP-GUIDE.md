@@ -414,6 +414,12 @@ A player follows their own chess with no coach. They get a **player code** from 
 - The first time, **Welcome to Rank Up** asks for their name (and optionally a Hebrew name, year of birth,
   FIDE and Israel Chess Federation numbers). **My profile** on Home changes it later; with a player number
   the rating fills in by itself (and is checked once a month).
+- **Phone alerts:** **📱 Alerts** on Home turns them on for that phone. With no coach's app to send reminders, the
+  database sends them every hour through the `push` function (`supabase/player-alerts.sql`): at 17:00 a practice
+  reminder after 2 days without practice (then every 2 days), and at 19:00 the evening before a tournament or a task
+  due (Israel time). On a parent's board the parent hears about the child ("Maya hasn't practiced for 2 days") and the
+  child gets their own; practice the child sent counts even before the parent's app takes it in. Each reminder is
+  sent once (remembered on the board as `alerts`).
 - **Rating:** with a FIDE or ICF number the rating is fetched when the profile is saved and once a month after
   ("Rating updated — 1650 FIDE"; a number that can't be read says so). On **Progress**, the Rating card says where
   it comes from, with **Check now**; without a number, **Add rating** records one by hand (FIDE, FIDE Rapid, FIDE

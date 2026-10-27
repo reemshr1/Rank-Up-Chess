@@ -3682,7 +3682,8 @@ async function fillPush(el){
   if (!el) return;
   const st = await pushState(), coach = !STUDENT();
   if (st==="none"){ el.hidden = true; return; }
-  const what = coach ? "Turn them on here to test them." : PARENT() ? "Get an alert on this phone for new notifications and lesson changes." : "Get an alert on this phone for new notifications, lesson changes and practice reminders.";
+  const what = coach ? "Turn them on here to test them." : NOCOACH() ? (PLAYER && (myself()||{}).setup==="parent" ? "Get an alert on this phone when your child hasn’t practiced for 2 days, and the evening before a tournament or a task due." : "Get an alert on this phone when you haven’t practiced for 2 days, and the evening before a tournament or a task due.")
+    : PARENT() ? "Get an alert on this phone for new notifications and lesson changes." : "Get an alert on this phone for new notifications, lesson changes and practice reminders.";
   el.hidden = false;
   const f = st==="off" && pushFail, android = /Android/.test(navigator.userAgent), br = browserName();
   const failBox = !f ? '' : '<div class="push-fail small"><p style="margin:0"><b>'+esc(f.title)+'</b></p>'+
@@ -3700,7 +3701,7 @@ async function fillPush(el){
       if (k==="test"){ const r = await pushFn({action:"send", messages:[{to:webUser.id, title:"Rank Up", body:lang()==="he" ? "התראת בדיקה: ההתראות לטלפון עובדות." : "Test alert: phone alerts work.", tag:"test"}]});
         toast(r.sent ? "Test alert sent" : "No device got it — turn alerts off and on again"); }
     } catch(e){ const m = String(e && e.message || e), server = /not found|404|Failed to send|FunctionsFetchError|FunctionsHttpError/i.test(m+(e&&e.name||""));
-      const msg = m==="blocked" ? "Alerts are blocked in this browser’s settings" : m==="not allowed" ? "Alerts weren’t allowed" : server ? (coach ? "Phone alerts aren’t set up in Supabase yet" : "Phone alerts aren’t ready yet — tell your coach") : "Couldn’t change phone alerts. Try again.";
+      const msg = m==="blocked" ? "Alerts are blocked in this browser’s settings" : m==="not allowed" ? "Alerts weren’t allowed" : server ? (coach ? "Phone alerts aren’t set up in Supabase yet" : NOCOACH() ? "Phone alerts aren’t ready yet. Try again later." : "Phone alerts aren’t ready yet — tell your coach") : "Couldn’t change phone alerts. Try again.";
       toast(msg);
       // keep the reason on screen: what happened, what to try, and a technical line for the coach
       if (k==="on" && m!=="blocked") pushFail = {title: m==="not allowed" ? "Alerts weren’t allowed. Tap “Try again” and choose Allow." : server ? msg+"." : (e && e.step==="subscribe" ? "This browser couldn’t sign up for alerts." : "Turning on alerts didn’t finish."),
@@ -4613,7 +4614,7 @@ function pHome(v, s){
   const clubs = []; for (let d=t; d<=addDays(t,7) && clubs.length<2; d=addDays(d,1)) clubOn(d).forEach(o=>clubs.push({d, o})); // their club classes this coming week
   const rt = sortBy(s.ratings.filter(r=>(r.source||mainSource(s))===mainSource(s)),"date").pop();
   const hr = new Date().getHours(), greet = hr<12?"Good morning":hr<18?"Good afternoon":"Good evening";
-  v.innerHTML = '<div class="page-head"><div><p class="sub" style="margin:0 0 4px">'+esc(fmtDay(t))+'</p><h1>'+(PARENT() || (PLAYER && s.setup==="parent") ? esc(first)+'’s board' : greet+', '+esc(first))+'</h1>'+(NOCOACH() ? '' : freshness(s))+'</div><div class="row-actions">'+(PLAYER ? '<button class="btn" data-a="profile">'+(s.setup==="parent" ? "Profile" : "My profile")+'</button>' : NOCOACH() ? '' : noticesButton(s)+'<button class="btn" data-a="req">Request a lesson</button>')+'<button class="btn primary" data-a="log">Log practice</button></div></div>'+
+  v.innerHTML = '<div class="page-head"><div><p class="sub" style="margin:0 0 4px">'+esc(fmtDay(t))+'</p><h1>'+(PARENT() || (PLAYER && s.setup==="parent") ? esc(first)+'’s board' : greet+', '+esc(first))+'</h1>'+(NOCOACH() ? '' : freshness(s))+'</div><div class="row-actions">'+(NOCOACH() && WEB && !PREVIEW ? '<button class="btn" data-a="alerts" aria-label="Phone alerts">📱 <span>Alerts</span></button>' : '')+(PLAYER ? '<button class="btn" data-a="profile">'+(s.setup==="parent" ? "Profile" : "My profile")+'</button>' : NOCOACH() ? '' : noticesButton(s)+'<button class="btn" data-a="req">Request a lesson</button>')+'<button class="btn primary" data-a="log">Log practice</button></div></div>'+
     '<div class="stats">'+(NOCOACH() ? '<div class="stat"><div class="v num">'+(tours[0]?esc(fmtDate(tourNext(tours[0],t),{weekday:"short",day:"numeric",month:"short"})):"—")+'</div><div class="l">'+(tours[0]?"Next tournament":"No tournament planned")+'</div></div>' // no lessons without a coach
       : '<div class="stat"><div class="v num">'+(lessons[0]?esc(fmtDate(lessons[0].date,{weekday:"short",day:"numeric",month:"short"})):"—")+'</div><div class="l">'+(lessons[0]?"Next lesson"+(lessons[0].time?" · "+esc(lessons[0].time):""):"No lesson planned")+'</div></div>')+
       '<div class="stat"><div class="v num'+(todo.some(a=>a.due&&a.due<t)?" money-owed":"")+'">'+todo.length+'</div><div class="l">Assignments to do</div></div>'+
@@ -4652,7 +4653,7 @@ function pHome(v, s){
     (NOCOACH() && !PARENT() && ACCOUNT && WEB ? connectPanel(s) : '')+
     (!NOCOACH() && store && store.addCoach && WEB ? coachesPanel(s) : ''); // in the coach's Student view too, to see it as the student does
   bindCoaches(v);
-  bindActions(v,{ toCoach:()=>connectCoach(s), addCoach:()=>addCoach(s), ans:id=>{ const [rid, c] = id.split("|"), r = (s.requests||[]).find(x=>x.id===rid); if (r) answerMove(s, r, c); },
+  bindActions(v,{ toCoach:()=>connectCoach(s), addCoach:()=>addCoach(s), alerts:()=>showAlerts(), ans:id=>{ const [rid, c] = id.split("|"), r = (s.requests||[]).find(x=>x.id===rid); if (r) answerMove(s, r, c); },
     offer:id=>{ const [oid, c] = id.split("|"), o = (s.offers||[]).find(x=>x.id===oid && x.status==="pending"); if (o) answerOffer(s, o, c); },
     profile:()=>playerProfile(false),
     kidInvite:()=>{ s.invite = {code:inviteCode(), created:today()}; saveStudent(s); render(); setTimeout(()=>kidMessage(s), 0); },
@@ -5484,6 +5485,13 @@ const myWho = ()=>PARENT() ? "parent" : "student";
 const unreadNotices = s=>{ const seen = seenSet(); return sortBy((s.notices||[]).filter(n=>liveNotice(n) && !seen.has("msg:"+n.id) && !(s.noticeReads||[]).some(r=>r.id===n.id && r.who===myWho())), "date", -1); };
 function noticesButton(s){ const n = unreadNotices(s).length;
   return '<button class="btn" data-a="notes" aria-label="Notifications'+(n?", "+n+" unread":"")+'">🔔 <span>Notifications</span>'+(n?' <i class="nav-badge" style="position:static">'+n+'</i>':'')+'</button>'; }
+// A player's (or their child's) phone alerts: reminders the database sends, since no coach's app does.
+function showAlerts(){
+  const m = $("#modal");
+  m.innerHTML = '<div class="modal-form"><header><h2>Phone alerts</h2></header><div style="padding:8px 20px 4px;overflow:auto"><div id="pushBox"></div></div><footer><button type="button" class="btn" id="alClose">Close</button></footer></div>';
+  m.querySelector("#alClose").onclick = ()=>m.close();
+  fillPush(m.querySelector("#pushBox")); m.showModal();
+}
 function showNotices(s){
   const m = $("#modal"), draw = ()=>{ const list = unreadNotices(s);
     m.innerHTML = '<div class="modal-form"><header><h2>Notifications</h2></header><div style="padding:8px 20px 4px;overflow:auto">'+
@@ -8682,7 +8690,10 @@ Object.assign(HE, {
   "Sharing turned on":"השיתוף הופעל", "Sharing turned off":"השיתוף כובה", "Code from the coach":"קוד מהמאמן", "The coach adds you as a student in Rank Up and gives you this code.":"המאמן מוסיף אתכם כתלמידים ב„עולים בדרגה” ונותן לכם את הקוד הזה.",
   "Send them what you logged so far":"לשלוח לו את מה שנרשם עד עכשיו", "Yes — practice, games, tournaments, fitness, sleep and books":"כן — תרגול, משחקים, תחרויות, כושר, שינה וספרים", "No, only from now on":"לא, רק מעכשיו",
   "Enter the code from the coach.":"יש להזין את הקוד מהמאמן.", "That code wasn't recognised. Check it with the coach and try again.":"הקוד לא זוהה. כדאי לבדוק אותו עם המאמן ולנסות שוב.", "You're already connected to this coach.":"כבר יש לך חיבור למאמן הזה.", "You can have up to 5 coaches.":"אפשר עד 5 מאמנים.",
-  "Code sent — you'll see the new coach here once their app takes it in":"הקוד נשלח — המאמן החדש יופיע כאן כשהאפליקציה שלו תקלוט אותו", "With which coach?":"עם איזה מאמן?", "Also works with":"עובד/ת גם עם", "Which endgames":"אילו סיומים", "Positions done":"עמדות שנפתרו", "Practice sessions":"אימונים", "Add rating":"הוספת דירוג", "Check now":"בדיקה עכשיו", "Checking…":"בודק…", "Rating added":"הדירוג נוסף", "Rating checked":"הדירוג נבדק", "Checking your rating…":"בודק את הדירוג שלך…",
+  "Code sent — you'll see the new coach here once their app takes it in":"הקוד נשלח — המאמן החדש יופיע כאן כשהאפליקציה שלו תקלוט אותו", "With which coach?":"עם איזה מאמן?", "Also works with":"עובד/ת גם עם", "Which endgames":"אילו סיומים", "Positions done":"עמדות שנפתרו", "Alerts":"התראות",
+  "Get an alert on this phone when you haven’t practiced for 2 days, and the evening before a tournament or a task due.":"התראה לטלפון אחרי יומיים בלי תרגול, ובערב שלפני תחרות או משימה להגשה.",
+  "Get an alert on this phone when your child hasn’t practiced for 2 days, and the evening before a tournament or a task due.":"התראה לטלפון כשהילד/ה לא תרגל/ה יומיים, ובערב שלפני תחרות או משימה להגשה.",
+  "Phone alerts aren’t ready yet. Try again later.":"ההתראות לטלפון עוד לא מוכנות. אפשר לנסות שוב מאוחר יותר.", "Practice sessions":"אימונים", "Add rating":"הוספת דירוג", "Check now":"בדיקה עכשיו", "Checking…":"בודק…", "Rating added":"הדירוג נוסף", "Rating checked":"הדירוג נבדק", "Checking your rating…":"בודק את הדירוג שלך…",
   "Checking your rating… this can take up to two minutes":"בודק את הדירוג שלך… זה יכול לקחת עד שתי דקות", "Add your FIDE or ICF number in My profile first.":"קודם יש להוסיף מספר FIDE או מספר התאחדות בפרופיל שלי.",
   "Couldn't check the rating right now. Try again later.":"לא ניתן לבדוק את הדירוג כרגע. אפשר לנסות שוב מאוחר יותר.", "Rating list":"רשימת דירוג",
   "With a FIDE or ICF number in My profile, the rating fills in by itself, once a month. Without one, add it here.":"עם מספר FIDE או מספר התאחדות בפרופיל שלי, הדירוג מתעדכן לבד פעם בחודש. בלי מספר, אפשר להוסיף אותו כאן.", "Optional":"לא חובה", "Tick everything this session covered.":"אפשר לסמן את כל מה שתורגל באימון.", "Choose — optional":"בחירה — לא חובה", "Choose…":"בחירה…", "Endgames by type":"סיומים לפי סוג", "Last 90 days":"90 הימים האחרונים",
