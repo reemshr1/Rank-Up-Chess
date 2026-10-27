@@ -3240,6 +3240,7 @@ function makePortal(db){
       if (!$("#modal").open && !(document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))) render();
     }, ()=>{});
   }
+  const orphanWait = {};
   function dropAccount(uid){
     db.doc("portal/"+uid).set({linked:false, unlinked:true}).catch(()=>{});
     const view = db.collection("portal/"+uid+"/view");
@@ -3258,6 +3259,11 @@ function makePortal(db){
         if (v.linked){ const o = state.students.find(x=>x.portal && x.portal.uid===uid), f = !o && families().find(x=>x.portal && x.portal.uid===uid), others = Array.isArray(v.others) ? v.others.map(x=>String(x).slice(0,80)).slice(0,5) : [];
           if (o && JSON.stringify(o.portal.others||[])!==JSON.stringify(others)){ o.portal.others = others; saveStudent(o); }
           if (f && JSON.stringify(f.portal.others||[])!==JSON.stringify(others)){ f.portal.others = others; saveSettings(); } }
+        // a connected account whose student or family is gone from this board (deleted without disconnecting first):
+        // tell it its access ended — after a minute, in case the student is still on its way from another device
+        if (v.linked && !v.unlinked && !orphanWait[uid]) orphanWait[uid] = setTimeout(()=>{ delete orphanWait[uid];
+          const has = state.students.some(x=>x.portal && x.portal.uid===uid) || families().some(x=>x.portal && x.portal.uid===uid);
+          if (!has) dropAccount(uid); }, 60000);
         if (!code || v.linked) return;
         const ref = db.doc("portal/"+uid);
         const s = state.students.find(x=>x.invite && x.invite.code===code), f = !s && families().find(x=>x.invite && x.invite.code===code);
@@ -3296,10 +3302,10 @@ function makePortal(db){
       clearTimeout(timers["f:"+f.id]); dropAccount(uid);
       delete f.portal; saveSettings();
     },
-    unlink(s){
+    unlink(s, gone){ // gone: the student is being deleted, so nothing is saved for them
       const uid = s.portal && s.portal.uid; if (!uid) return;
       clearTimeout(timers[s.id]); dropAccount(uid);
-      delete s.portal; saveStudent(s);
+      delete s.portal; if (!gone) saveStudent(s);
     }
   };
 }
@@ -5563,6 +5569,7 @@ function editStudent(s){
       {name:"notesShared",label:"Coach notes in the student app",type:"select",options:[["0","Private — only you see them"],["1","Visible to the student"]],value:x.notesShared?"1":"0",full:true}
     ],
     danger: isNew?null:{label:"Delete student", onClick:()=>confirmBox("Delete "+x.name+"?","This removes all of their sessions, assignments, repertoire, tournaments and payment history. To keep the history, archive them instead.","Delete permanently",()=>{
+      if (portal && portal.unlink) portal.unlink(x, true); // their app is told its access ended, as with Disconnect
       state.students = state.students.filter(y=>y.id!==x.id); store.deleteStudent(x.id);
       families().forEach(f=>{ if ((f.studentIds||[]).includes(x.id)){ f.studentIds = f.studentIds.filter(y=>y!==x.id); saveSettings(); } }); state.assignments.filter(a=>a.studentId===x.id).forEach(a=>store.deleteAssignment(a.id)); state.assignments = state.assignments.filter(a=>a.studentId!==x.id); state.games.filter(g=>g.studentId===x.id).forEach(g=>store.deleteGame(g.id)); state.games = state.games.filter(g=>g.studentId!==x.id); location.hash="#/students"; toast("Student deleted"); })},
     onSubmit:d=>{
