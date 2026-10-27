@@ -355,6 +355,9 @@ PDFs and nightly backups. No coach can see or change another coach's.
 - The first coach (the admin) is the coach from before there were several; all their students and backups
   stayed theirs.
 
+Deleting a connected student also disconnects their app (as **Disconnect** does). A connected account whose
+student or family is no longer on the coach's board is disconnected by the coach's app a minute after it opens.
+
 ### Book PDFs
 On a student's Books tab the coach can **Attach PDF** to a book (up to 50 MB). The
 book then shows the file with **Open PDF**, **Replace** and **Remove**; the student
