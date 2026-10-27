@@ -2630,15 +2630,16 @@ function namePass(t){
     .replace(new RegExp(B+"המאמן"+E, "g"), he).replace(/^(\s*)מאמן(\s*)$/, "$1"+he+"$2")
     .replace(new RegExp("(?<![A-Za-z\u0590-\u05FF])(כש|ש|מ|ל|ו)?־?"+escRx(en)+"(?![A-Za-z])", "g"), (m, x)=>x ? pre(x) : he);
 }
-function trText(v){ let t = appliedLang==="he" ? trPhrase(v) : v; if (nameOn()) t = namePass(t); return t; }
+// .no-name: text about another coach, where "the coach" mustn't become this student's coach's name
+function trText(v, el){ let t = appliedLang==="he" ? trPhrase(v) : v; if (nameOn() && !(el && el.closest(".no-name"))) t = namePass(t); return t; }
 function trNode(n){
   const p = n.parentElement; if (!p || p.closest(TR_SKIP)) return;
-  const v = n.__en!==undefined && n.nodeValue===n.__out ? n.__en : n.nodeValue, t = trText(v);
+  const v = n.__en!==undefined && n.nodeValue===n.__out ? n.__en : n.nodeValue, t = trText(v, p);
   if (t!==n.nodeValue){ n.__en = v; n.nodeValue = n.__out = t; }
 }
 function trEl(el){
   if (el.closest(TR_SKIP) && el.tagName!=="TEXTAREA") return;
-  TR_ATTRS.forEach(a=>{ const v = el.getAttribute(a); if (!v) return; const src = el.__enA && a in el.__enA && el.__outA && el.__outA[a]===v ? el.__enA[a] : v, t = trText(src);
+  TR_ATTRS.forEach(a=>{ const v = el.getAttribute(a); if (!v) return; const src = el.__enA && a in el.__enA && el.__outA && el.__outA[a]===v ? el.__enA[a] : v, t = trText(src, el);
     if (t!==v){ (el.__enA = el.__enA||{})[a] = src; (el.__outA = el.__outA||{})[a] = t; el.setAttribute(a, t); } });
 }
 function trTree(root){
@@ -3965,8 +3966,8 @@ async function moveToCoach(s, code){
    What the student logs goes to every coach they share with; lessons, tasks, notes and payments stay with each coach. */
 function coachesPanel(s){
   const cs = s._coaches||[], he = lang()==="he", nm = c=>(he && c.nameHe) || c.name || (he ? "מאמן" : "Coach");
-  if (cs.length<2) return '<section class="panel coaches" style="margin-top:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap"><div style="flex:1;min-width:0"><b>Working with another coach too?</b><div class="small muted">Ask them for a code. You keep one app; each coach sees what you log.</div></div><button class="btn small" data-a="addCoach">Add a coach</button></section>';
-  return '<section class="panel coaches" style="margin-top:16px"><div class="panel-head"><h2>Your coaches</h2><button class="btn small" data-a="addCoach">Add a coach</button></div>'+
+  if (cs.length<2) return '<section class="panel coaches no-name" style="margin-top:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap"><div style="flex:1;min-width:0"><b>Working with another coach too?</b><div class="small muted">Ask them for a code. You keep one app; each coach sees what you log.</div></div><button class="btn small" data-a="addCoach">Add a coach</button></section>';
+  return '<section class="panel coaches no-name" style="margin-top:16px"><div class="panel-head"><h2>Your coaches</h2><button class="btn small" data-a="addCoach">Add a coach</button></div>'+
     '<ul class="list">'+cs.map(c=>'<li><div class="main"><div class="title">'+esc(nm(c))+'</div><div class="small muted">'+(c.share ? "Sees what you log" : "Doesn’t see what you log")+'</div></div>'+
       '<label class="check-chip"><input type="checkbox" data-share="'+esc(c.link)+'"'+(c.share?' checked':'')+'> Share</label></li>').join("")+'</ul>'+
     '<p class="small muted" style="margin:8px 0 0">Practice, games, tournaments, fitness, sleep and books go to the coaches you share with. Lessons, tasks, notes and payments stay with each coach.</p></section>';
@@ -3975,7 +3976,8 @@ function bindCoaches(v){
   v.querySelectorAll("[data-share]").forEach(b=>b.onchange = ()=>{ store.setShare(b.dataset.share, b.checked).then(()=>toast(b.checked ? "Sharing turned on" : "Sharing turned off")); });
 }
 function addCoach(s){
-  openForm({title:"Add a coach", submit:"Connect", parentOk:true, fields:[
+  if (PREVIEW) return toast("Preview — nothing was sent");
+  openForm({title:"Add a coach", submit:"Connect", parentOk:true, noName:true, fields:[
       {name:"code", label:"Code from the coach", value:"", full:true, placeholder:"ABC123", hint:"The coach adds you as a student in Rank Up and gives you this code."},
       {name:"history", label:"Send them what you logged so far", type:"select", full:true, value:"yes", options:[["yes","Yes — practice, games, tournaments, fitness, sleep and books"],["no","No, only from now on"]]}],
     onSubmit:d=>{ const code = d.code.replace(/\s/g,"").toUpperCase(), form = $("#modal form"), er = form.querySelector(".form-err"), btn = form.querySelector("[type=submit]");
@@ -4196,11 +4198,11 @@ function dateFields(root){
 const syncDates = root=>root && root.querySelectorAll('input[data-dmy]').forEach(n=>n._dmyShow && n._dmyShow());
 // What a compact tick list shows while closed: the short names of what's ticked (options are [value, label, short]).
 const multiSum = (f, on)=>{ const L = f.options.filter(o=>on.includes(String(o[0]))).map(o=>o[2]||o[1]); return L.length ? L.join(", ") : (lang()==="he" ? heT(f.placeholder||"Choose…") : f.placeholder||"Choose…"); };
-function openForm({title, fields, submit="Save", onSubmit, danger, parentOk}){
+function openForm({title, fields, submit="Save", onSubmit, danger, parentOk, noName}){
   // Parents view their child's records; only lesson requests and changes are open to them.
   if (PARENT() && !parentOk){ toast("View only — "+(state.students[0]?firstName(state.students[0]):"your child")+" or the coach can change this"); return; }
   const m = $("#modal");
-  m.innerHTML = '<form class="modal-form" method="dialog"><header><h2>'+esc(title)+'</h2></header><div class="modal-body">'+
+  m.innerHTML = '<form class="modal-form'+(noName?' no-name':'')+'" method="dialog"><header><h2>'+esc(title)+'</h2></header><div class="modal-body">'+
     fields.map(f=>{
       const id = "f_"+f.name, v = f.value ?? "";
       let input;
@@ -4621,7 +4623,7 @@ function pHome(v, s){
     panel("Assignments", hw.length ? '<ul class="list">'+hw.map(a=>'<li><div class="main"><div class="title"><a href="#/assignment/'+a.id+'">'+esc(a.title)+'</a></div><div class="small muted">'+esc(a.type)+(fromCoach(a)?' · '+esc(fromCoach(a)):'')+(a.due?' · due '+esc(fmtShort(a.due)):'')+'</div></div>'+(a.status==="Assigned"?'<button class="btn small" data-a="hwdone" data-id="'+a.id+'">Mark done</button>':'<span class="tag warn">Done · to review</span>')+'</li>').join("")+'</ul>' : '<p class="empty">No assignments right now.</p>')+
     '</div>'+
     (NOCOACH() && !PARENT() && ACCOUNT && WEB ? connectPanel(s) : '')+
-    (!NOCOACH() && !PARENT() && !PREVIEW && store && store.addCoach && WEB ? coachesPanel(s) : '');
+    (!NOCOACH() && !PARENT() && store && store.addCoach && WEB ? coachesPanel(s) : ''); // in the coach's Student view too, to see it as the student does
   bindCoaches(v);
   bindActions(v,{ toCoach:()=>connectCoach(s), addCoach:()=>addCoach(s), ans:id=>{ const [rid, c] = id.split("|"), r = (s.requests||[]).find(x=>x.id===rid); if (r) answerMove(s, r, c); },
     offer:id=>{ const [oid, c] = id.split("|"), o = (s.offers||[]).find(x=>x.id===oid && x.status==="pending"); if (o) answerOffer(s, o, c); },
