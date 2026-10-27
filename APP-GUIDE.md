@@ -547,6 +547,12 @@ fitness, sleep and books, never another coach's entries, tasks or book PDFs).
   notification goes back only to its own coach.
 - Each coach keeps their own record of the student, as before, and sees only the other coach's name: the student's
   Student app box says **Also works with: Dana Cohen**. No coach sees another's lessons, tasks, notes or payments.
+- **Parents too:** a parent whose child has another coach asks that coach for a **family code**; on Home, **Does your
+  child have another coach too? → Add a coach**. The parent app then shows each child once (a child with two coaches
+  is matched by name), with every coach's lessons, requests and payments, each marked with its coach; a brother or
+  sister who only has one of the coaches appears too. Requests, answers and payment reports go to the right coach,
+  for the child as that coach knows them. The Home balance says whose it is; Payments has a tab per coach. Each
+  coach's Parent app box shows **Also works with** the other coach.
 - Technical: each coach is one link (`portal/<account>` for the first, `portal/<account>.2` … `.5` for more),
   each with its own board and messages; run `supabase/two-coaches.sql` once, and update the `push` function so
   phone alerts from a second coach reach the student.
