@@ -3710,7 +3710,7 @@ async function fillPush(el){
     fillPush(el); });
 }
 
-async function signOut(){ if (PREVIEW) return; window.__signingOut = true; try { if (WEB && "serviceWorker" in navigator) await pushOff().catch(()=>{}); } catch(e){} try { await sb.auth.signOut({scope:"local"}); } catch(e){} location.hash = ""; location.reload(); }
+async function signOut(){ if (PREVIEW) return; window.__signingOut = true; try { if (WEB && "serviceWorker" in navigator) await Promise.race([pushOff().catch(()=>{}), new Promise(r=>setTimeout(r, 3000))]); } catch(e){} /* a slow connection never holds up signing out */ try { await sb.auth.signOut({scope:"local"}); } catch(e){} location.hash = ""; location.reload(); }
 document.addEventListener("click", e=>{ if (e.target.closest("[data-signout]")) confirmBox("Sign out?", "You'll need your email and password to sign in again on this device.", "Sign out", signOut); });
 // Signs in (showing the screens above as needed) and returns the storage and the account; null if it can't connect.
 async function webStart(){
