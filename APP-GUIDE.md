@@ -451,6 +451,11 @@ A player follows their own chess with no coach. They get a **player code** from 
   parent's board, every child) — the same file as a coach's backup, without book PDFs — and says when it was last
   downloaded. Under **Every night** are the nightly copies (players get them like coaches, kept 30 days), each
   with **Download**.
+  **Close my account** (same card) deletes the account for good after they type **DELETE** (or **מחיקה**): the
+  board (every child's on a parent's board), book PDFs, nightly copies and phone alerts. Children's own sign-ins
+  are disconnected (their app says access was closed); the player lands on the sign-in screen with "Your account
+  and everything on it were deleted." Runs `public.close_player()` (`supabase/close-player.sql`, once); only a
+  player's account can close itself this way, not a coach's or a student's.
 - **Tips:** Home has a **Tips** card (up to 3, the most pressing first), worked out from what they log, no AI:
   a gap in practice, a tournament within a week, games not analysed yet, tasks past their date, an area left
   alone for 2+ weeks (endgames, tactics, calculation), a month spent almost all on one topic, puzzle accuracy
