@@ -3788,7 +3788,7 @@ async function startPlayer(db){
     send(op){ const me = state.students[0]; op.at = new Date().toISOString(); if (me && applyOp(me, op, true)) coachStore.saveStudent(me.id); return Promise.resolve(); },
     me:()=>({linked:true, role:"student", lang:state.settings.lang||"en", seen:state.settings.seen||[]}),
     markSeen(keys){ state.settings.seen = [...new Set([...(state.settings.seen||[]), ...keys])].slice(-400); coachStore.saveSettings(); },
-    saveLang(){ coachStore.saveSettings(); }, link(){ return Promise.resolve(); }, pickChild(){} });
+    saveLang(){ coachStore.saveSettings(); }, link(){ return Promise.resolve(); }, pickChild:pickKid });
   if (!myself()){ // the first time: their own profile
     const x = Object.assign(blankStudent(), {self:true, name:(webUser && webUser.email || "").split("@")[0], rate:0});
     state.students.push(x); saveStudent(x); setTimeout(()=>playerProfile(true), 300);
@@ -3800,19 +3800,32 @@ async function startPlayer(db){
     if (monthly || retry) syncRatings(false); }, 4000);
   loaded = true; render();
 }
+// The children on a parent's board, in the order they were added; and which one this device shows.
+const myKids = ()=>state.students.filter(s=>s.self && s.active && s.setup==="parent").sort((a,b)=>((a.createdAt||"")+a.id)<((b.createdAt||"")+b.id)?-1:1);
+let kidNow = null;
+function kidPicked(){ if (kidNow===null){ try { kidNow = localStorage.getItem("rkid")||""; } catch(e){ kidNow = ""; } } return kidNow; }
+function pickKid(id){ kidNow = id; try { localStorage.setItem("rkid", id); } catch(e){} render(); }
+// What the student pages list: on a parent's board with several children, only the child shown.
+const kidOnly = x=>!PLAYER || !state.students[0] || x.studentId===state.students[0].id;
+const shownStudents = ()=>PLAYER && STUDENT() ? state.students.slice(0,1) : state.students;
 // The student app reads a few things a coach's app would have filled in: no coach here, so they're empty (and never saved).
+// A parent's board can hold several children: the one shown comes first, then the others (the app keeps them all,
+// so each child's own sign-in stays up to date); the pages show only the first.
 function playerize(){
   const me = myself() || state.students[0]; if (!me) return;
-  if (state.students.length!==1 || state.students[0]!==me) state.students = [me];
+  const want = [me].concat(me.setup==="parent" ? myKids().filter(k=>k!==me) : []);
+  if (state.students.length!==want.length || want.some((x,i)=>state.students[i]!==x)) state.students = want;
   const empty = {free:[], taken:[], freeSet:false, pay:null, waiting:0, syncedAt:""};
-  Object.keys(empty).forEach(k=>{ if (!Object.getOwnPropertyDescriptor(me, k)) Object.defineProperty(me, k, {value:empty[k], writable:true, configurable:true, enumerable:false}); });
+  want.forEach(x=>Object.keys(empty).forEach(k=>{ if (!Object.getOwnPropertyDescriptor(x, k)) Object.defineProperty(x, k, {value:empty[k], writable:true, configurable:true, enumerable:false}); }));
   if (!state.settings.links) state.settings.links = coachLinks();
 }
-function playerProfile(first){
-  const me = myself(); if (!me) return;
-  openForm({title:first ? "Welcome to Rank Up" : "Profile", submit:first ? "Let's start" : "Save", parentOk:true, fields:[
-      {name:"setup", label:"Who is this account for?", type:"select", full:true, value:me.setup||"self", options:[["self","Me — I'm the player"],["parent","My child — I'm a parent setting it up"]],
-        hint:first ? "A parent sets up the board first, then invites the child to sign in with a code." : ""},
+function playerProfile(first, add){ // add: a new child on a parent's board
+  const cur = myself(); if (!cur) return;
+  const me = add ? Object.assign(blankStudent(), {self:true, setup:"parent", name:"", rate:0}) : cur, many = myKids().length>1;
+  openForm({title:add ? "Add a child" : first ? "Welcome to Rank Up" : "Profile", submit:add ? "Add" : first ? "Let's start" : "Save", parentOk:true,
+    danger:!add && many && me.setup==="parent" ? {label:"Remove this child", onClick:()=>removeKid(me)} : null, fields:[
+      ...(add || many ? [] : [{name:"setup", label:"Who is this account for?", type:"select", full:true, value:me.setup||"self", options:[["self","Me — I'm the player"],["parent","My child — I'm a parent setting it up"]],
+        hint:first ? "A parent sets up the board first, then invites the child to sign in with a code." : ""}]),
       {name:"name", label:"Player's name (English)", value:me.name, full:true, hint:first ? "With a FIDE or Israel Chess Federation number, the rating fills in by itself." : ""},
       {name:"fullHe", label:"Player's name in Hebrew (optional)", value:me.fullHe||"", full:true},
       {name:"birthYear", label:"Player's year of birth (optional)", type:"number", value:me.birthYear||"", min:1920},
@@ -3821,9 +3834,10 @@ function playerProfile(first){
     onSubmit:d=>{
       if (!d.name.trim()) return "Write the player's name.";
       const ids = (d.fideId||"").trim()!==(me.fideId||"") || (d.icfId||"").trim()!==(me.icfId||"");
-      Object.assign(me, {setup:d.setup==="parent" ? "parent" : "self", name:d.name.trim().slice(0,80), fullHe:d.fullHe.trim().slice(0,80), birthYear:d.birthYear, fideId:d.fideId.trim(), icfId:d.icfId.trim(), noId:!d.fideId.trim() && !d.icfId.trim()});
+      Object.assign(me, {setup:add || many || d.setup==="parent" ? "parent" : "self", name:d.name.trim().slice(0,80), fullHe:d.fullHe.trim().slice(0,80), birthYear:d.birthYear, fideId:d.fideId.trim(), icfId:d.icfId.trim(), noId:!d.fideId.trim() && !d.icfId.trim()});
       if (me.fideId) me.ratingType = "FIDE"; else if (me.icfId) me.ratingType = "ICF"; // the rating shown is from the list they gave a number for
-      state.settings.coachName = me.name; saveStudent(me); saveSettings(); render(); toast("Profile saved");
+      if (add){ state.students.push(me); saveStudent(me); pickKid(me.id); toast(firstName(me)+" added — send them an invite when they’re ready"); }
+      else { if (!many) state.settings.coachName = me.name; saveStudent(me); saveSettings(); render(); toast("Profile saved"); }
       if (ids && WEB && (me.fideId || me.icfId)) setTimeout(()=>{ toast("Checking your rating…"); syncRatings(false); }, 900);
     }});
 }
@@ -3915,6 +3929,23 @@ function kidPanel(s){
     : '<p class="small muted" style="margin:0 0 10px">Your child can sign in on their own phone and log practice, games and tournaments. Everything shows here too.</p><button class="btn small primary" data-a="kidInvite">Send an invite</button>';
   return panel("The player's own sign-in", body);
 }
+// More than one child: each has their own board here and their own sign-in code; the menu switches between them.
+function kidsPanel(s){
+  const kids = myKids();
+  if (kids.length<2) return '<section class="panel" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><div style="flex:1;min-width:0"><b>Another child playing chess?</b><div class="small muted">Add them here: each child gets their own board and their own sign-in code.</div></div><button class="btn small" data-a="addKid">Add a child</button></section>';
+  return panel("Your children", '<ul class="list">'+kids.map(k=>'<li><div class="main"><div class="title">'+(k===s ? '<b>'+esc(k.name)+'</b>' : '<a href="#/home" data-a="kid" data-id="'+esc(k.id)+'">'+esc(k.name)+'</a>')+'</div>'+
+      '<div class="small muted">'+(k.portal ? "Signs in on their own" : k.invite ? "Invite sent, not signed in yet" : "No sign-in yet")+'</div></div>'+(k===s ? '<span class="tag board">Shown</span>' : '')+'</li>').join("")+'</ul>',
+    '<button class="btn small" data-a="addKid">Add a child</button>');
+}
+function removeKid(x){
+  confirmBox("Remove "+x.name+"?", "This deletes "+firstName(x)+"’s board: practice, games, tasks, tournaments and books. "+(x.portal ? "Their own sign-in is disconnected. " : "")+"This can't be undone.", "Remove", ()=>{
+    if (portal && portal.unlink && x.portal) portal.unlink(x, true); // their app is told its access ended
+    state.assignments.filter(a=>a.studentId===x.id).forEach(a=>store.deleteAssignment(a.id)); state.assignments = state.assignments.filter(a=>a.studentId!==x.id);
+    state.games.filter(g=>g.studentId===x.id).forEach(g=>store.deleteGame(g.id)); state.games = state.games.filter(g=>g.studentId!==x.id);
+    state.students = state.students.filter(y=>y.id!==x.id); store.deleteStudent(x.id);
+    const next = myKids()[0]; if (next){ state.settings.coachName = next.name; saveSettings(); pickKid(next.id); } else render();
+    toast(x.name+" removed"); });
+}
 function kidMessage(s){
   const he = lang()==="he", code = s.invite && s.invite.code; if (!code) return;
   const txt = he ? "פתחתי לך חשבון ב„עולים בדרגה” — לרישום התרגול, המשחקים והתחרויות שלך.\n1. נכנסים ל־"+APP_LINK()+"\n2. יוצרים חשבון עם אימייל וסיסמה\n3. מזינים את הקוד: "+code
@@ -3944,6 +3975,9 @@ function historyOps(s, own){ // own: only what the student logged themselves (fo
 }
 function connectPanel(s){
   const pa = PLAYER && s.setup==="parent", he = lang()==="he", n = firstName(s);
+  if (pa && myKids().length>1) return '<section class="panel connect" style="margin-top:16px"><div class="panel-head"><h2>'+esc(he ? "מאמן לילדים" : "Your children’s coach")+'</h2></div>'+
+    '<p class="small muted" style="margin:0 0 10px">'+esc(he ? "הילדים מתחילים ללמוד עם מאמן? המאמן מוסיף את כולם ב„עולים בדרגה” ונותן לכם קוד משפחה (להורים). התרגול, המשחקים, המשימות והתחרויות של כל ילד עוברים אל המאמן."
+      : "Have your children started with a coach? The coach adds them all in Rank Up and gives you a family code (for the parent). Each child’s practice, games, tasks and tournaments move to the coach.")+'</p><button class="btn small" data-a="toCoach">Connect to a coach</button></section>';
   const text = pa ? (he ? "האם "+n+" מתחיל/ה ללמוד עם מאמן? המאמן מוסיף את "+n+" ב„עולים בדרגה” ונותן לכם קוד משפחה (להורים). התרגול, המשחקים, המשימות והתחרויות של "+n+" עוברים אל המאמן."
       : "Has "+n+" started with a coach? The coach adds "+n+" in Rank Up and gives you a family code (for the parent). "+n+"’s practice, games, tasks and tournaments move to the coach.")
     : "Working with a coach? Ask them for a code — they add you as a student in Rank Up. Your practice, games, tasks and tournaments move with you.";
@@ -3952,7 +3986,9 @@ function connectPanel(s){
 }
 function connectCoach(s){
   const pa = PLAYER && s.setup==="parent", he = lang()==="he", n = firstName(s);
-  const hint = pa ? (he ? "ההיסטוריה של "+n+" עוברת אל המאמן, והחשבון הזה הופך לחשבון ההורה אצלו. אחר כך מזינים באפליקציה של "+n+" את הקוד האישי מהמאמן." : n+"’s history moves to the coach, and this account becomes your parent account with them. Then "+n+" enters their own code from the coach in their app.")
+  const hint = pa && myKids().length>1 ? (he ? "ההיסטוריה של כל הילדים עוברת אל המאמן, והחשבון הזה הופך לחשבון ההורה אצלו. אחר כך כל ילד מזין באפליקציה שלו את הקוד האישי מהמאמן."
+      : "Each child’s history moves to the coach, and this account becomes your parent account with them. Then each child enters their own code from the coach in their app.")
+    : pa ? (he ? "ההיסטוריה של "+n+" עוברת אל המאמן, והחשבון הזה הופך לחשבון ההורה אצלו. אחר כך מזינים באפליקציה של "+n+" את הקוד האישי מהמאמן." : n+"’s history moves to the coach, and this account becomes your parent account with them. Then "+n+" enters their own code from the coach in their app.")
     : PLAYER ? "Everything you logged moves to your coach, and this app becomes your coach’s student app." : "Everything you logged moves to your coach.";
   openForm({title:"Connect to a coach", submit:"Connect", parentOk:true, fields:[{name:"code", label:pa ? "Family code from the coach" : "Code from your coach", value:"", full:true, placeholder:"ABC123", hint}],
     onSubmit:d=>{ const code = d.code.replace(/\s/g,"").toUpperCase(), form = $("#modal form"), er = form.querySelector(".form-err"), btn = form.querySelector("[type=submit]");
@@ -3979,7 +4015,8 @@ async function moveToCoach(s, code){
     return "wrong"; }
   // their history, in parts; the coach's app adds each part once it has linked them
   const at = new Date().toISOString();
-  for (const op of historyOps(s)) await root.collection("inbox").doc("op-"+uid()).set(Object.assign(op, {at}));
+  const kids = PLAYER && s.setup==="parent" ? myKids() : [s]; // every child on a parent's board; the coach's app finds each by name
+  for (const k of kids) for (const op of historyOps(k)) await root.collection("inbox").doc("op-"+uid()).set(Object.assign(op, {at}));
   if (PLAYER){ const r = await sb.rpc("leave_player"); if (r.error || r.data!==true) throw new Error("leave"); }
   return "ok";
 }
@@ -4330,7 +4367,7 @@ function renderNav(){
   if (STUDENT()){
     const s = state.students[0], cur = r.page==="student" ? tabGroup(r.tab) : r.page==="assignment" ? "assignments" : r.page==="schedule" ? "schedule" : r.page==="payments" && (PARENT() || (s && s.pay)) ? "payments" : r.page==="progress" ? "progress" : "home";
     // a family with more than one child picks whose board to show
-    const fam = PARENT() && state.family, pick = $("#childPick");
+    const kids = PLAYER && s && s.setup==="parent" ? myKids() : [], fam = PARENT() ? state.family : kids.length>1 && {children:kids, current:s.id}, pick = $("#childPick");
     if (pick){ pick.hidden = !(fam && fam.children.length>1); if (fam) pick.innerHTML = fam.children.map(k=>'<option value="'+esc(k.id)+'"'+(k.id===fam.current?" selected":"")+'>'+esc((lang()==="he" && (k.fullHe||k.nameHe)) || k.name)+'</option>').join(""); }
     const fresh = s ? unseenUpdates(s) : [], cnt = k=>fresh.filter(u=>updateArea(u)===k).length;
     const html = s ? studentNav(s).map(([k,href,l,ic])=>'<a href="'+href+'"'+(cur===k?' aria-current="page"':"")+'>'+ic+'<span>'+l+'</span>'+(cnt(k) && cur!==k ? '<i class="nav-badge" aria-label="'+cnt(k)+' new">'+cnt(k)+'</i>' : '')+'</a>').join("") : "";
@@ -4485,9 +4522,9 @@ function pProgress(v, s){
   const lessons = s.sessions.filter(x=>x.status==="done" && x.date>=from);
   const lessonH = lessons.reduce((x,l)=>x+(+l.duration||0),0)/60;
   const mins = s.worklog.filter(w=>w.date>=from).reduce((x,w)=>x+(+w.minutes||0),0);
-  const asDone = state.assignments.filter(a=>a.status!=="Assigned" && (a.submitted||a.reviewedOn||a.assigned||"")>=from).length;
-  const asOpen = state.assignments.filter(a=>a.status==="Assigned").length;
-  const games = state.games.filter(g=>g.kind!=="study" && (g.date||"")>=from);
+  const asDone = state.assignments.filter(a=>kidOnly(a) && a.status!=="Assigned" && (a.submitted||a.reviewedOn||a.assigned||"")>=from).length;
+  const asOpen = state.assignments.filter(a=>kidOnly(a) && a.status==="Assigned").length;
+  const games = state.games.filter(g=>kidOnly(g) && g.kind!=="study" && (g.date||"")>=from);
   const score = games.reduce((x,g)=>{ const r = g.result||"", me = g.color==="White" ? r.split("-")[0] : r.split("-")[1]; return x + (me==="1"?1:me==="½"||me==="1/2"?.5:0); }, 0);
   const booksDone = s.books.filter(b=>b.status==="Finished" && (b.finished||"")>=from).length;
   const byWhat = {}; s.worklog.filter(w=>w.date>=from).forEach(w=>{ byWhat[w.what||"Other"] = (byWhat[w.what||"Other"]||0)+(+w.minutes||0); });
@@ -4606,7 +4643,7 @@ function pFamilyPay(v, s){
 function pHome(v, s){
   const t = today(), first = (lang()==="he" && (s.nameHe||"").trim()) || firstName(s); // the Hebrew name in Hebrew
   const lessons = sortBy(s.sessions.filter(x=>x.status==="planned" && x.date>=t),"date").slice(0,4);
-  const hw = asSort(state.assignments.filter(a=>a.status!=="Reviewed"));
+  const hw = asSort(state.assignments.filter(a=>kidOnly(a) && a.status!=="Reviewed"));
   const todo = hw.filter(a=>a.status==="Assigned");
   const week = s.worklog.filter(w=>w.date>=addDays(t,-6)).reduce((a,w)=>a+(+w.minutes||0),0);
   const tours = s.tournaments.filter(x=>tourAhead(x,t)).sort((a,b)=>tourNext(a,t)<tourNext(b,t)?-1:1).slice(0,3);
@@ -4638,7 +4675,7 @@ function pHome(v, s){
       '<div class="row-actions">'+(pendingReports(s).length ? ''
         : (s.pay.balance>0.009 || (s.pay.open||[]).some(x=>!x.upcoming)) ? '<button type="button" class="btn small" id="iPaid">I\'ve paid</button>' : '')+'<a class="btn small" href="#/payments">Statement</a></div>') : '')+
     (NOCOACH() ? '' : updatesPanel(s))+ // updates are what a coach changed
-    (PLAYER && s.setup==="parent" ? kidPanel(s) : '')+
+    (PLAYER && s.setup==="parent" ? kidPanel(s)+kidsPanel(s) : '')+
     (NOCOACH() ? tipsPanel(s) : '')+
     panel("Coming up", (lessons.length||tours.length||pend.length||clubs.length) ? '<ul class="list">'+
         // one list in date and time order: lessons, club classes, tournaments and requests together
@@ -4657,7 +4694,7 @@ function pHome(v, s){
     offer:id=>{ const [oid, c] = id.split("|"), o = (s.offers||[]).find(x=>x.id===oid && x.status==="pending"); if (o) answerOffer(s, o, c); },
     profile:()=>playerProfile(false),
     kidInvite:()=>{ s.invite = {code:inviteCode(), created:today()}; saveStudent(s); render(); setTimeout(()=>kidMessage(s), 0); },
-    kidMsg:()=>kidMessage(s),
+    kidMsg:()=>kidMessage(s), addKid:()=>playerProfile(false, true), kid:id=>pickKid(id),
     req:()=>requestLesson(s), log:()=>openPractice(s, null), sleep:id=>logSleep(s, id||today()),
     seenAll:()=>{ markSeen(studentUpdates(s).map(u=>u.key)); render(); },
     checkin:k=>sendCheckin(s, k),
@@ -4704,7 +4741,7 @@ function studentUpdates(s){
     else if (r.status==="declined") out.push({key:"req:"+r.id+":"+(r.answer||(r.needsAnswer?"ask":"no")), date:r.decided, kind:"flag", text:r.kind==="cancel" ? "The request to cancel the lesson on "+day(r.was.date)+" was declined — the lesson stays"
       : r.kind==="move" ? (r.needsAnswer ? "Your coach can't meet at the new time — choose what to do with the lesson on "+day(r.was.date)
           : r.answer==="cancel" ? "The lesson on "+day(r.was.date)+" was cancelled" : r.answer==="keep" ? "The lesson on "+day(r.was.date)+" stays as planned" : "Your coach couldn't meet at the new time for the lesson on "+day(r.was.date)) : "The request for "+day(r.date)+" "+r.time+" was declined — try another time", href:"#/schedule"}); });
-  state.assignments.forEach(a=>{
+  state.assignments.filter(kidOnly).forEach(a=>{
     if (a.assigned && a.assigned>=from && a.status==="Assigned") out.push({key:"as:"+a.id, date:a.assigned, kind:"board", text:"New assignment: "+a.title+(a.due?" (due "+fmtShort(a.due)+")":""), href:"#/assignment/"+a.id});
     if (a.status==="Reviewed" && a.reviewedOn && a.reviewedOn>=from) out.push({key:"as:"+a.id+":rev", date:a.reviewedOn, kind:"ok", text:(a.feedback?"New feedback on ":"Reviewed: ")+a.title, href:"#/assignment/"+a.id}); });
   const fromReq = new Set((s.requests||[]).map(r=>r.sessionId).filter(Boolean));
@@ -4938,7 +4975,7 @@ function addSample(){
 
 /* ---------- dashboard ---------- */
 // The coach's own profile ("Me"): followed like a student, but not part of the coaching business.
-const myself = ()=>state.students.find(s=>s.self && s.active);
+const myself = ()=>{ const me = state.students.filter(s=>s.self && s.active); return (PLAYER && me.find(s=>s.id===kidPicked())) || me[0]; }; // on a parent's board: the child shown
 function pDashboard(v){
   const t = today(), wkEnd = addDays(t,7);
   const active = state.students.filter(s=>s.active && !s.self);
@@ -7776,16 +7813,16 @@ if (phoneQuery) phoneQuery.addEventListener("change", ()=>{ if (route().page==="
 function scheduleItems(from, to){
   // sessions, tournaments (on every day they run) and assignment due dates between two dates
   const items = [];
-  state.students.filter(s=>s.active).forEach(s=>{
+  shownStudents().filter(s=>s.active).forEach(s=>{
     s.sessions.forEach(x=>{ if (x.date>=from && x.date<=to) items.push({kind:"session", date:x.date, s, x, clash:x.status!=="cancelled" && !STUDENT() ? clashesFor(s.id,x) : []}); });
     s.tournaments.forEach(t=>{ const pd = playDates(t); if (pd){ pd.forEach((d,k)=>{ if (d>=from && d<=to) items.push({kind:"tour", date:d, s, x:t, day:k+1, days:pd.length, round:true}); }); return; }
       if (!t.start) return; const e = t.end && t.end>=t.start ? t.end : t.start; const n = daysBetween(t.start,e)+1;
       for (let d=t.start<from?from:t.start; d<=e && d<=to; d=addDays(d,1)) items.push({kind:"tour", date:d, s, x:t, day:daysBetween(t.start,d)+1, days:n}); });
   });
-  state.assignments.forEach(a=>{ const s = byId(a.studentId); if (s && s.active && a.due && a.due>=from && a.due<=to && a.status==="Assigned") items.push({kind:"due", date:a.due, s, x:a}); });
+  state.assignments.filter(kidOnly).forEach(a=>{ const s = byId(a.studentId); if (s && s.active && a.due && a.due>=from && a.due<=to && a.status==="Assigned") items.push({kind:"due", date:a.due, s, x:a}); });
   for (let d=from; d<=to; d=addDays(d,1)) clubOn(d).forEach(o=>items.push({kind:"club", date:d, x:{id:o.r.id+"|"+d, time:o.from, duration:o.b-o.a, changed:o.changed, name:clubName(o.r), place:o.r.place||""}}));
   // A student also sees their own training and the lessons they asked for.
-  if (STUDENT()) state.students.forEach(s=>{
+  if (STUDENT()) shownStudents().forEach(s=>{
     (s.training||[]).forEach(x=>{ if (x.date>=from && x.date<=to) items.push({kind:"train", date:x.date, s, x}); });
     (s.requests||[]).forEach(x=>{ if (x.kind!=="cancel" && (x.status==="pending" || x.status==="declined") && x.date>=from && x.date<=to) items.push({kind:"req", date:x.date, s, x}); });
     (s.free||[]).forEach(x=>{ if (x.date>=from && x.date<=to) items.push({kind:"free", date:x.date, s, x}); });
@@ -7965,7 +8002,7 @@ function freePanel(){
 // Assignments due in the week shown, in date order: all students for the coach, only their own for a student or parent.
 function weekAssignments(first){
   const a0 = weekStartOf(first), a1 = addDays(a0, 6), t = today();
-  const list = state.assignments.filter(a=>a.due && a.due>=a0 && a.due<=a1 && (STUDENT() || (byId(a.studentId)||{}).active))
+  const list = state.assignments.filter(a=>a.due && a.due>=a0 && a.due<=a1 && kidOnly(a) && (STUDENT() || (byId(a.studentId)||{}).active))
     .sort((x,y)=>(x.due+(x.title||""))<(y.due+(y.title||""))?-1:1);
   const range = fmtDate(a0,{day:"numeric",month:"short"})+" – "+fmtDate(a1,{day:"numeric",month:"short"});
   const day = d=>d===t ? "Today" : d===addDays(t,1) ? "Tomorrow" : fmtDate(d,{weekday:"short",day:"numeric",month:"short"});
@@ -8672,6 +8709,11 @@ Object.assign(HE, {
   "Year of birth (optional)":"שנת לידה (לא חובה)", "FIDE number (optional)":"מספר FIDE (לא חובה)", "Israel Chess Federation number (optional)":"מספר שחקן באיגוד השחמט (לא חובה)",
   "Set up your profile. With a FIDE or Israel Chess Federation number, your rating fills in by itself.":"הגדרת הפרופיל. עם מספר FIDE או מספר שחקן באיגוד, הדירוג מתמלא לבד.",
   "Write your name.":"נא לכתוב את השם.", "Profile saved":"הפרופיל נשמר",
+  "Another child playing chess?":"עוד ילד/ה שמשחק/ת שחמט?", "Add them here: each child gets their own board and their own sign-in code.":"אפשר להוסיף כאן: לכל ילד יש לוח משלו וקוד כניסה משלו.",
+  "Add a child":"הוספת ילד/ה", "Your children":"הילדים שלך", "Signs in on their own":"נכנס/ת לבד", "Invite sent, not signed in yet":"נשלחה הזמנה, עוד לא נכנס/ה", "No sign-in yet":"עדיין אין כניסה",
+  "Shown":"מוצג", "Remove this child":"הסרת הילד/ה", "Your children’s coach":"מאמן לילדים",
+  "Have your children started with a coach? The coach adds them all in Rank Up and gives you a family code (for the parent). Each child’s practice, games, tasks and tournaments move to the coach.":"הילדים מתחילים ללמוד עם מאמן? המאמן מוסיף את כולם ב„עולים בדרגה” ונותן לכם קוד משפחה (להורים). התרגול, המשחקים, המשימות והתחרויות של כל ילד עוברים אל המאמן.",
+  "Each child’s history moves to the coach, and this account becomes your parent account with them. Then each child enters their own code from the coach in their app.":"ההיסטוריה של כל הילדים עוברת אל המאמן, והחשבון הזה הופך לחשבון ההורה אצלו. אחר כך כל ילד מזין באפליקציה שלו את הקוד האישי מהמאמן.",
   "New task":"משימה חדשה", "Edit task":"עריכת משימה", "Add task":"הוספת משימה", "Delete this task?":"למחוק את המשימה?", "Task deleted":"המשימה נמחקה", "Task added":"המשימה נוספה",
   "Due date":"תאריך יעד", "Details (optional)":"פרטים (לא חובה)", "e.g. 30 puzzles on pins":"למשל: 30 תרגילים על ריתוק", "Write a title.":"נא לכתוב כותרת.",
   "Who is this account for?":"בשביל מי החשבון?", "Me — I'm the player":"בשבילי — אני השחקן", "My child — I'm a parent setting it up":"בשביל הילד/ה שלי — אני הורה שמקים את החשבון",
@@ -8972,6 +9014,8 @@ const HE_RX = [
   [/^([+−-][\d½]+%?) (?:points? )?(above|below) expectation$/, (m,v,d)=>v+(d==="above"?" מעל הצפי":" מתחת לצפי")],
   [/^matching “(.*)”$/, "שתואמים ל״$1״"],
   [/^No practice for (\d+)\+ days$/, "ללא תרגול $1+ ימים"],
+  [/^Remove (.+)\?$/, "להסיר את $1?"], [/^(.+) removed$/, "$1 הוסר/ה"], [/^(.+) added — send them an invite when they’re ready$/, "$1 נוסף/ה — אפשר לשלוח הזמנה כשמוכנים"],
+  [/^This deletes (.+)’s board: practice, games, tasks, tournaments and books\. (Their own sign-in is disconnected\. )?This can't be undone\.$/, (m,n,c)=>"הלוח של "+n+" יימחק: תרגול, משחקים, משימות, תחרויות וספרים. "+(c ? "הכניסה שלו/ה תנותק. " : "")+"אי אפשר לבטל את זה."],
   [/^Amount \((.+)\)$/, "סכום ($1)"], [/^Fee \((.+)\)$/, "מחיר ($1)"], [/^Fee per session \((.+)\)$/, "מחיר לשיעור ($1)"]
 ];
 

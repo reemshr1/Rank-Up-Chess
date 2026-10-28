@@ -126,19 +126,29 @@ async function playersRun(now: Date) {
   for (const { user_id: uid } of players) {
     const dr = await rest("docs?select=id,data&col=eq." + encodeURIComponent("data/users/" + uid));
     const docs: any[] = dr.ok ? await dr.json() : [];
-    const st = docs.filter((d: any) => /^st-/.test(d.id)).map((d: any) => d.data).find((x: any) => x && x.self) || (docs.find((d: any) => /^st-/.test(d.id)) || {}).data;
-    if (!st) continue;
-    const me = { ...st, worklog: (st.worklog || []).concat(...docs.filter((d: any) => /^lg-/.test(d.id) && d.data && d.data.sid === st.id).map((d: any) => d.data.worklog || [])) };
+    const sts = docs.filter((d: any) => /^st-/.test(d.id)).map((d: any) => d.data).filter((x: any) => x && x.self && x.active !== false);
+    const first = sts[0] || (docs.find((d: any) => /^st-/.test(d.id)) || {}).data;
+    if (!first) continue;
+    // a parent's board can hold several children: each gets their own reminders (and their own marks)
+    const kids = first.setup === "parent" ? sts.filter((x: any) => x.setup === "parent") : [first];
     const settings = (docs.find((d: any) => d.id === "settings") || {}).data || {}, marksDoc = (docs.find((d: any) => d.id === "alerts") || {}).data || {};
-    const tasks = docs.filter((d: any) => /^as-/.test(d.id)).map((d: any) => d.data).filter((a: any) => a && a.studentId === st.id);
-    let childOps: any[] = [];
-    if (st.setup === "parent" && st.portal && st.portal.uid) { const ir = await rest("docs?select=data&col=eq." + encodeURIComponent("portal/" + st.portal.uid + "/inbox")); childOps = ir.ok ? (await ir.json()).map((x: any) => x.data) : []; }
-    const r = playerAlerts({ uid, lang: settings.lang, me, tasks, childOps, marks: marksDoc }, now);
-    if (!r.messages.length) continue;
-    const ids = [...new Set(r.messages.map((m: any) => m.to))];
+    const perKid = kids.length > 1 || !!marksDoc.kids, out: any = perKid ? { kids: {} } : {};
+    const messages: any[] = [];
+    for (const st of kids) {
+      const me = { ...st, worklog: (st.worklog || []).concat(...docs.filter((d: any) => /^lg-/.test(d.id) && d.data && d.data.sid === st.id).map((d: any) => d.data.worklog || [])) };
+      const tasks = docs.filter((d: any) => /^as-/.test(d.id)).map((d: any) => d.data).filter((a: any) => a && a.studentId === st.id);
+      let childOps: any[] = [];
+      if (st.setup === "parent" && st.portal && st.portal.uid) { const ir = await rest("docs?select=data&col=eq." + encodeURIComponent("portal/" + st.portal.uid + "/inbox")); childOps = ir.ok ? (await ir.json()).map((x: any) => x.data) : []; }
+      const was = marksDoc.kids ? marksDoc.kids[st.id] || {} : marksDoc; // with one child, the marks were the whole doc
+      const r = playerAlerts({ uid, lang: settings.lang, me, tasks, childOps, marks: was }, now);
+      messages.push(...r.messages);
+      if (perKid) out.kids[st.id] = r.marks; else Object.assign(out, r.marks);
+    }
+    if (!messages.length) continue;
+    const ids = [...new Set(messages.map((m: any) => m.to))];
     const sr = await rest("push_subs?select=endpoint,user_id,sub&user_id=in.(" + ids.join(",") + ")");
     const subs: any[] = sr.ok ? await sr.json() : [];
-    for (const m of r.messages) {
+    for (const m of messages) {
       const payload = JSON.stringify({ title: short(m.title, 80), body: short(m.body, 400), tag: short(m.tag, 80), url: short(m.url, 200) });
       for (const s of subs.filter((x: any) => x.user_id === m.to)) {
         try { await webpush.sendNotification(s.sub, payload, { TTL: 43200 }); sent++; }
@@ -146,7 +156,7 @@ async function playersRun(now: Date) {
       }
     }
     // remembered even when no device has alerts on, so turning them on later doesn't bring old reminders
-    await rest("docs?on_conflict=col,id", { method: "POST", headers: { Prefer: "resolution=merge-duplicates" }, body: JSON.stringify({ col: "data/users/" + uid, id: "alerts", data: r.marks, updated_at: new Date().toISOString() }) });
+    await rest("docs?on_conflict=col,id", { method: "POST", headers: { Prefer: "resolution=merge-duplicates" }, body: JSON.stringify({ col: "data/users/" + uid, id: "alerts", data: out, updated_at: new Date().toISOString() }) });
   }
   return { players: players.length, sent };
 }
