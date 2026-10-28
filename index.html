@@ -4551,9 +4551,19 @@ function pProgress(v, s){
       (s.books.some(b=>b.status==="Reading")?'<dt>Reading now</dt><dd>'+s.books.filter(b=>b.status==="Reading").map(b=>esc(b.title)+(b.pages?' · '+bookPct(s,b)+'%':'')).join('<br>')+'</dd>':'')+'</dl>')+
     panel("Tactics & puzzles", tacticsStats(s, progPeriod))+
     medalsPanel(s)+
-    '</div>';
+    '</div>'+
+    (PLAYER && !PREVIEW ? playerDataPanel() : '');
   bindActions(v,{ pp:id=>{ progPeriod = +id; render(); }, ps:id=>{ progSource = id; render(); },
-    addRt:()=>playerAddRating(s, src), rtNow:()=>syncRatings(true) });
+    addRt:()=>playerAddRating(s, src), rtNow:()=>syncRatings(true), backup:()=>downloadBackup() });
+  if (PLAYER && WEB) fillNightly($("#nightly"));
+}
+// A player's own data: a backup file of the whole board now, and the nightly copies (kept 30 days) to download.
+function playerDataPanel(){
+  const last = state.settings.lastBackup, pa = (myself()||{}).setup==="parent";
+  return '<section class="panel" style="margin-top:16px"><div class="panel-head"><h2>Your data</h2></div>'+
+    '<p class="small muted" style="margin-top:0">'+(pa ? "Download everything on this account as one file: each child’s practice, games, tasks, tournaments, books and ratings." : "Download everything on your board as one file: practice, games, tasks, tournaments, books and ratings.")+' Book PDFs aren’t in it.</p>'+
+    '<div class="row-actions" style="align-items:center"><button type="button" class="btn small primary" data-a="backup">Download a backup</button>'+(last ? '<span class="small muted">Last downloaded: '+esc(fmtDate(last))+'</span>' : '')+'</div>'+
+    (WEB ? '<h3 class="subh">Every night</h3><p class="small muted" style="margin-top:0">A copy is also saved every night and kept for 30 days.</p><div id="nightly"><p class="small muted" style="margin:0">Loading…</p></div>' : '')+'</section>';
 }
 // A player's Rating card: where the rating comes from, and checking it now.
 function playerRatingNote(s){
@@ -8709,6 +8719,9 @@ Object.assign(HE, {
   "Year of birth (optional)":"שנת לידה (לא חובה)", "FIDE number (optional)":"מספר FIDE (לא חובה)", "Israel Chess Federation number (optional)":"מספר שחקן באיגוד השחמט (לא חובה)",
   "Set up your profile. With a FIDE or Israel Chess Federation number, your rating fills in by itself.":"הגדרת הפרופיל. עם מספר FIDE או מספר שחקן באיגוד, הדירוג מתמלא לבד.",
   "Write your name.":"נא לכתוב את השם.", "Profile saved":"הפרופיל נשמר",
+  "Your data":"הנתונים שלך", "Download a backup":"הורדת גיבוי", "A copy is also saved every night and kept for 30 days.":"בנוסף נשמר עותק בכל לילה, ונשמר 30 יום.",
+  "Download everything on your board as one file: practice, games, tasks, tournaments, books and ratings. Book PDFs aren’t in it.":"הורדת כל מה שבלוח שלך כקובץ אחד: תרגול, משחקים, משימות, תחרויות, ספרים ודירוגים. קובצי ה־PDF של הספרים לא כלולים.",
+  "Download everything on this account as one file: each child’s practice, games, tasks, tournaments, books and ratings. Book PDFs aren’t in it.":"הורדת כל מה שבחשבון כקובץ אחד: התרגול, המשחקים, המשימות, התחרויות, הספרים והדירוגים של כל ילד. קובצי ה־PDF של הספרים לא כלולים.",
   "Another child playing chess?":"עוד ילד/ה שמשחק/ת שחמט?", "Add them here: each child gets their own board and their own sign-in code.":"אפשר להוסיף כאן: לכל ילד יש לוח משלו וקוד כניסה משלו.",
   "Add a child":"הוספת ילד/ה", "Your children":"הילדים שלך", "Signs in on their own":"נכנס/ת לבד", "Invite sent, not signed in yet":"נשלחה הזמנה, עוד לא נכנס/ה", "No sign-in yet":"עדיין אין כניסה",
   "Shown":"מוצג", "Remove this child":"הסרת הילד/ה", "Your children’s coach":"מאמן לילדים",
@@ -9014,6 +9027,7 @@ const HE_RX = [
   [/^([+−-][\d½]+%?) (?:points? )?(above|below) expectation$/, (m,v,d)=>v+(d==="above"?" מעל הצפי":" מתחת לצפי")],
   [/^matching “(.*)”$/, "שתואמים ל״$1״"],
   [/^No practice for (\d+)\+ days$/, "ללא תרגול $1+ ימים"],
+  [/^Last downloaded: (.+)$/, "הורדה אחרונה: $1"],
   [/^Remove (.+)\?$/, "להסיר את $1?"], [/^(.+) removed$/, "$1 הוסר/ה"], [/^(.+) added — send them an invite when they’re ready$/, "$1 נוסף/ה — אפשר לשלוח הזמנה כשמוכנים"],
   [/^This deletes (.+)’s board: practice, games, tasks, tournaments and books\. (Their own sign-in is disconnected\. )?This can't be undone\.$/, (m,n,c)=>"הלוח של "+n+" יימחק: תרגול, משחקים, משימות, תחרויות וספרים. "+(c ? "הכניסה שלו/ה תנותק. " : "")+"אי אפשר לבטל את זה."],
   [/^Amount \((.+)\)$/, "סכום ($1)"], [/^Fee \((.+)\)$/, "מחיר ($1)"], [/^Fee per session \((.+)\)$/, "מחיר לשיעור ($1)"]
