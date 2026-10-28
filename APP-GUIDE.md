@@ -447,6 +447,10 @@ A player follows their own chess with no coach. They get a **player code** from 
   that child's board and disconnects their sign-in (only while another child is left). Phone alerts come for each
   child (marks kept per child as `alerts.kids`). **Connect to a coach** with several children sends every child's
   history; the coach's family should have all of them (the coach's app matches each by name).
+- **Your data** (bottom of **Progress**): **Download a backup** saves everything on the board as one file (on a
+  parent's board, every child) — the same file as a coach's backup, without book PDFs — and says when it was last
+  downloaded. Under **Every night** are the nightly copies (players get them like coaches, kept 30 days), each
+  with **Download**.
 - **Tips:** Home has a **Tips** card (up to 3, the most pressing first), worked out from what they log, no AI:
   a gap in practice, a tournament within a week, games not analysed yet, tasks past their date, an area left
   alone for 2+ weeks (endgames, tactics, calculation), a month spent almost all on one topic, puzzle accuracy
