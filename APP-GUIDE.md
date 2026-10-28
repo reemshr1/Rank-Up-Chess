@@ -439,6 +439,14 @@ A player follows their own chess with no coach. They get a **player code** from 
   app with no coach parts (no Schedule, lesson requests, updates or coach names); their practice, games and
   tasks reach the parent's board when the parent's app is open, like a coach's. The parent sets the tasks; when
   the child marks one done it shows Done, and the parent's board finishes it.
+- **More than one child.** On a parent's board, Home has **Another child playing chess? → Add a child** (name,
+  Hebrew name, year of birth, FIDE/ICF numbers). Each child gets their own board on the same account — their own
+  practice, games, tasks, tournaments, books, rating and tips — and their own sign-in code (**Send an invite** on
+  their board). With two or more, the menu has a child picker (the choice is remembered on that device) and Home
+  has **Your children**, with each child's sign-in and a link to switch. **Profile → Remove this child** deletes
+  that child's board and disconnects their sign-in (only while another child is left). Phone alerts come for each
+  child (marks kept per child as `alerts.kids`). **Connect to a coach** with several children sends every child's
+  history; the coach's family should have all of them (the coach's app matches each by name).
 - **Tips:** Home has a **Tips** card (up to 3, the most pressing first), worked out from what they log, no AI:
   a gap in practice, a tournament within a week, games not analysed yet, tasks past their date, an area left
   alone for 2+ weeks (endgames, tactics, calculation), a month spent almost all on one topic, puzzle accuracy
@@ -450,7 +458,7 @@ A player follows their own chess with no coach. They get a **player code** from 
   FIDE/ICF numbers) moves to the coach's records, and their app becomes the coach's student app. On the coach's
   side it arrives when the coach's app is open; the student's page says **From their own board**. Whatever the
   coach had already entered stays as it was. A wrong code changes nothing.
-  - **A parent's board:** the coach adds the child and makes a **family** for the parent, as today. The parent
+  - **A parent's board:** the coach adds the child (or children) and makes a **family** for the parent, as today. The parent
     enters the **family code** ("Maya's coach" on Home) and becomes the parent account with the coach; the child
     enters their own student code in their app (**Have a coach?** shows there too). Both can send the history —
     the coach's records take each entry once.
