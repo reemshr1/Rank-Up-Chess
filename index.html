@@ -412,6 +412,7 @@ dialog.wide{width:min(960px,calc(100vw - 24px))}
 .wbars > div{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;min-width:0}
 .wbars .bar{width:70%;background:var(--sq-dark);border-radius:3px 3px 0 0;max-height:100px;flex:none}
 .wbars .pct{font-size:.7rem;color:var(--muted);margin-bottom:2px}
+@media (max-width:600px){.wbars.w12{gap:3px}.wbars.w12 > div:nth-child(odd) .wl{visibility:hidden}.wbars.w12 .pct{font-size:.6rem}} /* 12 weeks on a phone: every other date, so they don't run into each other */
 .wbars .vol{height:3px;background:var(--muted);opacity:.5;margin-top:3px;border-radius:2px;align-self:flex-start;margin-left:15%;max-width:70%}
 .wbars .wl{font-size:.68rem;color:var(--muted);margin-top:3px;white-space:nowrap}
 .tstats[hidden]{display:none}
@@ -495,6 +496,8 @@ dialog.wide{width:min(960px,calc(100vw - 24px))}
 .att-days{margin:12px 0 0}
 .att-sel{box-shadow:inset 4px 0 0 var(--accent);padding-inline-start:14px!important}
 [dir=rtl] .att-sel{box-shadow:inset -4px 0 0 var(--accent)}
+/* in Hebrew, a title someone typed in English ("30 puzzles on pins") keeps its own word order, still aligned right */
+[dir=rtl] .title, [dir=rtl] .page-head h1{unicode-bidi:plaintext;text-align:right}
 .att-sel .title a{color:var(--accent)}
 .club-facts{display:flex;flex-wrap:wrap;gap:4px 20px;margin:0 0 4px}
 .club-h{font-size:1rem;margin:16px 0 8px}
@@ -3806,6 +3809,8 @@ const myKids = ()=>state.students.filter(s=>s.self && s.active && s.setup==="par
 let kidNow = null;
 function kidPicked(){ if (kidNow===null){ try { kidNow = localStorage.getItem("rkid")||""; } catch(e){ kidNow = ""; } } return kidNow; }
 function pickKid(id){ kidNow = id; try { localStorage.setItem("rkid", id); } catch(e){} render(); }
+// The student app talking to the player themselves ("you"), not to a parent about their child.
+const ownView = s=>STUDENT() && !PARENT() && !(PLAYER && s.setup==="parent");
 // What the student pages list: on a parent's board with several children, only the child shown.
 const kidOnly = x=>!PLAYER || !state.students[0] || x.studentId===state.students[0].id;
 const shownStudents = ()=>PLAYER && STUDENT() ? state.students.slice(0,1) : state.students;
@@ -4063,7 +4068,8 @@ function playerTask(a){
   const me = myself(); if (!me) return;
   const isNew = !a, x = a || {id:"as-"+uid(), studentId:me.id, title:"", type:"Tactics", instructions:"", assigned:today(), due:addDays(today(),7), status:"Assigned", feedback:"", games:[], by:"self"};
   openForm({title:isNew ? "New task" : "Edit task", submit:isNew ? "Add task" : "Save", parentOk:true, danger:isNew ? null : {label:"Delete", onClick:()=>confirmBox("Delete this task?", "This can't be undone.", "Delete", ()=>{
-      state.assignments = state.assignments.filter(y=>y.id!==x.id); store.deleteAssignment(x.id); render(); toast("Task deleted"); })},
+      state.assignments = state.assignments.filter(y=>y.id!==x.id); store.deleteAssignment(x.id); toast("Task deleted");
+      if (route().page==="assignment") location.hash = "#/student/"+x.studentId+"/assignments"; else render(); })},
     fields:[{name:"title", label:"Title", value:x.title, full:true, placeholder:"e.g. 30 puzzles on pins"},
       {name:"type", label:"Type", type:"select", options:AS_TYPES, value:x.type},
       {name:"due", label:"Due date", type:"date", value:x.due},
@@ -4517,7 +4523,7 @@ function pProgress(v, s){
   // average over the weeks since practice was first logged (within these 12)
   const firstLog = s.worklog.reduce((m,w)=>!m || w.date<m ? w.date : m, ""), counted = weeks.filter(w=>firstLog && addDays(w.a,6)>=firstLog);
   const avg = counted.length ? Math.round(counted.reduce((x,w)=>x+w.m,0)/counted.length) : 0;
-  let streak = 0; for (let i=0;i<=366;i++){ const d = addDays(t,-i); if (s.worklog.some(w=>w.date===d && +w.minutes>0)) streak++; else if (i===0) continue; else break; }
+  const streak = practiceLevel(s).now; // the same streak as Home and the medals
   // what was done in the period
   const from = progPeriod ? addDays(t,-progPeriod+1) : "0000";
   const lessons = s.sessions.filter(x=>x.status==="done" && x.date>=from);
@@ -4535,7 +4541,7 @@ function pProgress(v, s){
   const tile = (val, lab)=>'<div class="stat"><div class="v num">'+val+'</div><div class="l">'+lab+'</div></div>';
   v.innerHTML = '<div class="page-head"><div><h1>'+(PARENT() ? esc(first)+'’s progress' : 'Your progress')+'</h1>'+freshness(s)+'</div>'+
       '<div class="seg" role="group" aria-label="Period" style="margin:0">'+periods.map(([n,l])=>'<button type="button" class="'+(progPeriod===n?"on":"")+'" data-a="pp" data-id="'+n+'">'+l+'</button>').join("")+'</div></div>'+
-    '<div class="stats">'+(NOCOACH() ? tile(s.worklog.filter(w=>w.date>=from).length, "Practice sessions") : tile(lessons.length, "Lessons ("+lessonH.toFixed(1)+" h)"))+tile(Math.round(mins/60*10)/10+" h", "Practice")+tile(asDone, "Assignments done")+tile(games.length ? score+"/"+games.length : "—", "Score in games")+'</div>'+
+    '<div class="stats">'+(NOCOACH() ? tile(s.worklog.filter(w=>w.date>=from).length, "Practice sessions") : tile(lessons.length, "Lessons ("+lessonH.toFixed(1)+" h)"))+tile(Math.round(mins/60*10)/10+" h", "Practice")+tile(asDone, "Tasks done")+tile(games.length ? score+"/"+games.length : "—", "Score in games")+'</div>'+
     '<div class="grid g2">'+
     (NOCOACH() ? '' : // goals and lessons are a coach's
     panel("Goals", (s.goals?'<p class="pre" style="margin:0">'+esc(s.goals)+'</p>':'<p class="empty" style="padding:0">Your coach hasn\'t written goals yet.</p>')+
@@ -4544,11 +4550,11 @@ function pProgress(v, s){
     panel("Rating", (sources.length>1?'<div class="seg" role="group" aria-label="Rating list">'+sources.map(x=>'<button type="button" class="'+(x===src?"on":"")+'" data-a="ps" data-id="'+esc(x)+'">'+esc(x)+'</button>').join("")+'</div>':"")+
       (pts.length ? ratingChart(pts)+'<p class="small muted" style="margin:8px 0 0">'+(lang()==="he"?"עכשיו":"Now")+' <b class="num">'+esc(now.value)+'</b>'+(diff!==null?' · '+(diff>=0?"+":"")+diff+(lang()==="he"?" מאז ":" since ")+esc(fmtShort(y1.date)):'')+'</p>' : '<p class="empty">No ratings yet.</p>')+
       (PLAYER ? playerRatingNote(s) : ''), PLAYER ? '<button class="btn small" data-a="addRt">Add rating</button>' : '')+
-    panel("Practice per week", '<div class="wbars" style="grid-template-columns:repeat(12,1fr)" role="img" aria-label="Practice minutes per week, last 12 weeks">'+weeks.map((w,i)=>'<div title="'+esc(fmtShort(w.a))+': '+w.m+' min">'+(w.m?'<span class="pct">'+w.m+'</span>':'')+'<span class="bar" style="height:'+Math.round(w.m/maxM*100)+'px;'+(i===11?'background:var(--green)':'')+'"></span><span class="wl">'+esc(new Date(w.a+"T00:00").toLocaleDateString(LOCALE(),{day:"numeric",month:"numeric"}))+'</span></div>').join("")+'</div>'+
+    panel("Practice per week", '<div class="wbars w12" style="grid-template-columns:repeat(12,1fr)" role="img" aria-label="Practice minutes per week, last 12 weeks">'+weeks.map((w,i)=>'<div title="'+esc(fmtShort(w.a))+': '+w.m+' min">'+(w.m?'<span class="pct">'+w.m+'</span>':'')+'<span class="bar" style="height:'+Math.round(w.m/maxM*100)+'px;'+(i===11?'background:var(--green)':'')+'"></span><span class="wl">'+esc(new Date(w.a+"T00:00").toLocaleDateString(LOCALE(),{day:"numeric",month:"numeric"}))+'</span></div>').join("")+'</div>'+
       '<p class="small muted" style="margin:10px 0 0">'+(lang()==="he" ? 'בערך <b class="num">'+avg+'</b> דק׳ בשבוע'+(streak>1?' · רצף של <b class="num">'+streak+'</b> ימים':'') : 'About <b class="num">'+avg+'</b> min a week'+(streak>1?' · <b class="num">'+streak+'</b>-day streak':''))+'</p>')+
     panel("What the practice went on", whatList.length ? '<div style="display:flex;height:14px;border-radius:7px;overflow:hidden;margin:4px 0 12px">'+whatList.map(([k,m],i)=>'<span title="'+esc(k)+'" style="width:'+(m/whatTot*100)+'%;background:'+COL[i%COL.length]+'"></span>').join("")+'</div><ul class="list">'+
       whatList.map(([k,m],i)=>'<li><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+COL[i%COL.length]+';margin-inline-end:8px"></i>'+esc(k)+'</span><span class="num">'+Math.round(m/whatTot*100)+'% · '+m+' min</span></li>').join("")+'</ul>'+(egBreakdown(s, from).length ? '<h3 class="subh">Endgames by type</h3>'+egList(s, from) : '') : '<p class="empty">No practice logged in this period.</p>')+
-    panel("Assignments and reading", '<dl class="kv"><dt>Done in this period</dt><dd class="num">'+asDone+'</dd><dt>Still open</dt><dd class="num">'+asOpen+'</dd><dt>Books finished</dt><dd class="num">'+booksDone+'</dd>'+
+    panel("Tasks and reading", '<dl class="kv"><dt>Done in this period</dt><dd class="num">'+asDone+'</dd><dt>Still open</dt><dd class="num">'+asOpen+'</dd><dt>Books finished</dt><dd class="num">'+booksDone+'</dd>'+
       (s.books.some(b=>b.status==="Reading")?'<dt>Reading now</dt><dd>'+s.books.filter(b=>b.status==="Reading").map(b=>esc(b.title)+(b.pages?' · '+bookPct(s,b)+'%':'')).join('<br>')+'</dd>':'')+'</dl>')+
     panel("Tactics & puzzles", tacticsStats(s, progPeriod))+
     medalsPanel(s)+
@@ -4686,7 +4692,7 @@ function pHome(v, s){
   v.innerHTML = '<div class="page-head"><div><p class="sub" style="margin:0 0 4px">'+esc(fmtDay(t))+'</p><h1>'+(PARENT() || (PLAYER && s.setup==="parent") ? esc(first)+'’s board' : greet+', '+esc(first))+'</h1>'+(NOCOACH() ? '' : freshness(s))+'</div><div class="row-actions">'+(NOCOACH() && WEB && !PREVIEW ? '<button class="btn" data-a="alerts" aria-label="Phone alerts">📱 <span>Alerts</span></button>' : '')+(PLAYER ? '<button class="btn" data-a="profile">'+(s.setup==="parent" ? "Profile" : "My profile")+'</button>' : NOCOACH() ? '' : noticesButton(s)+'<button class="btn" data-a="req">Request a lesson</button>')+'<button class="btn primary" data-a="log">Log practice</button></div></div>'+
     '<div class="stats">'+(NOCOACH() ? '<div class="stat"><div class="v num">'+(tours[0]?esc(fmtDate(tourNext(tours[0],t),{weekday:"short",day:"numeric",month:"short"})):"—")+'</div><div class="l">'+(tours[0]?"Next tournament":"No tournament planned")+'</div></div>' // no lessons without a coach
       : '<div class="stat"><div class="v num">'+(lessons[0]?esc(fmtDate(lessons[0].date,{weekday:"short",day:"numeric",month:"short"})):"—")+'</div><div class="l">'+(lessons[0]?"Next lesson"+(lessons[0].time?" · "+esc(lessons[0].time):""):"No lesson planned")+'</div></div>')+
-      '<div class="stat"><div class="v num'+(todo.some(a=>a.due&&a.due<t)?" money-owed":"")+'">'+todo.length+'</div><div class="l">Assignments to do</div></div>'+
+      '<div class="stat"><div class="v num'+(todo.some(a=>a.due&&a.due<t)?" money-owed":"")+'">'+todo.length+'</div><div class="l">Tasks to do</div></div>'+
       '<div class="stat"><div class="v num">'+week+'</div><div class="l">Practice minutes this week</div></div>'+
       '<div class="stat"><div class="v num">'+(rt?esc(rt.value):"—")+'</div><div class="l">'+(rt?esc(rt.source||mainSource(s))+" rating":"Rating")+'</div></div></div>'+
     offerBox(s)+
@@ -4717,7 +4723,7 @@ function pHome(v, s){
         ...tours.map(x=>({k:tourNext(x,t)+" ", h:'<li><div class="main"><div class="title">'+esc(x.name)+'</div><div class="small muted">'+[x.location, x.format].filter(Boolean).map(esc).join(" · ")+'</div></div><span class="tag board">'+esc(fmtShort(tourNext(x,t)))+'</span></li>'})),
         ...pend.filter(r=>r.kind!=="cancel").map(r=>({k:r.date+" "+(r.time||""), h:'<li><div class="main"><div class="title">'+(r.kind==="move"?"Move request":"Lesson request")+'</div><div class="small muted">'+esc(fmtDate(r.date,{weekday:"short",day:"numeric",month:"short"}))+' · '+esc(r.time)+'</div></div><span class="tag warn">Waiting for your coach</span></li>'}))].sort((a,b)=>a.k<b.k?-1:a.k>b.k?1:0).map(o=>o.h).join("")+'</ul>'
       : '<p class="empty">Nothing planned yet.</p>', NOCOACH() ? '' : '<a class="btn small" href="#/schedule">Schedule</a>')+
-    panel("Assignments", hw.length ? '<ul class="list">'+hw.map(a=>'<li><div class="main"><div class="title"><a href="#/assignment/'+a.id+'">'+esc(a.title)+'</a></div><div class="small muted">'+esc(a.type)+(fromCoach(a)?' · '+esc(fromCoach(a)):'')+(a.due?' · due '+esc(fmtShort(a.due)):'')+'</div></div>'+(a.status==="Assigned"?'<button class="btn small" data-a="hwdone" data-id="'+a.id+'">Mark done</button>':'<span class="tag warn">Done · to review</span>')+'</li>').join("")+'</ul>' : '<p class="empty">No assignments right now.</p>')+
+    panel("Tasks", hw.length ? '<ul class="list">'+hw.map(a=>'<li><div class="main"><div class="title"><a href="#/assignment/'+a.id+'"><bdi>'+esc(a.title)+'</bdi></a></div><div class="small muted">'+esc(a.type)+(fromCoach(a)?' · '+esc(fromCoach(a)):'')+(a.due?' · due '+esc(fmtShort(a.due)):'')+'</div></div>'+(a.status==="Assigned"?'<button class="btn small" data-a="hwdone" data-id="'+a.id+'">Mark done</button>':'<span class="tag warn">Done · to review</span>')+'</li>').join("")+'</ul>' : '<p class="empty">No tasks right now.</p>')+
     '</div>'+
     (NOCOACH() && !PARENT() && ACCOUNT && WEB ? connectPanel(s) : '')+
     (!NOCOACH() && store && store.addCoach && WEB ? coachesPanel(s) : ''); // in the coach's Student view too, to see it as the student does
@@ -4774,7 +4780,7 @@ function studentUpdates(s){
       : r.kind==="move" ? (r.needsAnswer ? "Your coach can't meet at the new time — choose what to do with the lesson on "+day(r.was.date)
           : r.answer==="cancel" ? "The lesson on "+day(r.was.date)+" was cancelled" : r.answer==="keep" ? "The lesson on "+day(r.was.date)+" stays as planned" : "Your coach couldn't meet at the new time for the lesson on "+day(r.was.date)) : "The request for "+day(r.date)+" "+r.time+" was declined — try another time", href:"#/schedule"}); });
   state.assignments.filter(kidOnly).forEach(a=>{
-    if (a.assigned && a.assigned>=from && a.status==="Assigned") out.push({key:"as:"+a.id, date:a.assigned, kind:"board", text:"New assignment: "+a.title+(a.due?" (due "+fmtShort(a.due)+")":""), href:"#/assignment/"+a.id});
+    if (a.assigned && a.assigned>=from && a.status==="Assigned") out.push({key:"as:"+a.id, date:a.assigned, kind:"board", text:"New task: "+a.title+(a.due?" (due "+fmtShort(a.due)+")":""), href:"#/assignment/"+a.id});
     if (a.status==="Reviewed" && a.reviewedOn && a.reviewedOn>=from) out.push({key:"as:"+a.id+":rev", date:a.reviewedOn, kind:"ok", text:(a.feedback?"New feedback on ":"Reviewed: ")+a.title, href:"#/assignment/"+a.id}); });
   const fromReq = new Set((s.requests||[]).map(r=>r.sessionId).filter(Boolean));
   s.sessions.forEach(x=>{ if (x.added && x.added>=from && x.status==="planned" && x.date>=t && !fromReq.has(x.id)) out.push({key:"ses:"+x.id, date:x.added, kind:"board", text:"Lesson planned for "+day(x.date)+(x.time?" at "+x.time:""), href:"#/schedule"}); });
@@ -6088,7 +6094,7 @@ function tacticsStats(s, days){
     '<p class="small muted" style="margin:4px 0 0">Bar height is accuracy; the thin line under each week shows how many puzzles were attempted.</p>'+
     (rows.length?'<div class="table-wrap" style="margin-top:16px"><table><thead><tr><th>Where</th><th class="r">Attempted</th><th class="r">Accuracy</th><th>Progress</th></tr></thead><tbody>'+
       rows.map(r=>'<tr><td><b>'+esc(r.site)+'</b><div class="small muted">'+esc(r.ex)+'</div></td><td class="r num">'+esc(r.att)+'</td><td class="r num">'+esc(r.acc)+'</td><td class="small">'+esc(r.extra)+'</td></tr>').join("")+'</tbody></table></div>'
-      :'<p class="empty">No tactics logged in this period.</p>');
+      :'<p class="empty">'+(logs.length ? "Tactics sessions in this period have no puzzle counts — add how many puzzles were tried and solved to see the accuracy." : "No tactics logged in this period.")+'</p>');
 }
 let tacPeriod = 30;
 const workShown = {}; // how many practice entries to list, per student
@@ -6144,7 +6150,7 @@ function tWork(el, s){
   const t = today();
   const days = []; for (let i=6;i>=0;i--){ const d = addDays(t,-i); const m = s.worklog.filter(w=>w.date===d).reduce((a,w)=>a+(+w.minutes||0),0); days.push({d,m}); }
   const total = days.reduce((a,x)=>a+x.m,0), active = days.filter(x=>x.m>0).length;
-  let streak = 0; for (let i=0;;i++){ const d = addDays(t,-i); if (s.worklog.some(w=>w.date===d && +w.minutes>0)) streak++; else if (i===0) continue; else break; if (i>365) break; }
+  const streak = practiceLevel(s).now; // the same streak as Home and the medals
   const lvl = m => m===0?"":m<30?"l1":m<60?"l2":"l3";
   const periods = [[7,"7 days"],[30,"30 days"],[90,"90 days"],[0,"All time"]];
   el.innerHTML = workNav(s,"work")+'<div class="grid g2">'+
@@ -6227,7 +6233,7 @@ function streakLine(s){
 function medalsPanel(s){
   const st = streaksOf(s), first = firstName(s);
   return panel(STUDENT() && !PARENT() ? "My medals" : first+"’s medals", Object.keys(STREAKS).map(k=>{ const d = STREAKS[k], o = st[k], u = n=>n+" "+d.unit+(n===1?"":"s");
-    if (!o) return '<div class="medal-track"><b>'+d.label+'</b><p class="small muted" style="margin:4px 0 0">'+(STUDENT() ? "Starts once your coach sets a weekly fitness goal." : "Set a weekly fitness goal in the Fitness tab to start this streak.")+'</p></div>';
+    if (!o) return '<div class="medal-track"><b>'+d.label+'</b><p class="small muted" style="margin:4px 0 0">'+(PLAYER ? "Set a weekly goal on Practice → Fitness to start this streak." : STUDENT() ? (NOCOACH() ? "Starts once your parent sets a weekly fitness goal." : "Starts once your coach sets a weekly fitness goal.") : "Set a weekly fitness goal in the Fitness tab to start this streak.")+'</p></div>';
     const won = k==="practice" ? o.level : tierOf(d.steps, o.best), nxt = k==="practice" ? d.steps[o.level] : d.steps.find(x=>x>o.best); // the next medal not reached yet
     return '<div class="medal-track"><b>'+d.label+'</b><div class="medal-shelf">'+d.steps.map((x,i)=>'<div class="'+(i<won?"won":"todo")+'">'+medal(i+1)+'<span class="small">'+MEDALS[i][1]+'</span><span class="small muted">'+u(x)+'</span></div>').join("")+'</div>'+
       (k==="practice"
@@ -6279,14 +6285,14 @@ function tFitness(el, s){ const nav = groupNav(s, "fitness");
     ? (g.n ? meter(now.n, g.n, "workouts this week").replace('this week</span></p>', 'this week'+(now.m && !g.m ? ' · '+now.m+' min' : '')+'</span></p>') : '')+
       (g.m ? meter(now.m, g.m, "minutes this week") : '')+
       '<p class="small muted" style="margin:0">'+(fitMet(s, now) ? "Weekly goal reached!" : fitNeedText({n:Math.max(0, g.n-now.n), m:Math.max(0, g.m-now.m)}, "to reach the weekly goal"))+(streak>1?' · '+streak+' weeks in a row':'')+'</p>'
-    : '<p style="margin:0"><b class="num">'+now.n+'</b> <span class="muted">workouts this week'+(now.m?' · '+now.m+' min':'')+'</span></p><p class="small muted" style="margin:6px 0 0">'+(STUDENT() ? "No weekly goal set yet." : "No weekly goal yet — set one so "+esc(first)+" has something to aim for.")+'</p>';
+    : '<p style="margin:0"><b class="num">'+now.n+'</b> <span class="muted">workouts this week'+(now.m?' · '+now.m+' min':'')+'</span></p><p class="small muted" style="margin:6px 0 0">'+(PLAYER ? "No weekly goal yet — set one to have something to aim for." : STUDENT() ? "No weekly goal set yet." : "No weekly goal yet — set one so "+esc(first)+" has something to aim for.")+'</p>';
   const bars = '<div class="wbars" style="margin-top:16px" role="img" aria-label="'+(byMin?"Minutes":"Workouts")+' per week, last 8 weeks">'+weeks.map((w,i)=>'<div title="'+esc(fmtShort(w.a))+': '+w.n+(w.m?' · '+w.m+' min':'')+'">'+(val(w)?'<span class="pct">'+val(w)+'</span>':'')+'<span class="bar" style="height:'+Math.round(val(w)/maxN*100)+'px;'+(fitMet(s, w)?'background:var(--green)':i===7?'opacity:.6':'')+'"></span><span class="wl">'+esc(new Date(w.a+"T00:00").toLocaleDateString(LOCALE(),{day:"numeric",month:"numeric"}))+'</span></div>').join("")+'</div>'+
     (goal?'<p class="small muted" style="margin:6px 0 0">Green weeks reached the goal of '+fitGoalText(s)+'.</p>':'');
   const shown = fitShown[s.id]||25, rows = sortBy(list,"date",-1);
   el.innerHTML = nav+'<div class="grid g2">'+
     panel("This week", head+bars+
       (quick.length ? '<div class="quick-fit"><span class="small muted">Quick log for today:</span> '+quick.map((q,i)=>'<button class="btn small" data-a="quickFit" data-id="'+i+'">'+esc(fitName({activity:q[0], other:q[1]}))+(q[2]?' · '+q[2]+' min':'')+'</button>').join("")+'</div>' : '')+
-      '<div class="row-actions" style="margin-top:14px">'+coachOnly('<button class="btn small" data-a="fitGoal">'+(goal?"Change weekly goal":"Set weekly goal")+'</button>')+'<button class="btn small primary" data-a="addFit">Log a workout</button></div>')+
+      '<div class="row-actions" style="margin-top:14px">'+(STUDENT() && !PLAYER ? '' : '<button class="btn small" data-a="fitGoal">'+(goal?"Change weekly goal":"Set weekly goal")+'</button>')+'<button class="btn small primary" data-a="addFit">Log a workout</button></div>')+
     panel("Workouts", rows.length ? '<ul class="list">'+rows.slice(0,shown).map(w=>'<li><div class="main"><div class="title">'+esc(fitName(w))+(w.by==="student"&&!STUDENT()?' <span class="tag">by student</span>':'')+'</div><div class="small muted">'+esc(fmtDate(w.date,{weekday:"short",day:"numeric",month:"short"}))+(w.minutes?' · '+esc(w.minutes)+' min':'')+'</div></div><button class="btn small ghost" data-a="editFit" data-id="'+w.id+'">Edit</button></li>').join("")+'</ul>'+
       (rows.length>shown?'<div class="row-actions" style="margin-top:8px"><button class="btn small" data-a="more">Show 25 more</button></div>':'')
       : '<p class="empty">'+(PARENT() ? "No workouts logged yet." : "No workouts logged yet. Log one after each workout — running, football, swimming, anything active.")+'</p>')+
@@ -6306,7 +6312,7 @@ function tFitness(el, s){ const nav = groupNav(s, "fitness");
     sleep:id=>logSleep(s, id||today()),
     editFit:id=>editFitness(s, list.find(x=>x.id===id)),
     more:()=>{ fitShown[s.id] = shown+25; render(); },
-    fitGoal:()=>openForm({title:"Weekly fitness goal", submit:"Save", fields:[{name:"goal",label:"Workouts per week",type:"number",min:0,value:goal ? g.n : 3,hint:"0 means no goal"},
+    fitGoal:()=>openForm({title:"Weekly fitness goal", submit:"Save", parentOk:true, fields:[{name:"goal",label:"Workouts per week",type:"number",min:0,value:goal ? g.n : 3,hint:"0 means no goal"},
         {name:"mins",label:"Minutes per week",type:"number",min:0,step:5,value:g.m||0,hint:"0 means no minutes goal. With both set, a week counts when both are reached."}],
       onSubmit:d=>{ const n = Math.max(0, Math.round(+d.goal||0)), m = Math.max(0, Math.round(+d.mins||0));
         if (n>14) return "Choose up to 14 workouts a week."; if (m>1500) return "Choose up to 1500 minutes a week.";
@@ -6360,12 +6366,12 @@ function openPractice(s, entry, preset){
     {name:"gStatus",label:"Analysis status after this session",type:"select",options:ANALYSIS_STATUS.slice(1),value:x?.gStatus||"In progress",full:true,show:isGame},
     {name:"bookId",label:"Book",type:"select",options:bookOpts,value:x?.bookId||"",full:true,show:showBook},
     {name:"pageFrom",label:"From page",type:"number",value:x?.pageFrom??"",min:1,show:v=>showBook(v)&&!!v.bookId,hint:"Only for a part of the book, e.g. one chapter. Leave empty to continue from the last stop."},
-    {name:"page",label:"To page",type:"number",value:x?.page??"",min:0,show:v=>showBook(v)&&!!v.bookId,hint:"The page they stopped on"},
-    {name:"attempted",label:"Puzzles attempted",type:"number",value:x?.attempted??x?.count??"",min:0,show:counted,hint:"Everything they tried, right or wrong. From a book: leave both empty if they only read."},
+    {name:"page",label:"To page",type:"number",value:x?.page??"",min:0,show:v=>showBook(v)&&!!v.bookId,hint:STUDENT() ? "The page you stopped on" : "The page they stopped on"},
+    {name:"attempted",label:"Puzzles attempted",type:"number",value:x?.attempted??x?.count??"",min:0,show:counted,hint:STUDENT() ? "Everything you tried, right or wrong. From a book: leave both empty if you only read." : "Everything they tried, right or wrong. From a book: leave both empty if they only read."},
     {name:"correct",label:"Solved correctly",type:"number",value:x?.correct??"",min:0,show:counted},
     {name:"prating",label:"Puzzle rating after",type:"number",value:x?.prating??"",min:0,show:v=>isTac(v)&&kindOf(v)==="rated",hint:"As shown on the site at the end of the session"},
     {name:"scores",label:"Score of every attempt",value:x?runsOf(x).join(", "):"",full:true,placeholder:"e.g. 24, 31, 27, 29",show:v=>isTac(v)&&kindOf(v)==="score",hint:"All runs from this session, in order, separated by commas. The best and average are worked out for you."},
-    {name:"note",label:"Notes",type:"textarea",value:x?.note||"",placeholder:"e.g. Missed several back-rank ideas. For games: key moments, mistakes found, questions for the coach."}];
+    {name:"note",label:"Notes",type:"textarea",value:x?.note||"",placeholder:NOCOACH() ? "e.g. Missed several back-rank ideas. For games: key moments and mistakes found." : "e.g. Missed several back-rank ideas. For games: key moments, mistakes found, questions for the coach."}];
   const validate = d=>{
     if ((d.what==="Tactics" && d.site==="Book / workbook") || (SOURCE_CATS.includes(d.what) && d.src==="Book")){ if (!d.bookId) return "Add this book in the Books tab first, then log the session."; }
     if (SOURCE_CATS.includes(d.what) && d.src==="ChessBase file" && !d.cbFile) return "Enter the name of the ChessBase file.";
@@ -6652,7 +6658,7 @@ function tBooks(el, s){
   const section = (title, list, empty)=> list.length || empty ? '<h2 class="shelf-h">'+title+' <span class="muted small">'+list.length+'</span></h2>'+(list.length?'<div class="shelf">'+list.map(card).join("")+'</div>':'<p class="empty">'+empty+'</p>') : "";
   el.innerHTML = groupNav(s,"books")+'<div class="page-head" style="margin-bottom:8px"><p class="sub" style="margin:0">'+by("Reading").length+' reading now · '+finishedYear+' finished in '+year+' · '+recentPages+' pages in the last 4 weeks</p><button class="btn primary" data-a="add">Add book</button></div>'+
     (s.books.length ? section("Reading now", sortBy(by("Reading"),"lastRead",-1), "Nothing in progress.")+section("Up next", by("Want to read"))+section("Paused", by("Paused"))+section("Finished", sortBy(by("Finished"),"finished",-1))
-      : '<section class="panel"><p class="empty" style="margin:0">No books yet. Add the books '+esc(firstName(s))+' is working through — then log reading here or from Daily work, and the current page, last-read date and pace update on their own.</p></section>');
+      : '<section class="panel"><p class="empty" style="margin:0">No books yet. Add the books '+(ownView(s) ? "you’re" : esc(firstName(s))+' is')+' working through — then log reading here or from Daily practice, and the current page, last-read date and pace update on their own.</p></section>');
   bindActions(el,{
     add:()=>editBook(s,null),
     edit:id=>editBook(s, s.books.find(b=>b.id===id)),
@@ -6771,7 +6777,7 @@ function tGames(el, s){
           '<td>'+statusTag(g.analysis)+(g.lastAnalysed?'<div class="small muted">'+esc(fmtShort(g.lastAnalysed))+'</div>':'')+'</td>'+
           '<td class="c-act"><div class="row-actions" style="flex-wrap:nowrap">'+(g.pgn?'<button class="btn small" data-a="board" data-id="'+g.id+'">Board</button>':'')+'<button class="btn small ghost" data-a="analyse" data-id="'+g.id+'">Log analysis</button><button class="btn small ghost" data-a="editGame" data-id="'+g.id+'">Edit</button></div></td></tr>').join("")+
         '</tbody></table></div>'
-        : '<p class="empty">'+(all.length?"No games match this filter.":"No games yet. Add them one by one, or import a PGN file from a tournament — games are matched to "+esc(firstName(s))+"’s side and to tournaments automatically.")+'</p>')+
+        : '<p class="empty">'+(all.length?"No games match this filter.":"No games yet. Add them one by one, or import a PGN file from a tournament — games are matched to "+(ownView(s) ? "your" : esc(firstName(s))+"’s")+" side and to tournaments automatically.")+'</p>')+
     '</section>';
   $("#gImport").onchange = async e=>{ const files = [...e.target.files]; e.target.value = ""; let txt = ""; for (const f of files){ if (f.size>4*1024*1024){ toast(f.name+" is too large (over 4 MB)."); continue; } txt += "\n\n"+await f.text(); } if (txt.trim()) importGames(s, txt); };
   bindActions(el,{
@@ -6829,7 +6835,7 @@ function editStudyGame(s, g){
       {name:"theme",label:"Theme / what to learn",value:x.theme,placeholder:"e.g. Rook endgame technique",suggest:themes},
       {name:"source",label:"Found in",type:"select",options:STUDY_SOURCES,value:x.source},
       {name:"analysis",label:"Analysis status",type:"select",options:ANALYSIS_STATUS,value:x.analysis||"Not analysed"},
-      {name:"notes",label:"Lessons learned",type:"textarea",value:x.notes,placeholder:"What the student took from this game"},
+      {name:"notes",label:"Lessons learned",type:"textarea",value:x.notes,placeholder:STUDENT() ? "What you took from this game" : "What the student took from this game"},
       {name:"pgn",label:"PGN (optional)",type:"textarea",value:x.pgn,placeholder:"Paste the game's PGN to replay it on the board"}],
     danger: isNew || (STUDENT() && x.by!=="student") ? null : {label:"Delete game", onClick:()=>confirmBox("Delete this game?", studyTitle(x)+" will be removed. Analysis sessions already logged stay in the practice log.","Delete",()=>{
       state.games = state.games.filter(y=>y.id!==x.id); store.deleteGame(x.id); render(); toast("Game deleted"); })},
@@ -6877,7 +6883,7 @@ function tStudied(el, s){
             '<td>'+statusTag(g.analysis)+(g.lastAnalysed?'<div class="small muted">'+esc(fmtShort(g.lastAnalysed))+'</div>':'')+'</td>'+
             '<td class="c-act"><div class="row-actions" style="flex-wrap:nowrap">'+(g.pgn?'<button class="btn small" data-a="board" data-id="'+g.id+'">Board</button>':'')+'<button class="btn small ghost" data-a="analyse" data-id="'+g.id+'">Log analysis</button><button class="btn small ghost" data-a="editS" data-id="'+g.id+'">Edit</button></div></td></tr>'; }).join("")+
         '</tbody></table></div>'
-        :'<p class="empty">'+(all.length?"No games match this filter.":"No model games yet. Add classic or model games "+esc(firstName(s))+" analyses — from a book, a ChessBase database, or games you choose — and log each analysis session against them.")+'</p>')+
+        :'<p class="empty">'+(all.length?"No games match this filter.":(ownView(s) ? "No model games yet. Add classic or model games to analyse — from a book, a ChessBase database, or games you choose — and log each analysis session against them." : "No model games yet. Add classic or model games "+esc(firstName(s))+" analyses — from a book, a ChessBase database, or games you choose — and log each analysis session against them."))+'</p>')+
     '</section>';
   $("#sImport").onchange = async e=>{ const files = [...e.target.files]; e.target.value = ""; let txt = ""; for (const f of files){ if (f.size>4*1024*1024){ toast(f.name+" is too large (over 4 MB)."); continue; } txt += "\n\n"+await f.text(); } if (txt.trim()) importStudy(s, txt); };
   bindActions(el,{
@@ -6944,11 +6950,11 @@ function editRep(s, item, preset){
   const isNew = !item; const x = item || Object.assign({id:uid(), v:2, color:"White", firstMove:"1.e4", against:"", againstOther:"", name:"", eco:"", status:"Developing", developer:STUDENT()?"Student":"Coach", reviewed:"", created:today(), lines:"", notes:""}, preset||{}, isNew && STUDENT() ? {by:"student"} : {});
   openForm({title:isNew?"Add opening line":"Edit opening line", submit:isNew?"Add line":"Save changes", fields:[
       {name:"color",label:"Colour",type:"select",options:["White","Black"],value:x.color},
-      {name:"firstMove",label:"White's first move",type:"select",options:WHITE_FIRST,value:x.firstMove||"1.e4",show:v=>v.color==="White",hint:"The move the student opens with"},
+      {name:"firstMove",label:"White's first move",type:"select",options:WHITE_FIRST,value:x.firstMove||"1.e4",show:v=>v.color==="White",hint:STUDENT() ? "The move you open with" : "The move the student opens with"},
       {name:"against",label:"Against",type:"select",options:v=>v.color==="Black"?BLACK_AGAINST:(DEFENCES[v.firstMove]||DEFENCES["1.e4"]),value:x.against,
         hint:"What the opponent plays that this line answers"},
       {name:"againstOther",label:"Which move exactly",value:x.againstOther,placeholder:"e.g. 1.b3 or 1...b6",show:v=>/^(Other|Any)/.test(v.against)},
-      {name:"name",label:"The student's line",value:x.name,full:true,required:true,placeholder:"e.g. Open Sicilian with 3.d4, or Caro-Kann"},
+      {name:"name",label:STUDENT() ? "Your line" : "The student's line",value:x.name,full:true,required:true,placeholder:"e.g. Open Sicilian with 3.d4, or Caro-Kann"},
       {name:"eco",label:"ECO",value:x.eco,placeholder:"e.g. B12"},
       {name:"status",label:"Status",type:"select",options:REP_STATUS,value:x.status},
       {name:"developer",label:"Who is developing the file",type:"select",options:["Coach","Student"],value:x.developer||"Coach",show:v=>v.status==="Developing"},
@@ -7143,11 +7149,11 @@ function tTournaments(el, s){
       (!STUDENT() && x.assist ? '<div class="small" style="margin-top:2px">'+(x.assistReason?'<span class="muted">Price changed:</span> '+esc(x.assistReason)+' ':'<span class="muted">Half the usual fee</span> ')+'<button class="btn small ghost" data-a="aprice" data-id="'+x.id+'">Change price</button></div>' : '')+
     (()=>{ const ex = parseScore(x.expected, x.rounds), ac = parseScore(resultOf(s,x), x.rounds);
       if (isUp) return '<div class="expect small">'+(ex?'Expected score: <b class="num">'+esc(fmtScore(ex))+'</b>':'<span class="tag warn">No expected score yet</span> <button class="btn small ghost" data-a="expect" data-id="'+x.id+'">Set it</button>')+'</div>';
-      if (!ex && !ac) return "";
+      if (!ex) return ""; // without an expected score, the result shows on its own (on the right)
       const c = compareScores(ex, ac);
       return '<div class="expect small"><span class="muted">Expected</span> <b class="num">'+(ex?esc(fmtScore(ex)):"—")+'</b> <span class="muted">→ Actual</span> <b class="num">'+(ac?esc(fmtScore(ac)):"—")+'</b>'+
         (c?' <span class="tag '+(c.d>0?"ok":c.d<0?"flag":"board")+'">'+esc(diffLabel(c))+'</span>':(ex&&!ac?' <span class="muted">— add the actual result</span>':''))+'</div>'; })()+'</div>'+
-    '<div class="row-actions" style="flex-direction:column;align-items:flex-end">'+(isUp?'<span class="tag '+(d<=7?"warn":"board")+'">'+(pd ? (rn>1?"Round "+rn+" ":"")+(d<=0?"today":d===1?"tomorrow":"in "+d+" days") : (d<=0?"In progress":d===1?"Tomorrow":"In "+d+" days"))+'</span>':(x.result?'<b class="num">'+esc(x.result)+'</b>':resultOf(s,x)?'<b class="num" title="Worked out from the games entered">'+esc(resultOf(s,x))+'</b><span class="small muted">from games</span>':'<span class="tag warn">Add result</span>')+(x.ratingChange!==""&&x.ratingChange!=null?'<span class="small num" style="color:'+(+x.ratingChange>=0?"var(--ok)":"var(--flag)")+'">'+(+x.ratingChange>=0?"+":"")+esc(x.ratingChange)+'</span>':""))+
+    '<div class="row-actions" style="flex-direction:column;align-items:flex-end">'+(isUp?'<span class="tag '+(d<=7?"warn":"board")+'">'+(pd ? (rn>1?"Round "+rn+" ":"")+(d<=0?"today":d===1?"tomorrow":"in "+d+" days") : (d<=0?"In progress":d===1?"Tomorrow":"In "+d+" days"))+'</span>':(x.result && !parseScore(x.expected, x.rounds)?'<b class="num">'+esc(x.result)+'</b>':resultOf(s,x)?'<b class="num" title="Worked out from the games entered">'+esc(resultOf(s,x))+'</b><span class="small muted">from games</span>':'<span class="tag warn">Add result</span>')+(x.ratingChange!==""&&x.ratingChange!=null?'<span class="small num" style="color:'+(+x.ratingChange>=0?"var(--ok)":"var(--flag)")+'">'+(+x.ratingChange>=0?"+":"")+esc(x.ratingChange)+'</span>':""))+
     (()=>{ const gs = studentGames(s.id).filter(g=>g.tournamentId===x.id); if (!gs.length) return isUp?"":'<button class="btn small" data-a="games" data-id="'+x.id+'">Add games</button>'; const sc = scoreLine(gs), pf = performance(gs); return '<button class="btn small" data-a="games" data-id="'+x.id+'">'+gs.length+' game'+(gs.length===1?"":"s")+(sc.n?' · '+sc.pts+'/'+sc.n:'')+'</button>'+
       (pf?'<span class="small" title="Average opponent '+pf.avg+' · '+pf.n+' rated game'+(pf.n===1?'':'s')+'">Performance <b class="num">'+pf.rp+'</b></span>':''); })()+
     '<button class="btn small ghost" data-a="edit" data-id="'+x.id+'">'+(isUp?"Edit":"Edit / result")+'</button></div></li>'; };
@@ -7165,7 +7171,7 @@ function tTournaments(el, s){
       hint:"The date of each round. You can add the next rounds later, as they're published."},
     {name:"location",label:"Location",value:x?.location||""},{name:"format",label:"Time control",type:"select",options:["Classical","Rapid","Blitz","Online"],value:x?.format||"Classical"},
     {name:"rounds",label:"Rounds",type:"number",value:x?.rounds??"",min:0},
-    {name:"expected",label:"Expected score",value:x?.expected||"",placeholder:"e.g. 5/9",hint:"The student's own prediction, written before the first round"},
+    {name:"expected",label:"Expected score",value:x?.expected||"",placeholder:"e.g. 5/9",hint:STUDENT() ? "Your own prediction, written before the first round" : "The student's own prediction, written before the first round"},
     {name:"result",label:"Actual score",value:x?.result||(x?resultOf(s,x):""),placeholder:"e.g. 5.5/9",show:v=>!!begins(v)&&begins(v)<=today(),hint:(()=>{ const g = x && gamesScore(s,x); return g ? "From the "+g.n+" game"+(g.n===1?"":"s")+" entered: "+g.text+(g.complete?"":" (not every round has a game yet)") : ""; })()},
     {name:"ratingChange",label:"Rating change",type:"number",value:x?.ratingChange??"",show:v=>!!begins(v)&&begins(v)<=today(),
       hint:x?.ratingAdded?"Added to the "+x.ratingAdded.source+" history as "+x.ratingAdded.value:"Leave empty until results are in"},
@@ -7208,7 +7214,7 @@ function tTournaments(el, s){
         if (Math.abs(fee-half)<0.005){ x.assistFee = half; delete x.assistReason; }
         else { if (!d.why.trim()) return "Write why the price is different."; x.assistFee = fee; x.assistReason = d.why.trim(); }
         saveStudent(s); render(); toast("Assistance price saved"); }}); },
-    expect:id=>{ const x = s.tournaments.find(y=>y.id===id); openForm({title:"Expected score — "+x.name, submit:"Save", fields:[{name:"expected",label:"Expected score",value:x.expected||"",placeholder:x.rounds?"e.g. "+Math.ceil(x.rounds/2)+"/"+x.rounds:"e.g. 5/9",hint:"The student's own prediction"}],
+    expect:id=>{ const x = s.tournaments.find(y=>y.id===id); openForm({title:"Expected score — "+x.name, submit:"Save", fields:[{name:"expected",label:"Expected score",value:x.expected||"",placeholder:x.rounds?"e.g. "+Math.ceil(x.rounds/2)+"/"+x.rounds:"e.g. 5/9",hint:STUDENT() ? "Your own prediction" : "The student's own prediction"}],
       onSubmit:d=>{ if (d.expected && !parseScore(d.expected, x.rounds)) return "Write it like 5/9 or 5.5/9."; x.expected = d.expected; saveStudent(s); render(); toast("Expected score saved"); }}); },
     games:id=>{ gameFilter = {status:"all", tid:id, op:""}; location.hash = "#/student/"+s.id+"/games"; }, add:()=>crud(s,"tournaments",null,fields(null),"tournament","Tournament",validate,null,after), edit:id=>{ const x = s.tournaments.find(y=>y.id===id); crud(s,"tournaments",x,fields(x),"tournament","Tournament",validate,null,after); } });
 }
@@ -7279,9 +7285,9 @@ function asTag(a){ const t = today();
   if (a.status==="Reviewed" || (a.status==="Submitted" && NOCOACH())) return '<span class="tag ok">'+(NOCOACH() ? "Done" : "Reviewed")+'</span>';
   if (a.status==="Submitted") return '<span class="tag warn">'+(STUDENT() ? "Waiting for your coach" : "Done · to review")+'</span>';
   if (a.due && a.due<t) return '<span class="tag flag">Overdue</span>';
-  return '<span class="tag board">Assigned</span>'; }
+  return '<span class="tag board">'+(NOCOACH() ? "To do" : "Assigned")+'</span>'; }
 function asRow(a, showStudent){ const s = byId(a.studentId); const n = (a.games||[]).length;
-  return '<a class="as-row" href="#/assignment/'+a.id+'"><div class="main"><div class="title">'+esc(a.title)+'</div><div class="small muted">'+[showStudent&&s?esc(fullName(s)):"", esc(a.type), esc(fromCoach(a)), n+" game"+(n===1?"":"s"), a.due?"due "+esc(fmtShort(a.due)):""].filter(Boolean).join(" · ")+'</div></div>'+asTag(a)+'</a>'; }
+  return '<a class="as-row" href="#/assignment/'+a.id+'"><div class="main"><div class="title">'+esc(a.title)+'</div><div class="small muted">'+[showStudent&&s?esc(fullName(s)):"", esc(a.type), esc(fromCoach(a)), n || !STUDENT() ? n+" game"+(n===1?"":"s") : "", a.due?"due "+esc(fmtShort(a.due)):""].filter(Boolean).join(" · ")+'</div></div>'+asTag(a)+'</a>'; }
 function asSort(list){ const rank = {Submitted:0, Assigned:1, Reviewed:2}; return list.slice().sort((a,b)=>(rank[a.status]-rank[b.status]) || (a.status==="Reviewed" ? ((b.due||"")>(a.due||"")?1:-1) : ((a.due||"9")<(b.due||"9")?-1:1))); }
 
 /* assignment library: reusable assignments kept in settings (title, type, instructions, games) */
@@ -7357,7 +7363,7 @@ function tAssignments(el, s){
     const seen = seenSet(), fresh = new Set((NOCOACH() ? [] : studentUpdates(s)).filter(u=>/^as:/.test(u.key) && isNew(u, seen)).map(u=>u.key.split(":")[1]));
     const box = (title, xs, empty)=>'<section class="panel" style="padding:0;margin-bottom:16px"><div class="panel-head"><h2>'+title+'</h2></div>'+(xs.length ? xs.map(a=>'<div class="as-item">'+(fresh.has(a.id)?'<span class="tag board new-tag">New</span>':'')+asRow(a,false)+(a.status==="Assigned"?'<button class="btn small" data-a="done" data-id="'+a.id+'">Mark done</button>':'')+'</div>').join("") : '<p class="empty" style="padding:4px 18px 18px">'+empty+'</p>')+'</section>';
     el.innerHTML = (PLAYER ? '<div class="row-actions" style="margin:0 0 12px"><button class="btn primary" data-a="new">New task</button></div>' : '')+
-      box("To do", todo, PARENT() ? "All assignments are done." : PLAYER ? "No tasks yet. Add one to plan your practice." : "All tasks are done, nice job!")+(done.length ? box("Done", done, "") : "");
+      box("To do", todo, PARENT() ? "All tasks are done." : PLAYER ? "No tasks yet. Add one to plan your practice." : "All tasks are done, nice job!")+(done.length ? box("Done", done, "") : "");
   } else
   el.innerHTML = '<section class="panel" style="padding:0"><div class="panel-head"><h2>Assignments</h2>'+coachOnly('<button class="btn small primary" data-a="new">New assignment</button>')+'</div>'+
     (list.length ? list.map(a=>'<div class="as-item">'+asRow(a,false)+(a.status==="Assigned"?'<button class="btn small" data-a="done" data-id="'+a.id+'">Mark done</button>':'')+'</div>').join("") : '<p class="empty" style="padding:4px 18px 18px">'+(PARENT() ? 'All assignments are done.' : STUDENT() ? 'All tasks are done, nice job!' : 'No assignments yet. Add a task like “30 puzzles on pins”, or upload games in PGN for '+esc(fullName(s))+' to analyse.')+'</p>')+'</section>';
@@ -7405,10 +7411,12 @@ function pAssignment(v, r){
   if (!a || !s){ v.innerHTML = '<p class="empty">This assignment no longer exists. <a href="#/assignments">Back to assignments</a></p>'; return; }
   a.games = a.games||[];
   const pct = Math.round(JSON.stringify(a).length / MAX_DOC * 100);
-  v.innerHTML = '<a class="crumb" href="#/student/'+s.id+'/assignments">‹ '+esc(fullName(s))+'</a>'+
-    '<div class="page-head"><div><h1>'+esc(a.title)+'</h1><p class="sub">'+[esc(a.type), esc(fromCoach(a)), "Given "+esc(fmtShort(a.assigned||today())), a.due?"due "+esc(fmtDate(a.due)):""].filter(Boolean).join(" · ")+'</p></div>'+
-    '<div class="row-actions"><div class="seg" role="group" aria-label="Status" style="margin:0">'+(STUDENT() && a.status==="Reviewed" ? '<button type="button" class="on">'+STATUS_LABEL.Reviewed+'</button>' : AS_STATUS.filter(x=>!STUDENT() || x!=="Reviewed").map(x=>'<button type="button" class="'+(a.status===x?"on":"")+'" data-a="status" data-id="'+x+'">'+STATUS_LABEL[x]+'</button>').join(""))+'</div>'+coachOnly('<button class="btn" data-a="lib">Save to library</button><button class="btn" data-a="edit">Edit</button>')+'</div></div>'+
-    '<section class="panel" style="margin-bottom:16px"><div class="panel-head"><h2>Games <span class="small muted" style="font-weight:400;font-family:var(--body)">optional</span></h2><div class="row-actions">'+
+  const own = NOCOACH() && STUDENT(); // a player's (or a parent's board) own task: no coach parts
+  v.innerHTML = '<a class="crumb" href="#/student/'+s.id+'/assignments">‹ '+(STUDENT() ? "Tasks" : esc(fullName(s)))+'</a>'+
+    '<div class="page-head"><div><h1><bdi>'+esc(a.title)+'</bdi></h1><p class="sub">'+[esc(a.type), esc(fromCoach(a)), (own ? "Added " : "Given ")+esc(fmtShort(a.assigned||today())), a.due?"due "+esc(fmtDate(a.due)):""].filter(Boolean).join(" · ")+'</p></div>'+
+    '<div class="row-actions"><div class="seg" role="group" aria-label="Status" style="margin:0">'+(PLAYER || (own && a.status!=="Reviewed") ? [["Assigned","To do"], [PLAYER ? "Reviewed" : "Submitted","Done"]].map(([x,l],i)=>'<button type="button" class="'+((a.status!=="Assigned")===!!i?"on":"")+'" data-a="status" data-id="'+x+'">'+l+'</button>').join("")
+      : STUDENT() && a.status==="Reviewed" ? '<button type="button" class="on">'+STATUS_LABEL.Reviewed+'</button>' : AS_STATUS.filter(x=>!STUDENT() || x!=="Reviewed").map(x=>'<button type="button" class="'+(a.status===x?"on":"")+'" data-a="status" data-id="'+x+'">'+STATUS_LABEL[x]+'</button>').join(""))+'</div>'+coachOnly('<button class="btn" data-a="lib">Save to library</button><button class="btn" data-a="edit">Edit</button>')+(PLAYER ? '<button class="btn" data-a="pedit">Edit</button>' : '')+'</div></div>'+
+    (own && !a.games.length ? '' : '<section class="panel" style="margin-bottom:16px"><div class="panel-head"><h2>Games <span class="small muted" style="font-weight:400;font-family:var(--body)">optional</span></h2><div class="row-actions">'+
       coachOnly('<label class="btn small primary" for="pgnFile">Upload PGN</label><input id="pgnFile" type="file" accept=".pgn,.txt,application/x-chess-pgn,text/plain" multiple hidden>'+
       '<button class="btn small" data-a="paste">Paste PGN</button>')+(a.games.length?'<button class="btn small" data-a="dl">Download PGN</button>':"")+'</div></div>'+
       (a.games.length ? '<ul class="list">'+a.games.map((g,i)=>'<li style="align-items:flex-start"><div class="main"><div class="title">'+esc(g.white)+' – '+esc(g.black)+' <span class="muted num">'+esc(g.result)+'</span></div><div class="small muted">'+[esc(g.event), esc(g.date), g.ok?g.moves+" half-moves":"moves couldn't be read"].filter(Boolean).join(" · ")+'</div>'+(g.note?'<div class="small" style="margin-top:4px">'+esc(g.note)+'</div>':"")+'</div>'+
@@ -7416,9 +7424,9 @@ function pAssignment(v, r){
       coachOnly('<div class="drop" id="drop">Drop .pgn files here, or use Upload PGN. Files with many games are split automatically.</div>')+
       (!a.games.length && STUDENT()?'<p class="empty">No games with this assignment.</p>':'')+
       (!STUDENT() && pct>50?'<p class="small muted" style="margin:8px 0 0">'+pct+'% of this assignment\'s space used.</p>':"")+
-    '</section>'+
-    '<div class="grid g2">'+panel("Instructions", a.instructions?'<p class="pre" style="margin:0">'+esc(a.instructions)+'</p>':'<p class="empty">No instructions written.</p>',coachOnly('<button class="btn small" data-a="edit">Edit</button>'))+
-    (STUDENT() ? panel("Coach feedback", a.feedback?'<p class="pre" style="margin:0">'+esc(a.feedback)+'</p>':'<p class="empty">No feedback yet.</p>') : panel("Coach feedback", '<textarea id="fb" class="fb" placeholder="What did the student find? What should they work on next?">'+esc(a.feedback||"")+'</textarea><div class="row-actions" style="margin-top:8px"><button class="btn small primary" data-a="fb">Save feedback</button>'+(a.status!=="Reviewed"?'<button class="btn small" data-a="fbdone">Save and mark reviewed</button>':"")+'</div>'))+'</div>';
+    '</section>')+
+    '<div class="grid g2">'+panel(own ? "Details" : "Instructions", a.instructions?'<p class="pre" style="margin:0">'+esc(a.instructions)+'</p>':'<p class="empty">'+(own ? "No details written." : "No instructions written.")+'</p>',coachOnly('<button class="btn small" data-a="edit">Edit</button>'))+
+    (own && !a.feedback ? '' : STUDENT() ? panel("Coach feedback", a.feedback?'<p class="pre" style="margin:0">'+esc(a.feedback)+'</p>':'<p class="empty">No feedback yet.</p>') : panel("Coach feedback", '<textarea id="fb" class="fb" placeholder="What did the student find? What should they work on next?">'+esc(a.feedback||"")+'</textarea><div class="row-actions" style="margin-top:8px"><button class="btn small primary" data-a="fb">Save feedback</button>'+(a.status!=="Reviewed"?'<button class="btn small" data-a="fbdone">Save and mark reviewed</button>':"")+'</div>'))+'</div>';
 
   const handleText = txt=>{ const res = addPgnText(a, txt); if (res.added) saveAssignment(a); render(); reportAdd(res); };
   if (!STUDENT()){
@@ -7435,7 +7443,9 @@ function pAssignment(v, r){
   const saveFb = ()=>{ a.feedback = $("#fb").value.trim(); };
   bindActions(v,{
     edit:()=>editAssignment(a), lib:()=>saveToLibrary(a),
-    status:id=>{ if (STUDENT() && id==="Reviewed") return; a.status = id; if (id==="Reviewed") a.reviewedOn = today(); if (id==="Submitted" && !a.submitted) a.submitted = today(); saveAssignment(a); render(); if (STUDENT() && id==="Submitted") toast("Marked done — your coach will review it"); },
+    status:id=>{ if (STUDENT() && !PLAYER && id==="Reviewed") return; a.status = id; if (id==="Reviewed"){ a.reviewedOn = today(); if (PLAYER) a.submitted = a.submitted || today(); } if (id==="Submitted" && !a.submitted) a.submitted = today(); saveAssignment(a); render();
+      if (STUDENT() && id!=="Assigned") toast(own ? "Done — nice work" : "Marked done — your coach will review it"); },
+    pedit:()=>playerTask(a),
     paste:()=>openForm({title:"Paste PGN", submit:"Add games", fields:[{name:"pgn",label:"PGN text",type:"textarea",value:"",placeholder:'[Event "City Open"]\n[White "..."]\n[Black "..."]\n\n1. e4 c5 2. Nf3 ...'}],
       onSubmit:d=>{ if (!d.pgn) return "Paste the PGN of one or more games."; const res = addPgnText(a, d.pgn); if (!res.added) return res.full ? "This assignment is full. Create another assignment for these games." : "No games found in that text."; saveAssignment(a); setTimeout(()=>{ render(); reportAdd(res); },0); }}),
     view:id=>openViewer(a, a.games.find(g=>g.id===id), s),
@@ -8741,7 +8751,11 @@ Object.assign(HE, {
   "Year of birth (optional)":"שנת לידה (לא חובה)", "FIDE number (optional)":"מספר FIDE (לא חובה)", "Israel Chess Federation number (optional)":"מספר שחקן באיגוד השחמט (לא חובה)",
   "Set up your profile. With a FIDE or Israel Chess Federation number, your rating fills in by itself.":"הגדרת הפרופיל. עם מספר FIDE או מספר שחקן באיגוד, הדירוג מתמלא לבד.",
   "Write your name.":"נא לכתוב את השם.", "Profile saved":"הפרופיל נשמר",
-  "Your data":"הנתונים שלך", "Close your account":"סגירת החשבון", "Close my account":"סגירת החשבון שלי", "Close your account?":"לסגור את החשבון?", "Delete everything":"מחיקת הכול",
+  "Your data":"הנתונים שלך", "Tactics sessions in this period have no puzzle counts — add how many puzzles were tried and solved to see the accuracy.":"לאימוני הטקטיקה בתקופה הזו אין מספרי תרגילים — כדי לראות דיוק, מוסיפים כמה תרגילים נוסו וכמה נפתרו.",
+  "The page you stopped on":"העמוד שבו עצרת", "Everything you tried, right or wrong. From a book: leave both empty if you only read.":"כל מה שניסית, נכון או לא. מספר: להשאיר את שניהם ריקים אם רק קראת.",
+  "e.g. Missed several back-rank ideas. For games: key moments and mistakes found.":"למשל: פספסתי כמה רעיונות של שורה אחורית. במשחקים: רגעי מפתח וטעויות שנמצאו.", "What you took from this game":"מה לקחת מהמשחק",
+  "The move you open with":"המסע שבו פותחים", "Your line":"הוריאנט שלך", "Your own prediction, written before the first round":"התחזית שלך, לפני הסיבוב הראשון", "Your own prediction":"התחזית שלך",
+  "No model games yet. Add classic or model games to analyse — from a book, a ChessBase database, or games you choose — and log each analysis session against them.":"עדיין אין משחקים לדוגמה. אפשר להוסיף משחקי מופת לניתוח — מספר, ממאגר ChessBase או משחקים שבוחרים — ולרשום כל מפגש ניתוח מולם.", "Tasks done":"משימות שבוצעו", "Tasks and reading":"משימות וקריאה", "Tasks to do":"משימות לביצוע", "No tasks right now.":"אין משימות כרגע.", "All tasks are done.":"כל המשימות הושלמו.", "No details written.":"לא נכתבו פרטים.", "No weekly goal yet — set one to have something to aim for.":"עדיין אין יעד שבועי — כדאי לקבוע אחד כדי שיהיה למה לשאוף.", "Set a weekly goal on Practice → Fitness to start this streak.":"כדי להתחיל את הרצף, קובעים יעד שבועי בתרגול ← כושר.", "Starts once your parent sets a weekly fitness goal.":"מתחיל אחרי שההורה יקבע יעד כושר שבועי.", "Close your account":"סגירת החשבון", "Close my account":"סגירת החשבון שלי", "Close your account?":"לסגור את החשבון?", "Delete everything":"מחיקת הכול",
   "Deletes your account and everything on it for good.":"מוחק את החשבון וכל מה שבו, לתמיד.", "Deletes this account and everything on it for good, and disconnects your children’s own sign-ins.":"מוחק את החשבון וכל מה שבו, לתמיד, ומנתק את הכניסות של הילדים.",
   "This deletes your account, your board (practice, games, tasks, tournaments, books and their PDFs, ratings) and the nightly copies, for good. It can't be undone — download a backup first if you want to keep anything.":"פעולה זו מוחקת לתמיד את החשבון שלך, את הלוח (תרגול, משחקים, משימות, תחרויות, ספרים וקובצי ה־PDF שלהם, דירוגים) ואת העותקים הליליים. אי אפשר לבטל אותה — כדאי להוריד גיבוי קודם אם רוצים לשמור משהו.",
   "This deletes this account, every child’s board (practice, games, tasks, tournaments, books and their PDFs, ratings) and the nightly copies, for good. Your children’s own sign-ins are disconnected. It can't be undone — download a backup first if you want to keep anything.":"פעולה זו מוחקת לתמיד את החשבון, את הלוח של כל ילד (תרגול, משחקים, משימות, תחרויות, ספרים וקובצי ה־PDF שלהם, דירוגים) ואת העותקים הליליים. הכניסות של הילדים מנותקות. אי אפשר לבטל אותה — כדאי להוריד גיבוי קודם אם רוצים לשמור משהו.",
@@ -8901,7 +8915,7 @@ const HE_RX = [
   [/^Your request to move the lesson on (.+) was declined — it stays as planned$/, "הבקשה להזיז את השיעור ב־$1 נדחתה — השיעור נשאר כמתוכנן"],
   [/^Your coach approved the lesson on (.+?)(?: at (\d\d:\d\d))?$/, (m,d,t)=>"המאמן אישר את השיעור ב־"+d+(t?" בשעה "+t:"")],
   [/^The request for (.+) (\d\d:\d\d) was declined — try another time$/, "הבקשה ל־$1 $2 נדחתה — אפשר לנסות זמן אחר"],
-  [/^New assignment: (.+?)(?: \(due (.+)\))?$/, (m,x,d)=>"משימה חדשה: "+x+(d?" (להגשה "+d+")":"")],
+  [/^New (?:assignment|task): (.+?)(?: \(due (.+)\))?$/, (m,x,d)=>"משימה חדשה: "+x+(d?" (להגשה "+d+")":"")],
   [/^New feedback on (.+)$/, "משוב חדש על $1"], [/^Reviewed: (.+)$/, "נבדק: $1"],
   [/^Lesson planned for (.+?)(?: at (\d\d:\d\d))?$/, (m,d,t)=>"שיעור תוכנן ל־"+d+(t?" בשעה "+t:"")],
   [/^Updated by your coach’s app (just now|(\d+) (minutes|hours|days) ago)(?: · (\d+) changes? waiting for your coach’s app)?$/, (m,w,n,u,c)=>"עודכן מהאפליקציה של המאמן "+(w==="just now"?"עכשיו":"לפני "+n+" "+({minutes:"דקות",hours:"שעות",days:"ימים"})[u])+(c?" · "+c+" שינויים ממתינים לאפליקציה של המאמן":"")],
@@ -8976,7 +8990,7 @@ const HE_RX = [
   [/^(\d+)\/(\d+) correct \((\d+)%\)$/, "$1/$2 נכונים ($3%)"], [/^puzzle rating (\d+)$/, "דירוג פאזלים $1"], [/^(\d+) solved$/, "$1 נפתרו"], [/^(\d+) positions$/, "$1 עמדות"],
   [/^played (.+)$/, "שוחק $1"],
   [/^(.*) \(p\. (\d+)(\/\d+)?\)$/, "$1 (עמ׳ $2$3)"], [/^to p\. (\d+)$/, "עד עמ׳ $1"], [/^p\. (\d+)(\/\d+)?$/, "עמ׳ $1$2"], [/^(\d+) \(([\d.]+) h\)$/, "$1 ($2 שעות)"],
-  [/^Due: (.+)$/, "להגשה: $1"], [/^due (.+)$/, "להגשה $1"], [/^Given (.+)$/, "ניתנה $1"],
+  [/^Due: (.+)$/, "להגשה: $1"], [/^due (.+)$/, "להגשה $1"], [/^Given (.+)$/, "ניתנה $1"], [/^Added (.+)$/, "נוספה $1"],
   [/^Edit the message, then send it to (.+)\.$/, "אפשר לערוך את ההודעה ולשלוח אל $1."],
   [/^Edit (.+)$/, "עריכת $1"], [/^‹ (.+)$/, (m,x)=>"› "+heT(x)], [/^(.+) ↻$/, (m,x)=>heT(x)+" ↻"],
   [/^(.+) from (.+) will be removed from the history\.$/, (m,a,d)=>a.replace(/^(FIDE Rapid|FIDE Blitz|FIDE|ICF|Online)/, heRating)+" מ־"+d+" יוסר מההיסטוריה."],
@@ -8996,7 +9010,9 @@ const HE_RX = [
   [/^Next: (.+)$/, "הבא: $1"],
   [/^No White repertoire yet\. Start with the first move (.+) plays, then add an answer to each defence\.$/, "עדיין אין רפרטואר בלבן. כדאי להתחיל מהמסע הראשון של $1, ואז להוסיף תשובה לכל הגנה."],
   [/^No assignments yet\. Add a task like “30 puzzles on pins”, or upload games in PGN for (.+) to analyse\.$/, "עדיין אין משימות. אפשר להוסיף משימה כמו ״30 פאזלים על ריתוקים״, או להעלות משחקים ב־PGN לניתוח של $1."],
-  [/^No books yet\. Add the books (.+) is working through — then log reading here or from Daily work, and the current page, last-read date and pace update on their own\.$/, "עדיין אין ספרים. אפשר להוסיף את הספרים של $1 — ואז לרשום קריאה כאן או בעבודה יומית, והעמוד הנוכחי, תאריך הקריאה האחרון והקצב יתעדכנו מעצמם."],
+  [/^No books yet\. Add the books you’re working through — then log reading here or from Daily practice, and the current page, last-read date and pace update on their own\.$/, "עדיין אין ספרים. אפשר להוסיף את הספרים שלך — ואז לרשום קריאה כאן או בתרגול היומי, והעמוד הנוכחי, תאריך הקריאה האחרון והקצב יתעדכנו מעצמם."],
+  [/^No books yet\. Add the books (.+) is working through — then log reading here or from Daily (?:work|practice), and the current page, last-read date and pace update on their own\.$/, "עדיין אין ספרים. אפשר להוסיף את הספרים של $1 — ואז לרשום קריאה כאן או בתרגול היומי, והעמוד הנוכחי, תאריך הקריאה האחרון והקצב יתעדכנו מעצמם."],
+  [/^No games yet\. Add them one by one, or import a PGN file from a tournament — games are matched to your side and to tournaments automatically\.$/, "עדיין אין משחקים. אפשר להוסיף אחד־אחד או לייבא קובץ PGN מטורניר — המשחקים משויכים אוטומטית לצבע שלך ולטורנירים."],
   [/^No games yet\. Add them one by one, or import a PGN file from a tournament — games are matched to (.+)’s side and to tournaments automatically\.$/, "עדיין אין משחקים. אפשר להוסיף אחד־אחד או לייבא קובץ PGN מטורניר — המשחקים משויכים אוטומטית לצבע של $1 ולטורנירים."],
   [/^No model games yet\. Add classic or model games (.+) analyses — from a book, a ChessBase database, or games you choose — and log each analysis session against them\.$/, "עדיין אין משחקים לדוגמה. אפשר להוסיף משחקי מופת לניתוח של $1 — מספר, ממאגר ChessBase או משחקים שבוחרים — ולרשום כל תרגול ניתוח."],
   [/^No weekly slot\. If (.+) has a fixed lesson time, add it here and the sessions are planned automatically, 8 weeks ahead\.$/, "אין שיעור קבוע. אם יש שעת שיעור קבועה עבור $1, אפשר להוסיף אותה כאן והשיעורים יתוכננו אוטומטית 8 שבועות קדימה."],
