@@ -7,7 +7,7 @@ const game = (w, b, r, ev) => `[Event "${ev}"]\n[White "${w}"]\n[Black "${b}"]\n
   const T = await start();
   await T.seed({ coach: 'coach', docs: {
     'data/users/coach/settings': { coachName: 'Raem', currency: '₪', lang: 'en', weekStart: 0,
-      club: [{ id: 'cl1', name: 'Diamond Class', kind: 'weekly', day: 2, from: '16:00', to: '17:30', start: addDays(t, -60) }] },
+      club: [{ id: 'cl1', name: 'Diamond Class', kind: 'weekly', weekday: 2, from: '16:00', to: '17:30', start: addDays(t, -60), end: '' }] },
     'data/users/coach/st-a': stu('st-a', 'Maya Cohen', { portal: { uid: 'u-a', linkedAt: t } }),
     'portal/u-a': { code: 'AAA234', linked: true, role: 'student', coach: 'coach', linkedAt: t },
     'data/users/coach/st-b': stu('st-b', 'Yoni Levi', { clubIds: ['cl1'] }), 'data/users/coach/st-c': stu('st-c', 'Dana Bar', { clubIds: ['cl1'] }) } });

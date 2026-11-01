@@ -6,7 +6,7 @@ const { t, addDays, stu, les, check, out, start, fillForm } = require('./lib.js'
   const T = await start();
   await T.seed({ coach: 'coach', docs: {
     'data/users/coach/settings': { coachName: 'Raem', currency: '₪', defaultRate: 100, lang: 'en', weekStart: 0,
-      club: [{ id: 'cl1', name: 'Diamond Class', nameHe: 'כיתת יהלום', kind: 'weekly', day: 2, from: '16:00', to: '17:30', start: addDays(t, -60) }] },
+      club: [{ id: 'cl1', name: 'Diamond Class', nameHe: 'כיתת יהלום', kind: 'weekly', weekday: 2, from: '16:00', to: '17:30', start: addDays(t, -60), end: '' }] },
     'data/users/coach/st-a': stu('st-a', 'Maya Cohen', { fullHe: 'מאיה כהן', level: 'Fourth Rank', levelHe: 'דרגה רביעית', rating: '1540', ratings: [{ date: addDays(t, -40), value: 1500, source: 'FIDE' }, { date: addDays(t, -3), value: 1540, source: 'FIDE' }],
       sessions: [les('l1', addDays(t, 2), '17:00', 'Najdorf Sicilian')], portal: { uid: 'u-a', linkedAt: addDays(t, -20) }, lastUpdate: { at: new Date(Date.now() - 86400000).toISOString(), what: 'practice', by: 'student' },
       books: [{ id: 'bk1', title: 'Endgame Strategy', status: 'Reading', pages: 300 }], tournaments: [{ id: 'tr1', name: 'Eilat Festival', start: addDays(t, 20) }],

@@ -27,13 +27,15 @@ Done (all passing unless noted):
 - coach-notices — {name} and [boy|girl], who gets it, 🔔 counts, Mark read, Read X of Y, edit (Edited), delete, 7-day expiry (old: testnotice, testnotice2)
 - coach-settings — coaching details, Useful links (add/remove/restore, reach the student), backup download, nightly copies, restore, folder on this computer, rating check, hiding bubbles and tiles, Student view sends nothing (old: testlinks, testbackup, testlogs, testratings, testhide, testpreview)
 - admin — admin page: requests, status, notes, codes, joining as a coach, used codes, accounts (keep / delete everything), the website form (old: testcoaches parts, testwelcome)
+- signin — sign-in screen, wrong password, new account, short password, existing email, reset password, code already used, sign out (this device), lost session, the old Netlify address (old: testweb, testsignin, testmoved)
+- student-lessons — Request a lesson in free time (club hours and booked times left out, two places), approval, Can't make it (move, switch, withdraw), declined move answered, own training (old: testportal parts, testclubfree, testtwoplaces student side, testoffers)
 - deploy — the site under /Rank-Up-Chess/ over http: no missing files, manifest, icons, service worker files (old: testghpages)
 - lichess, lichess-student — Lichess puzzles added by themselves
 - kids, kid, player-backup, close-account, orphan, two-parents — recovered from the session history
 
 Still to rebuild:
-- student and parent: club class hours left out of free time (testclubfree), sign-in screens (testweb, testsignin, testreal, testempty, testmoved), the student app end to end
-  (testportal, testboth, testtwo, testswitch, testnew, testmedals, testcheckin, testcomingup, testpush, testpushfail),
+- student and parent (next: student-home): logging practice and changes waiting for the coach, updates and New badges, check-in, medals, Coming up;
+  the parent app (read only, payments, I've paid, switching children); testreal, testempty, testboth, testtwo, testswitch, testpush, testpushfail,
   two coaches (testtwocoaches, testcoaches)
 - players: testplayer, testtips, testmove, testplayerpdf, testendgames, testplayerrating, testplayeralerts, testghpages
 - Hebrew: testhe and the untranslated-strings crawl

@@ -8,7 +8,7 @@ const pdf = { name: 'silman.pdf', mimeType: 'application/pdf', buffer: Buffer.fr
   const T = await start();
   await T.seed({ coach: 'coach', docs: {
     'data/users/coach/settings': { coachName: 'Raem', currency: '₪', lang: 'en', weekStart: 0,
-      club: [{ id: 'cl1', name: 'Diamond Class', kind: 'weekly', day: 2, from: '16:00', to: '17:30', start: addDays(t, -60) }] },
+      club: [{ id: 'cl1', name: 'Diamond Class', kind: 'weekly', weekday: 2, from: '16:00', to: '17:30', start: addDays(t, -60), end: '' }] },
     'data/users/coach/st-a': stu('st-a', 'Maya Cohen', { tournaments: [{ id: 'tr1', name: 'Rapid Cup', start: addDays(t, -3), result: '4/6' }] }),
     'data/users/coach/st-b': stu('st-b', 'Yoni Levi', { clubIds: ['cl1'] }), 'data/users/coach/st-c': stu('st-c', 'Dana Bar', { clubIds: ['cl1'] }) } });
   const c = await T.open('coach', '#/student/st-a/work'); await c.waitForTimeout(3000);
