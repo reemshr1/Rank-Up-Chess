@@ -2502,7 +2502,7 @@ function practiceLabel(w, s){
   if (w.what==="Game analysis" && w.gameId){ const g = state.games.find(x=>x.id===w.gameId); if (g) return 'Game analysis · '+esc(g.kind==="study"?studyTitle(g):gameTitle(g))+' <span class="muted num">'+esc(g.result||"")+'</span>'+(g.kind==="study"?' <span class="tag">Studied game</span>':''); }
   if (w.cbFile) return esc(w.what)+eg+' · ChessBase: '+esc(w.cbFile);
   if (w.what!=="Tactics" || !w.site) return esc(w.what||"Practice");
-  return 'Tactics · '+esc(w.site)+(w.exercise?' '+esc(w.exercise):'');
+  return 'Tactics · '+esc(w.site)+(w.exercise?' '+esc(w.exercise):'')+(w.auto ? ' <span class="tag board" title="Added by the app from '+esc(w.site)+'">auto</span>' : '');
 }
 const runsOf = w => Array.isArray(w.scores) && w.scores.length ? w.scores.map(Number) : (w.score!==""&&w.score!=null ? [+w.score] : []);
 const parseScores = txt => (String(txt||"").match(/\d+/g)||[]).map(Number);
@@ -3802,7 +3802,7 @@ async function startPlayer(db){
   if (WEB) setTimeout(()=>{ const t = today(), st = state.settings;
     const monthly = (st.ratingsSyncedAt||"").slice(0,7)!==t.slice(0,7), retry = (st.ratingsFailed||[]).length && st.ratingsTriedAt!==t;
     if (monthly || retry) syncRatings(false); }, 4000);
-  loaded = true; render();
+  loaded = true; render(); liAuto();
 }
 // The children on a parent's board, in the order they were added; and which one this device shows.
 const myKids = ()=>state.students.filter(s=>s.self && s.active && s.setup==="parent").sort((a,b)=>((a.createdAt||"")+a.id)<((b.createdAt||"")+b.id)?-1:1);
@@ -4113,7 +4113,7 @@ async function initStore(){
     ROLE = "student"; document.body.classList.add("student-mode");
     store = makeStudentStore(db, userId);
     try { await store.loadAll(); setSync("ok"); store.subscribe(); } catch(e){ setSync("err", "Couldn't load your board"); }
-    loaded = true; render(); return;
+    loaded = true; render(); liAuto(); return;
   }
   if (db && userId){
     store = makeDbStore(db, userId);
@@ -5721,7 +5721,7 @@ function crud(s, key, item, fields, title, toastWord, validate, transform, after
   const isNew = !item; const x = item ? item : {id:uid()};
   return openForm({title:(isNew?"Add ":"Edit ")+title, submit:isNew?"Add":"Save changes", fields,
     danger: isNew || (STUDENT() && x.by!=="student") ? null : {label:"Delete", onClick:()=>confirmBox("Delete this "+title+"?","This can't be undone.","Delete",()=>{
-      if (beforeDelete) beforeDelete(x); s[key] = s[key].filter(y=>y.id!==x.id); saveStudent(s); render(); toast(toastWord+" deleted"); })},
+      if (beforeDelete) beforeDelete(x); if (x.auto) liForget(x.id); s[key] = s[key].filter(y=>y.id!==x.id); saveStudent(s); render(); toast(toastWord+" deleted"); })},
     onSubmit:d=>{ const err = validate && validate(d); if (err) return err; if (transform) d = transform(d); Object.assign(x,d); if (isNew && STUDENT()) x.by = "student"; if (isNew) s[key].push(x); if (after) after(x, isNew); saveStudent(s); render(); toast(toastWord+(isNew?" added":" updated")); }});
 }
 
@@ -6146,6 +6146,73 @@ function bindUsernames(el, s, list){
         else { s.usernames = Object.assign({}, s.usernames); if (name) s.usernames[key] = name; else delete s.usernames[key]; saveStudent(s); }
         render(); toast(name ? "Username saved" : "Username removed"); }}); });
 }
+/* ---------- Lichess puzzles, added to the practice log by themselves ----------
+   From the student's Lichess username (Useful links), Lichess's public activity feed says, per day, how many puzzles
+   were solved and failed and the puzzle rating after, and the Storm / Racer / Streak runs with their best score.
+   The student's own app adds one practice entry per day and kind (ids are fixed, so two devices never add it twice),
+   with estimated minutes. Today's entry grows while they keep solving, unless they edited it; one they deleted stays
+   deleted on that device. A day they already logged Lichess puzzles by hand is left alone. Nothing is read from
+   Lichess beyond the public feed, and only the last 7 days. */
+const LI_KINDS = [["puzzles","Puzzles (rated)"],["storm","Puzzle Storm"],["racer","Puzzle Racer"],["streak","Puzzle Streak"]];
+const liUser = s=>((s && s.usernames)||{})["lichess.org"]||"";
+const liGone = ()=>{ try { return JSON.parse(localStorage.getItem("rli-gone")||"[]"); } catch(e){ return []; } };
+function liForget(id){ try { localStorage.setItem("rli-gone", JSON.stringify(liGone().concat([id]).slice(-300))); } catch(e){} }
+// One day of the feed → the practice entries it makes (pure: no saving).
+function liEntries(day, a){
+  const out = [], base = {what:"Tactics", site:"Lichess", date:day, by:"student", auto:"lichess", note:"", count:"", eg:[]};
+  const p = a.puzzles && a.puzzles.score;
+  if (p){ const n = (+p.win||0)+(+p.loss||0)+(+p.draw||0); if (n>0) out.push(Object.assign({}, base, {id:"li-"+day+"-puzzles", exercise:"Puzzles (rated)",
+    attempted:n, correct:+p.win||0, prating:p.rp && p.rp.after ? +p.rp.after : "", minutes:Math.max(5, n), scores:[], score:""})); }
+  [["storm",3],["racer",2],["streak",5]].forEach(([k, per])=>{ const r = a[k]; if (!r || !(+r.runs>0)) return;
+    out.push(Object.assign({}, base, {id:"li-"+day+"-"+k, exercise:LI_KINDS.find(x=>x[0]===k)[1], attempted:"", correct:"", prating:"",
+      scores:[+r.score||0], score:+r.score||0, runs:+r.runs, minutes:per*(+r.runs), note:r.runs>1 ? r.runs+" runs" : ""})); });
+  out.forEach(w=>{ w.autoMin = w.minutes; w.autoN = w.attempted!=="" ? w.attempted : w.runs; });
+  return out;
+}
+// Adds what's new to the student's log; returns how many entries were added or brought up to date.
+function liMerge(s, feed){
+  const t = today(), from = addDays(t, -6), gone = new Set(liGone()); let n = 0;
+  (Array.isArray(feed) ? feed : []).forEach(a=>{
+    const st = a && a.interval && a.interval.start; if (!st) return;
+    const day = iso(new Date(+st + 12*3600000)); if (day<from || day>t) return; // the middle of the day: the date there, whatever the time zone
+    liEntries(day, a).forEach(w=>{
+      if (gone.has(w.id)) return;
+      const have = s.worklog.find(x=>x.id===w.id);
+      if (!have){ // logged by hand already? then leave that day alone
+        if (s.worklog.some(x=>x.date===day && x.what==="Tactics" && x.site==="Lichess" && x.exercise===w.exercise && !x.auto)) return;
+        s.worklog.push(w); n++; return; }
+      const untouched = +have.minutes===+have.autoMin && String(have.attempted!=="" ? have.attempted : have.runs)===String(have.autoN);
+      if (untouched && (+w.autoN!==+have.autoN || +w.score!==+have.score || String(w.prating)!==String(have.prating))){ Object.assign(have, w); n++; }
+    });
+  });
+  return n;
+}
+const liLast = {}, liChecked = {}; // when each student was last checked, this session
+const liWhen = at=>{ const d = new Date(at), tm = d.toLocaleTimeString(LOCALE(), {hour:"2-digit", minute:"2-digit", hour12:false}); return iso(d)===today() ? tm : fmtShort(iso(d))+" "+tm; };
+async function liSync(s, force){
+  const u = liUser(s); if (!u || PREVIEW || !s) return 0;
+  if (!force && liLast[s.id] && Date.now()-liLast[s.id] < 20*60000) return 0;
+  liLast[s.id] = Date.now();
+  let feed; try { const r = await fetch("https://lichess.org/api/user/"+encodeURIComponent(u)+"/activity", {headers:{Accept:"application/json"}}); if (!r.ok) throw new Error(r.status); feed = await r.json(); }
+  catch(e){ if (force) toast("Couldn’t reach Lichess — try again in a moment."); return 0; }
+  liChecked[s.id] = new Date().toISOString();
+  const n = liMerge(s, feed);
+  if (n){ saveStudent(s); render(); toast(n===1 ? "Added from Lichess: 1 practice entry" : "Added from Lichess: "+n+" practice entries"); }
+  else if (force){ render(); toast("Lichess checked — nothing new"); }
+  return n;
+}
+// In the student's (or player's) own app: when it opens, then every 30 minutes.
+function liAuto(){
+  const go = ()=>{ if (!STUDENT() || PREVIEW || PARENT()) return; const kids = PLAYER ? state.students.filter(x=>x.self) : state.students.slice(0,1);
+    kids.reduce((p, k)=>p.then(()=>liSync(k)), Promise.resolve()); };
+  setTimeout(go, 3000); setInterval(go, 30*60000);
+}
+function liPanel(s){
+  if (!STUDENT() || PARENT() || PREVIEW) return "";
+  const u = liUser(s), own = ownView(s);
+  return u ? '<p class="small muted li-line" style="margin:10px 0 0;display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span>Lichess puzzles are added by themselves from <b dir="ltr">'+esc(u)+'</b>'+(liChecked[s.id] ? ' · checked '+esc(liWhen(liChecked[s.id])) : '')+'</span><button type="button" class="btn small ghost" data-a="liNow">Check now</button></p>'
+    : '<p class="small muted li-line" style="margin:10px 0 0;display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span>'+(own ? "Solve puzzles on Lichess? Add your Lichess username and they’re added here by themselves." : "Solves puzzles on Lichess? Add the Lichess username and they’re added here by themselves.")+'</span><button type="button" class="btn small" data-un="lichess.org">Add Lichess username</button></p>';
+}
 function tWork(el, s){
   const t = today();
   const days = []; for (let i=6;i>=0;i--){ const d = addDays(t,-i); const m = s.worklog.filter(w=>w.date===d).reduce((a,w)=>a+(+w.minutes||0),0); days.push({d,m}); }
@@ -6155,7 +6222,7 @@ function tWork(el, s){
   const periods = [[7,"7 days"],[30,"30 days"],[90,"90 days"],[0,"All time"]];
   el.innerHTML = workNav(s,"work")+'<div class="grid g2">'+
     panel("Daily practice", '<p style="margin:0"><b class="num">'+total+' min</b> <span class="muted">over '+active+' of the last 7 days'+(streak>1?" · "+streak+"-day streak":"")+'</span></p><div class="week">'+days.map(x=>'<div><span class="'+lvl(x.m)+'" title="'+x.m+' min"></span>'+esc(new Date(x.d+"T00:00").toLocaleDateString(LOCALE(),{weekday:"narrow"}))+'</div>').join("")+'</div>'+
-      '<ul class="list" style="margin-top:14px">'+(sortBy(s.worklog,"date",-1).slice(0,workShown[s.id]||25).map(w=>{ const res = practiceResult(w); return '<li><div class="main"><div class="title">'+practiceLabel(w,s)+(w.by==="student"&&!STUDENT()?' <span class="tag">by student</span>':'')+(w.what==="Tactics"&&w.site&&exKind(w.site,w.exercise)==="score"&&runsOf(w).length&&(personalBest(s,w.site,w.exercise)||{}).entry===w?' <span class="tag ok">Personal best</span>':'')+'</div><div class="small muted">'+esc(fmtDate(w.date))+(res?" · "+esc(res):"")+(w.note?" · "+esc(w.note):"")+'</div></div><span class="num">'+esc(w.minutes)+' min</span><button class="btn small ghost" data-a="editLog" data-id="'+w.id+'">Edit</button></li>'; }).join("")||'<li class="empty">No practice logged yet.</li>')+'</ul>'+
+      liPanel(s)+'<ul class="list" style="margin-top:14px">'+(sortBy(s.worklog,"date",-1).slice(0,workShown[s.id]||25).map(w=>{ const res = practiceResult(w); return '<li><div class="main"><div class="title">'+practiceLabel(w,s)+(w.by==="student"&&!STUDENT()?' <span class="tag">by student</span>':'')+(w.what==="Tactics"&&w.site&&exKind(w.site,w.exercise)==="score"&&runsOf(w).length&&(personalBest(s,w.site,w.exercise)||{}).entry===w?' <span class="tag ok">Personal best</span>':'')+'</div><div class="small muted">'+esc(fmtDate(w.date))+(res?" · "+esc(res):"")+(w.note?" · "+esc(w.note):"")+'</div></div><span class="num">'+(w.auto && +w.minutes===+w.autoMin ? '<span title="Estimated from the number of puzzles — Edit to correct it">≈ </span>' : '')+esc(w.minutes)+' min</span><button class="btn small ghost" data-a="editLog" data-id="'+w.id+'">Edit</button></li>'; }).join("")||'<li class="empty">No practice logged yet.</li>')+'</ul>'+
       (()=>{ const n = s.worklog.length, shown = Math.min(n, workShown[s.id]||25); return n>shown ? '<div class="row-actions" style="margin-top:8px;align-items:center"><span class="small muted" style="margin-inline-end:auto">Showing '+shown+' of '+n+'</span><button class="btn small" data-a="more">Show 25 more</button><button class="btn small ghost" data-a="all">Show all</button></div>' : ""; })(),
       '<button class="btn small primary" data-a="addLog">Log practice</button>')+
     panel("Tactics statistics", '<div class="seg" role="group" aria-label="Period">'+periods.map(([n,l])=>'<button type="button" class="'+(tacPeriod===n?"on":"")+'" data-a="period" data-id="'+n+'">'+l+'</button>').join("")+'</div>'+tacticsStats(s, tacPeriod))+
@@ -6167,7 +6234,8 @@ function tWork(el, s){
     more:()=>{ workShown[s.id] = (workShown[s.id]||25) + 25; render(); },
     all:()=>{ workShown[s.id] = Infinity; render(); },
     addLog:()=>openPractice(s, null),
-    editLog:id=>openPractice(s, s.worklog.find(x=>x.id===id))
+    editLog:id=>openPractice(s, s.worklog.find(x=>x.id===id)),
+    liNow:()=>liSync(s, true)
   });
 }
 
@@ -8751,7 +8819,11 @@ Object.assign(HE, {
   "Year of birth (optional)":"שנת לידה (לא חובה)", "FIDE number (optional)":"מספר FIDE (לא חובה)", "Israel Chess Federation number (optional)":"מספר שחקן באיגוד השחמט (לא חובה)",
   "Set up your profile. With a FIDE or Israel Chess Federation number, your rating fills in by itself.":"הגדרת הפרופיל. עם מספר FIDE או מספר שחקן באיגוד, הדירוג מתמלא לבד.",
   "Write your name.":"נא לכתוב את השם.", "Profile saved":"הפרופיל נשמר",
-  "Your data":"הנתונים שלך", "Tactics sessions in this period have no puzzle counts — add how many puzzles were tried and solved to see the accuracy.":"לאימוני הטקטיקה בתקופה הזו אין מספרי תרגילים — כדי לראות דיוק, מוסיפים כמה תרגילים נוסו וכמה נפתרו.",
+  "Your data":"הנתונים שלך", "Estimated from the number of puzzles — Edit to correct it":"הערכה לפי מספר התרגילים — אפשר לתקן בעריכה",
+  "Lichess puzzles are added by themselves from":"התרגילים מליצ׳ס נוספים כאן מעצמם מהמשתמש", "auto":"אוטומטי", "Add Lichess username":"הוספת משתמש ליצ׳ס",
+  "Solve puzzles on Lichess? Add your Lichess username and they’re added here by themselves.":"פותרים תרגילים בליצ׳ס? מוסיפים את שם המשתמש בליצ׳ס, והם נוספים כאן מעצמם.",
+  "Solves puzzles on Lichess? Add the Lichess username and they’re added here by themselves.":"פותר/ת תרגילים בליצ׳ס? מוסיפים את שם המשתמש בליצ׳ס, והם נוספים כאן מעצמם.",
+  "Couldn’t reach Lichess — try again in a moment.":"אין חיבור לליצ׳ס — כדאי לנסות שוב בעוד רגע.", "Lichess checked — nothing new":"ליצ׳ס נבדק — אין חדש", "Added from Lichess: 1 practice entry":"נוסף מליצ׳ס: אימון אחד", "Tactics sessions in this period have no puzzle counts — add how many puzzles were tried and solved to see the accuracy.":"לאימוני הטקטיקה בתקופה הזו אין מספרי תרגילים — כדי לראות דיוק, מוסיפים כמה תרגילים נוסו וכמה נפתרו.",
   "The page you stopped on":"העמוד שבו עצרת", "Everything you tried, right or wrong. From a book: leave both empty if you only read.":"כל מה שניסית, נכון או לא. מספר: להשאיר את שניהם ריקים אם רק קראת.",
   "e.g. Missed several back-rank ideas. For games: key moments and mistakes found.":"למשל: פספסתי כמה רעיונות של שורה אחורית. במשחקים: רגעי מפתח וטעויות שנמצאו.", "What you took from this game":"מה לקחת מהמשחק",
   "The move you open with":"המסע שבו פותחים", "Your line":"הוריאנט שלך", "Your own prediction, written before the first round":"התחזית שלך, לפני הסיבוב הראשון", "Your own prediction":"התחזית שלך",
@@ -9069,7 +9141,7 @@ const HE_RX = [
   [/^([+−-][\d½]+%?) (?:points? )?(above|below) expectation$/, (m,v,d)=>v+(d==="above"?" מעל הצפי":" מתחת לצפי")],
   [/^matching “(.*)”$/, "שתואמים ל״$1״"],
   [/^No practice for (\d+)\+ days$/, "ללא תרגול $1+ ימים"],
-  [/^Last downloaded: (.+)$/, "הורדה אחרונה: $1"], [/^To confirm, type (.+)$/, "לאישור, יש להקליד $1"], [/^Type (.+) to confirm\.$/, "יש להקליד $1 לאישור."],
+  [/^Last downloaded: (.+)$/, "הורדה אחרונה: $1"], [/^Added from Lichess: (\d+) practice entries$/, "נוספו מליצ׳ס: $1 אימונים"], [/^· checked (.+)$/, "· נבדק $1"], [/^Added by the app from (.+)$/, "נוסף על ידי האפליקציה מ־$1"], [/^(\d+) runs$/, "$1 ריצות"], [/^To confirm, type (.+)$/, "לאישור, יש להקליד $1"], [/^Type (.+) to confirm\.$/, "יש להקליד $1 לאישור."],
   [/^Remove (.+)\?$/, "להסיר את $1?"], [/^(.+) removed$/, "$1 הוסר/ה"], [/^(.+) added — send them an invite when they’re ready$/, "$1 נוסף/ה — אפשר לשלוח הזמנה כשמוכנים"],
   [/^This deletes (.+)’s board: practice, games, tasks, tournaments and books\. (Their own sign-in is disconnected\. )?This can't be undone\.$/, (m,n,c)=>"הלוח של "+n+" יימחק: תרגול, משחקים, משימות, תחרויות וספרים. "+(c ? "הכניסה שלו/ה תנותק. " : "")+"אי אפשר לבטל את זה."],
   [/^Amount \((.+)\)$/, "סכום ($1)"], [/^Fee \((.+)\)$/, "מחיר ($1)"], [/^Fee per session \((.+)\)$/, "מחיר לשיעור ($1)"]
