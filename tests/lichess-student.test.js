@@ -16,7 +16,7 @@ const feed = [{ interval: { start: dayStart(addDays(t, -1)), end: dayStart(t) },
   await ctx.route('https://lichess.org/api/user/**', r => r.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(feed) }));
   const open = async (uid, hash = '') => { const p = await ctx.newPage(); p.on('pageerror', e => errors.push(uid + ': ' + e.message)); await p.addInitScript(FAKE_SUPA(uid)); await p.goto(URL + hash); return p; };
   const first = await open(null);
-  await first.evaluate(({ dan, t }) => { localStorage.clear(); localStorage.setItem('fcoaches', JSON.stringify(['coach'])); localStorage.setItem('fadmin', 'coach');
+  await first.evaluate(({ dan, t }) => { localStorage.clear(); localStorage.setItem('fcoach', 'coach');
     const put = (k, v) => localStorage.setItem('fdb:' + k, JSON.stringify(v));
     put('data/users/coach/settings', { coachName: 'Raem', currency: '₪', lang: 'en' }); put('data/users/coach/st-dan', dan);
     put('portal/u-dan', { code: 'DAN234', linked: true, role: 'student', coach: 'coach', linkedAt: t }); },

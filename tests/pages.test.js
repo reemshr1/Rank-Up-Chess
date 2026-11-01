@@ -26,7 +26,7 @@ const studentPages = id => ['#/home', '#/student/' + id + '/assignments', '#/stu
     const ctx = await b.newContext({ viewport: size }); await ctx.route('https://lichess.org/**', r => r.abort());
     const errors = [], wide = [];
     const p = await ctx.newPage(); await p.addInitScript(FAKE_SUPA(null)); await p.goto(URL);
-    await p.evaluate(({ a, bb, tom, t, LNG }) => { localStorage.clear(); localStorage.setItem('fcoaches', JSON.stringify(['coach', 'tom'])); localStorage.setItem('fplayers', JSON.stringify(['tom'])); localStorage.setItem('fadmin', 'coach');
+    await p.evaluate(({ a, bb, tom, t, LNG }) => { localStorage.clear(); localStorage.setItem('fcoach', 'coach'); localStorage.setItem('fcoaches', JSON.stringify(['tom'])); localStorage.setItem('fplayers', JSON.stringify(['tom']));
       const put = (k, v) => localStorage.setItem('fdb:' + k, JSON.stringify(v));
       put('data/users/coach/settings', { coachName: 'Raem', currency: '₪', defaultRate: 100, weekStart: 0, lang: LNG, showPay: true,
         families: [{ id: 'fam', name: 'Cohen family', studentIds: ['st-a', 'st-b'], portal: { uid: 'u-par', linkedAt: t } }] });
