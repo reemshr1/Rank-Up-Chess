@@ -23,8 +23,19 @@ const { URL, t, addDays, weekday, stu, les, check, out, start, fillForm } = requ
   // mark the clash as handled, then undo
   await c.click('[data-a=tourOk]'); await c.waitForTimeout(500);
   let a = await T.student(c, 'coach', 'st-a');
-  check(a.sessions.find(x => x.id === 'l1').tourOk || a.sessions.find(x => x.id === 'l1').clashOk || JSON.stringify(a).includes('Ok'), 'Mark tournament as handled');
+  a = await T.eventually(async () => { const x = await T.student(c, 'coach', 'st-a'); return (x.sessions.find(y => y.id === 'l1').tourOk || []).includes('tr1') && x; }) || a;
+  check((a.sessions.find(x => x.id === 'l1').tourOk || []).includes('tr1'), 'Mark tournament as handled (the lesson remembers the Haifa Open as handled)');
   check(!/Mark tournament as handled/.test(await T.text(c)), 'and it’s no longer flagged');
+  // the lesson's window: ✓ Handled, with Undo
+  await c.click('[data-a=open][data-id="st-a|l1"]'); await c.waitForSelector('#modal[open] [data-unok]');
+  check((await c.textContent('#modal')).includes('✓ Handled'), 'the lesson’s window shows ✓ Handled');
+  await c.click('#modal[open] [data-unok]'); await c.waitForTimeout(500);
+  a = await T.eventually(async () => { const x = await T.student(c, 'coach', 'st-a'); return !x.sessions.find(y => y.id === 'l1').tourOk && x; }) || await T.student(c, 'coach', 'st-a');
+  check(!a.sessions.find(x => x.id === 'l1').tourOk, 'Undo flags it again');
+  await c.click('#modal[open] [data-ok]'); await c.waitForTimeout(500);
+  a = await T.eventually(async () => { const x = await T.student(c, 'coach', 'st-a'); return (x.sessions.find(y => y.id === 'l1').tourOk || []).length && x; }) || a;
+  check((a.sessions.find(x => x.id === 'l1').tourOk || []).includes('tr1'), 'Mark as handled from the lesson’s window');
+  await c.keyboard.press('Escape'); await c.waitForTimeout(200);
   // move the lesson, asking Maya to confirm
   await c.click('[data-a=open][data-id="st-a|l1"]').catch(async () => { await c.click('text=Rook endings'); }); await c.waitForTimeout(500);
   await c.click('#modal[open] >> text=Move').catch(() => {}); await c.waitForSelector('#modal[open] #f_date');
@@ -36,6 +47,7 @@ const { URL, t, addDays, weekday, stu, les, check, out, start, fillForm } = requ
   await m.click('[data-a=offer][data-id$="|accept"]'); await m.waitForSelector('#modal[open] button[type=submit]'); await m.click('#modal[open] button[type=submit]'); await m.waitForTimeout(4000);
   a = await T.eventually(async () => { const x = await T.student(c, 'coach', 'st-a'); return x.sessions.find(y => y.id === 'l1').date === addDays(t, 3) && x; }) || await T.student(c, 'coach', 'st-a');
   check(a.sessions.find(x => x.id === 'l1').date === addDays(t, 3) && a.sessions.find(x => x.id === 'l1').time === '18:00', 'once she confirms, the lesson moves');
+  check(!a.sessions.find(x => x.id === 'l1').tourOk, 'moving it to another date clears the handled mark');
   // free time, with a place and a second place
   await c.goto(URL + '#/schedule'); await c.waitForTimeout(600);
   await c.evaluate(() => document.querySelectorAll('details').forEach(d => d.open = true)); await c.click('[data-a=addFree]'); await c.waitForSelector('#modal[open] #f_kind');
@@ -45,6 +57,12 @@ const { URL, t, addDays, weekday, stu, les, check, out, start, fillForm } = requ
   check(fr && fr.from === '16:00' && fr.to === '19:00' && /Online/.test(fr.place || ''), 'free time every week, 16:00–19:00, online');
   await c.reload(); await c.waitForTimeout(2500);
   check((await T.text(c)).includes('Online'), 'the place is written under the time');
+  // a second place: at home, and also online
+  await c.evaluate(() => document.querySelectorAll('details').forEach(d => d.open = true)); await c.click('[data-a=addFree]'); await c.waitForSelector('#modal[open] #f_kind');
+  await fillForm(c, { kind: 'once', date: addDays(t, 5), from: '10:00', to: '12:00', place: 'At home' }, false);
+  await c.waitForSelector('#modal[open] #f_place2'); await fillForm(c, { place2: 'Online' });
+  const fr2 = ((await T.doc(c, 'data/users/coach/settings')).free || []).find(x => x.from === '10:00');
+  check(fr2 && fr2.place === 'At home' && fr2.place2 === 'Online' && fr2.date === addDays(t, 5), 'free time at home and also online, on one date');
   // club classes
   await c.goto(URL + '#/club'); await c.waitForTimeout(800);
   await c.click('[data-a=addClub]'); await c.waitForSelector('#modal[open] #f_name');
@@ -69,12 +87,29 @@ const { URL, t, addDays, weekday, stu, les, check, out, start, fillForm } = requ
   // the class on the schedule; change one date's time
   await c.goto(URL + '#/schedule'); await c.waitForTimeout(800);
   check((await T.text(c)).includes('Diamond Class'), 'the class is on the schedule');
-  const cbtn = await c.$('[data-a=club]');
-  if (cbtn) { await cbtn.click(); await c.waitForTimeout(500); await c.click('#modal[open] >> text=/Change the time|change time|Change time/').catch(() => {}); await c.waitForTimeout(300);
-    if (await c.$('#modal[open] #f_from')) { await fillForm(c, { from: '17:00' }); }
-    st = await T.doc(c, 'data/users/coach/settings'); const cc = (st.club || []).find(x => x.id === cl.id);
-    check(JSON.stringify(cc).includes('17:00') && cc.from === '16:00', 'one date moved to 17:00, the usual time kept'); }
-  else check(false, 'a club class can be opened from the schedule');
+  const key = await c.$eval('[data-a=club]', b => b.dataset.id).catch(() => '');
+  const day = key.split('|')[1];
+  check(!!day, 'a club class date can be opened from the schedule');
+  const clubNow = async () => (((await T.doc(c, 'data/users/coach/settings')).club || []).find(x => x.id === cl.id)) || {};
+  if (day) {
+    await c.click('[data-a=club][data-id="' + key + '"]'); await c.waitForSelector('#modal[open] #cdTime');
+    check((await c.textContent('#modal')).includes('the other weeks stay as usual'), 'the date’s window says only this date changes');
+    await c.click('#cdTime'); await c.waitForSelector('#modal[open] #f_from');
+    await c.fill('#f_from', '17:00'); await c.dispatchEvent('#f_from', 'change'); await c.waitForTimeout(200);
+    check((await c.inputValue('#f_to')) === '18:30', 'moving the start keeps the class length (17:00–18:30)');
+    await c.click('#modal[open] button[type=submit]'); await c.waitForTimeout(600);
+    let cc = await T.eventually(async () => { const x = await clubNow(); return x.times && x.times[day] && x; }) || await clubNow();
+    check(cc.times && cc.times[day] && cc.times[day].from === '17:00' && cc.times[day].to === '18:30' && cc.from === '16:00', 'that date is at 17:00–18:30; the usual time stays 16:00');
+    check((await T.text(c)).includes('17:00'), 'and the schedule shows it at 17:00');
+    await c.click('[data-a=club][data-id="' + key + '"]'); await c.waitForSelector('#modal[open] #cdUsual');
+    await c.click('#cdUsual'); await c.waitForTimeout(600);
+    cc = await T.eventually(async () => { const x = await clubNow(); return !(x.times || {})[day] && x; }) || await clubNow();
+    check(!(cc.times || {})[day], 'Back to the usual time undoes it');
+    await c.click('[data-a=club][data-id="' + key + '"]'); await c.waitForSelector('#modal[open] #cdCancel');
+    await c.click('#cdCancel'); await c.waitForTimeout(600);
+    cc = await T.eventually(async () => { const x = await clubNow(); return (x.skip || []).includes(day) && x; }) || await clubNow();
+    check((cc.skip || []).includes(day), 'Cancel this date cancels just that date');
+  }
   // in Hebrew
   await c.evaluate(() => { const k = 'fdb:data/users/coach/settings', s = JSON.parse(localStorage.getItem(k)); s.lang = 'he'; localStorage.setItem(k, JSON.stringify(s)); });
   await c.goto(URL + '#/club'); await c.reload(); await c.waitForTimeout(2500);
