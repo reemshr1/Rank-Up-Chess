@@ -22,15 +22,17 @@ Done (all passing unless noted):
 - coach-practice — practice log, tactics stats, fitness goal, workouts, sleep, books by page range, book PDFs, book library (old: testfitness, testfit2, testfitmin, testcalis, testbookparts, testbookpdf, testbooklib)
 - coach-games — PGN import, games, tournaments (rounds, dates, expected/actual, rating change, assistance), model games, repertoire (old: testtour, testrounds, testassist, testgames2, testrep)
 - coach-payments — ledger, lesson payments, oldest first, charges, edit, reminder, show to student, Payments page, CSV (old: testpaylesson, testpayedit, testpayshare)
-- coach-schedule — week, tournament clash and handled, move with confirmation, free time with a place, club classes, attendance — ONE CHECK STILL FAILING: changing one club date's time (old: testweek, testclashok, testtwoplaces, testoffers, testclub, testclubstu, testattend)
+- coach-schedule — week, tournament clash (handled, Undo, cleared by a move), move with confirmation, free time with a place and a second place, club classes (one date's time, back to usual, cancel a date), attendance (old: testweek, testclashok, testtwoplaces, testoffers, testclub, testclubstu, testattend)
+- coach-assignments — new assignment, PGN paste and upload (split), game notes, student opens and marks done, feedback and review, filters, library, whole group (old: testgroup, testlib parts)
+- coach-notices — {name} and [boy|girl], who gets it, 🔔 counts, Mark read, Read X of Y, edit (Edited), delete, 7-day expiry (old: testnotice, testnotice2)
+- coach-settings — coaching details, Useful links (add/remove/restore, reach the student), backup download, nightly copies, restore, folder on this computer, rating check, hiding bubbles and tiles, Student view sends nothing (old: testlinks, testbackup, testlogs, testratings, testhide, testpreview)
+- admin — admin page: requests, status, notes, codes, joining as a coach, used codes, accounts (keep / delete everything), the website form (old: testcoaches parts, testwelcome)
+- deploy — the site under /Rank-Up-Chess/ over http: no missing files, manifest, icons, service worker files (old: testghpages)
 - lichess, lichess-student — Lichess puzzles added by themselves
 - kids, kid, player-backup, close-account, orphan, two-parents — recovered from the session history
 
 Still to rebuild:
-- coach: assignments (group, library, PGN, review), notifications (testnotice, testnotice2), hiding bubbles (testhide),
-  settings (links, backup and restore, nightly copies — testlinks, testbackup, testlogs), ratings sync (testratings),
-  Student view (testpreview), admin page and coach codes (testcoaches), welcome page (testwelcome), club free time (testclubfree), group (testgroup)
-- student and parent: sign-in screens (testweb, testsignin, testreal, testempty, testmoved), the student app end to end
+- student and parent: club class hours left out of free time (testclubfree), sign-in screens (testweb, testsignin, testreal, testempty, testmoved), the student app end to end
   (testportal, testboth, testtwo, testswitch, testnew, testmedals, testcheckin, testcomingup, testpush, testpushfail),
   two coaches (testtwocoaches, testcoaches)
 - players: testplayer, testtips, testmove, testplayerpdf, testendgames, testplayerrating, testplayeralerts, testghpages
