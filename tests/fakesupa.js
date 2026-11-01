@@ -150,7 +150,7 @@ const FAKE_SUPA = uid => `(() => {
       return true; } };
   const sess = () => UID ? { user: { id: UID, email: emailOf(UID) }, access_token: 'tok-' + UID } : null;
   let authCb = null;
-  window.__killSession = () => { UID = null; keep(); if (authCb) authCb('SIGNED_OUT', null); };
+  window.__killSession = () => { UID = null; sessionStorage.setItem('fout', '1'); keep(); if (authCb) authCb('SIGNED_OUT', null); }; // the session is gone, as after it expires
   const files = {
     async upload(path, file) { if (!isCoach()) return { data: null, error: { message: 'new row violates row-level security policy' } };
       put('fstore:books/' + path, { owner: UID, size: (file && file.size) || 0, name: (file && file.name) || '' }); return { data: { path }, error: null }; },

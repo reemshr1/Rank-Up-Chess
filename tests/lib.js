@@ -50,4 +50,6 @@ async function fillForm(p, values, submit = true) {
     const tag = await el.evaluate(e => e.tagName + ':' + (e.type || '')); if (tag.startsWith('SELECT')) await p.selectOption(sel, String(v)); else if (tag.endsWith('checkbox')) { if (v) await p.check(sel); else await p.uncheck(sel); } else await p.fill(sel, String(v)); }
   if (submit) { await p.click('#modal[open] button[type=submit]'); await p.waitForTimeout(500); }
 }
-module.exports = { URL, ADMIN, t, iso, addDays, weekday, stu, les, check, out, start, fillForm, FAKE_SUPA };
+// for a test that closes its own browsers: print the total and end
+const done = () => { console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0); };
+module.exports = { done, URL, ADMIN, t, iso, addDays, weekday, stu, les, check, out, start, fillForm, FAKE_SUPA };
