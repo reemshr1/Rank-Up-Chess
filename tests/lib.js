@@ -38,9 +38,11 @@ async function start(opts = {}) {
     return s; }, [coach, id]);
   const text = (p, sel = '#view') => p.textContent(sel);
   const denied = p => p.evaluate(() => window.__denied || []);
+  // what's saved lands a moment later: ask again until the answer is there (or 5 seconds pass)
+  const eventually = async (fn, ms = 5000) => { const end = Date.now() + ms; let v; do { v = await fn(); if (v) return v; await new Promise(r => setTimeout(r, 150)); } while (Date.now() < end); return v; };
   const finish = async () => { check(!errors.length, 'no page errors ' + errors.join(' | ')); await browser.close();
     console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0); };
-  return { browser, ctx, open, seed, doc, docs, student, text, denied, errors, finish };
+  return { browser, ctx, open, seed, doc, docs, student, text, denied, errors, finish, eventually };
 }
 // fill and send the open form: {name: value}; selects are chosen, checkboxes ticked
 async function fillForm(p, values, submit = true) {
