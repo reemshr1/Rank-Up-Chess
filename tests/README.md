@@ -35,11 +35,15 @@ Done (all passing unless noted):
 - push — phone alerts on/off (coach Settings, the 🔔 window), test alert, a moved lesson and a notification become alerts, blocked, not allowed, Edge on Android with the Chrome tip, iPhone Home Screen, function not set up, sign out turns it off (old: testpush, testpushfail)
 - student-live — live updates both ways without reloading; a new coach and a just-linked student: every page opens cleanly (old: testreal, testempty)
 - student-accounts — two students isolated (also at the database), student and parent of one child, switching accounts on one device (old: testboth, testtwo, testswitch)
+- player — sign-up with a player code, Welcome to Rank Up, rating from a FIDE number, Home, practice to their own records, tasks, Progress rating card, Check now, Add rating (old: testplayer, testplayerrating)
+- player-tips — every kind of tip, at most 3 in order, the next tournament tile, a parent's board, Hebrew, none for coaches (old: testtips)
+- player-move — Connect to a coach: wrong code, everything moves, From their own board, Moved to a coach on the admin page, a parent's board with the family code (old: testmove)
+- player-books — a player's book PDFs (attach, open, replace, remove), endgames by type, PDFs copied to the coach on moving (old: testplayerpdf, testendgames)
 - deploy — the site under /Rank-Up-Chess/ over http: no missing files, manifest, icons, service worker files (old: testghpages)
 - lichess, lichess-student — Lichess puzzles added by themselves
 - kids, kid, player-backup, close-account, orphan, two-parents — recovered from the session history
 
-Still to rebuild (next: players):
-- players: testplayer, testtips, testmove, testplayerpdf, testendgames, testplayerrating, testplayeralerts, testghpages
+Still to rebuild (next: player alerts):
+- players: testplayeralerts (the push function's hourly job, in Deno)
 - Hebrew: testhe and the untranslated-strings crawl
 - database rules (Postgres) and the push function's Deno harness
