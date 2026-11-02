@@ -30,6 +30,16 @@ const fs = require('fs');
   await c.click('#setF button[type=submit]'); await c.waitForTimeout(600);
   let st = await T.eventually(async () => { const x = await T.doc(c, 'data/users/coach/settings'); return x.defaultRate === 150 && x; }) || await T.doc(c, 'data/users/coach/settings');
   check(st.coachName === 'Raem Sherman' && st.coachNameHe === 'רעם שרמן' && st.defaultRate === 150 && st.overdueDays === 21 && st.payInfo === 'Bit to 054-0000000' && st.weekStart === 1, 'coaching details saved');
+  // typing while something changes in the background: the page redraws, the typing stays
+  await c.click('#s7'); await c.fill('#s7', 'Bit or PayBox to 054-1111111'); await c.press('#s7', 'Home');
+  const other = await T.open(null); await other.evaluate(() => { const k = 'fdb:data/users/coach/settings', x = JSON.parse(localStorage.getItem(k)); x.currency = '$'; localStorage.setItem(k, JSON.stringify(x)); });
+  await c.waitForTimeout(1500);
+  check((await c.inputValue('#s7')) === 'Bit or PayBox to 054-1111111' && (await c.evaluate(() => document.activeElement.id + ':' + document.activeElement.selectionStart)) === 's7:0', 'a change from another device while the coach types: their typing and cursor stay as they were');
+  await other.close();
+  await c.click('#setF button[type=submit]'); await c.waitForTimeout(600);
+  st = await T.eventually(async () => { const x = await T.doc(c, 'data/users/coach/settings'); return x.payInfo === 'Bit or PayBox to 054-1111111' && x; }) || st;
+  check(st.payInfo === 'Bit or PayBox to 054-1111111' && st.currency === '$', 'saving keeps both: what they typed, and the other device’s change (the currency box still showed ₪, which isn’t an edit)');
+  check(!!(await T.eventually(async () => (await c.inputValue('#s2')) === '$')), 'and the page now shows $');
   // useful links
   await c.click('[data-ln=add]'); await c.waitForSelector('#modal[open] #f_url');
   await fillForm(c, { name: 'Chessbase Online', url: 'https://database.chessbase.com', note: 'Search games' });

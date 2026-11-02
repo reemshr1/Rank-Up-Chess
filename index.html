@@ -4400,7 +4400,37 @@ document.addEventListener("change", e=>{ if (e.target.id==="childPick" && store 
 document.addEventListener("click", e=>{ const b = e.target.closest("[data-lang]"); if (!b) return;
   state.settings.lang = lang()==="he" ? "en" : "he"; if (store && store.saveLang) store.saveLang(); render(); });
 
+// What someone is typing on the page survives a redraw that comes from the background (a sync, a save coming back,
+// a check finishing): fields they changed get their text back, and the field they were in keeps the cursor. A redraw
+// after a click, key or submit (window.event is set then) draws the page as it is, so forms that clear stay cleared.
+let drawnAt = null;
+const FIELDS = "input[id]:not([type=file]):not([type=hidden]):not([type=button]):not([type=submit]),textarea[id],select[id]";
+function typedIn(v){
+  if (window.event || drawnAt!==location.hash) return null;
+  const a = document.activeElement, out = [];
+  v.querySelectorAll(FIELDS).forEach(e=>{
+    const box = e.type==="checkbox" || e.type==="radio", sel = e.tagName==="SELECT";
+    const def = box ? e.defaultChecked : sel ? [...e.options].map(o=>o.defaultSelected).join() : e.defaultValue;
+    const now = box ? e.checked : sel ? [...e.options].map(o=>o.selected).join() : e.value;
+    if (now!==def) out.push({id:e.id, box, sel, def, val:box ? e.checked : e.value});
+  });
+  const f = a && a.id && v.contains(a) && a.matches(FIELDS) ? {id:a.id, s:a.selectionStart, e:a.selectionEnd} : null;
+  return out.length || f ? {out, f} : null;
+}
+function putBack(v, k){
+  if (!k) return;
+  k.out.forEach(x=>{ const e = v.querySelector("#"+CSS.escape(x.id)); if (!e) return;
+    const def = x.box ? e.defaultChecked : x.sel ? [...e.options].map(o=>o.defaultSelected).join() : e.defaultValue;
+    if (def!==x.def) return; // what's saved changed meanwhile: show that instead
+    if (x.box) e.checked = x.val; else e.value = x.val; });
+  const e = k.f && v.querySelector("#"+CSS.escape(k.f.id));
+  if (e && document.activeElement!==e){ e.focus({preventScroll:true}); try { if (k.f.s!=null) e.setSelectionRange(k.f.s, k.f.e); } catch(err){} }
+}
 function render(){
+  const kept = typedIn($("#view")); drawnAt = location.hash;
+  drawPage(); putBack($("#view"), kept);
+}
+function drawPage(){
   if (PLAYER && STUDENT()) playerize();
   applyLang();
   renderNav();
@@ -8369,7 +8399,10 @@ function pSettings(v){
     if (k==="reset") confirmBox("Restore the suggested list?", "Your own links and changes will be replaced by the suggested list.", "Restore", ()=>{ delete st.links; saveSettings(); render(); toast("Suggested list restored"); }); });
   $("#setF").onsubmit = e=>{ e.preventDefault(); const f = e.target.elements;
     // only fields changed in this form are saved, so edits made on another device meanwhile are kept
-    const put = (k, v)=>{ if (String(st[k]??"")!==String(v)) st[k] = v; };
+    // (changed = different from what the box showed when the page was drawn, not from the settings now, which another
+    // device may have changed since)
+    const edited = el=>el.tagName==="SELECT" ? [...el.options].some(o=>o.selected!==o.defaultSelected) : el.value!==el.defaultValue;
+    const put = (k, v)=>{ if (edited(f[k]) && String(st[k]??"")!==String(v)) st[k] = v; };
     put("coachName", f.coachName.value.trim()); put("coachNameHe", f.coachNameHe.value.trim()); put("currency", f.currency.value.trim()); put("defaultRate", +f.defaultRate.value||0); put("weekStart", +f.weekStart.value); schedWeek = null;
     put("overdueDays", Math.max(1,+f.overdueDays.value||30)); put("lang", f.lang.value); put("payInfo", f.payInfo.value.trim()); if (f.appLink.value.trim()!==APP_LINK()) put("appLink", f.appLink.value.trim());
     saveSettings(); render(); toast("Settings saved"); };
