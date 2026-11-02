@@ -16,12 +16,13 @@ Postgres on port 5499; `tests/sql/supabase-stub.sql` stands in for what Supabase
 `http_ece` package: `npm i deno http_ece` in a folder of your choice, then `DENO=<folder>/node_modules/.bin/deno`
 and that folder's `node_modules` added to NODE_PATH.
 
-## Rebuilding the lost suite (in progress)
+## What's covered
 
-The old suite (82 browser tests, the Postgres rule tests and the push-function harness) was lost when the
-session's temporary folder was wiped. It is being rebuilt here; nothing is merged until it is complete.
+The old suite (82 browser tests, the Postgres rule tests and the push-function harness) was lost when the session's
+temporary folder was wiped, and rebuilt here: 36 files, 736 checks, all passing together (`tests/run.sh`, about
+23 minutes). The browser tests load the app over http (`serve.js`), as a real site.
 
-Done (all passing unless noted):
+Files:
 - pages — every page of every app opens, phone and computer, English and Hebrew
 - coach-today — Today: tiles, requests, payment reports, needs attention, nudge (old: test, test56, testpayreport, testcheckin coach side)
 - coach-students — Students list, add/edit/archive/delete, levels in Hebrew, Updated marker, search (old: testsearch, testlevels, testlevelhe, testname, testupdated)
@@ -53,4 +54,3 @@ Done (all passing unless noted):
 - lichess, lichess-student — Lichess puzzles added by themselves
 - kids, kid, player-backup, close-account, orphan, two-parents — recovered from the session history
 
-Still to do: a full run of everything together.
