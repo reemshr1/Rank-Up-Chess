@@ -124,7 +124,7 @@ kbd{font-family:var(--body);font-size:.75rem;border:1px solid var(--line);border
 .student-mode .side-search,.student-mode .topbar a[href="#/search"]{display:none}
 /* a parent's board is view-only apart from lesson requests and changes */
 .parent-mode #view button[data-a]:not([data-a="addCoach"]):not([data-a="req"]):not([data-a="reqat"]):not([data-a="les"]):not([data-a="open"]):not([data-a="ans"]):not([data-a="offer"]):not([data-a="unreq"]):not([data-a="reqx"]):not([data-a="view"]):not([data-a="wk"]):not([data-a="more"]):not([data-a="all"]):not([data-a="src"]):not([data-a="gf"]):not([data-a="f"]):not([data-a="sf"]):not([data-a="rf"]):not([data-a="period"]):not([data-a="board"]):not([data-a="games"]):not([data-a="clearT"]):not([data-a="clearO"]):not([data-a="opg"]):not([data-a="clearRep"]):not([data-a="dl"]):not([data-a="pp"]):not([data-a="ps"]):not([data-a="seenAll"]):not([data-a="notes"]):not([data-a="pdf"]){display:none}
-.parent-mode #view label:has(input[type=file]),.parent-mode #view .dropzone{display:none}
+.parent-mode #view label:has(input[type=file]),.parent-mode #view label[for$="Import"],.parent-mode #view .dropzone{display:none} /* file pickers, inside the label or beside it (Import PGN) */
 .link-box{display:inline-block;direction:ltr;font-weight:600;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-sm);padding:2px 8px;word-break:break-all;user-select:all}
 .code-box{font-family:var(--display);font-size:1.6rem;font-weight:700;letter-spacing:.18em;background:var(--paper);border:1px dashed var(--line);border-radius:var(--r-sm);padding:6px 14px;display:inline-block;direction:ltr}
 .steps{margin:8px 0 12px;padding-inline-start:20px;font-size:.92rem}
