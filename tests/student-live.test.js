@@ -29,6 +29,14 @@ const junk = v => (v.match(/undefined|NaN|\[object Object\]|Invalid Date|null(?!
   const got = await T.eventually(async () => (await T.text(c)).includes('27 min'), 12000);
   check(!!got, 'what Maya logs shows on the coach’s open Practice page without reloading'); 
   check(!(await T.text(m)).includes('waiting for'), 'and her app has nothing waiting');
+  // the moment a change leaves her outbox it is already in the coach's saved records (closing the coach's app then loses nothing)
+  await m.click('[data-a=log]'); await m.waitForSelector('#modal[open] #f_minutes');
+  const watching = c.evaluate(() => new Promise(done => { const t0 = Date.now(), inbox = () => Object.keys(localStorage).filter(k => k.startsWith('fdb:portal/u-a/inbox/'));
+    const saved = () => Object.keys(localStorage).filter(k => /^fdb:data\/users\/coach\/(st-a|lg-st-a)/.test(k)).some(k => (JSON.parse(localStorage.getItem(k)).worklog || []).some(w => +w.minutes === 19));
+    let seen = false; const tick = () => { const n = inbox().length; if (n) seen = true; if (seen && !n) return done(saved() ? 'saved' : 'NOT saved');
+      if (Date.now() - t0 > 12000) return done(seen ? 'still in the inbox' : 'never in the inbox'); setTimeout(tick, 5); }; tick(); }));
+  await fillForm(m, { minutes: '19', what: 'Openings' }); const atRemoval = await watching;
+  check(atRemoval === 'saved', 'when her practice leaves the outbox, it is already in the coach’s saved records: ' + atRemoval);
   // a student just linked, nothing on the board yet
   const n = await T.open('u-n', '#/home'); await n.waitForTimeout(3500);
   let v = await T.text(n);

@@ -2826,20 +2826,28 @@ function makeDbStore(db, userId){
         state.students[i] = joinStudent(mains[id], logsOf(id).map(k=>logs[k]));
         if (!$("#modal").open) render(); toast("Merged with changes from another device"); });
   }
+  // Saves wait half a second, so quick edits make one write. runs[id]: the last write of that document, failing if it failed.
+  const fns = {}, runs = {};
   function queue(docId, fn){
     clearTimeout(timers[docId]);
     busyIds[docId] = (busyIds[docId]||0) + (timers[docId] ? 0 : 1);
-    timers[docId] = setTimeout(()=>{
-      timers[docId] = null;
-      pending++; setSync("busy");
-      const done = ()=>{ pending--; busyIds[docId] = Math.max(0,(busyIds[docId]||1)-1); if (!pending) setSync("ok"); };
-      chains[docId] = (chains[docId]||Promise.resolve()).then(fn).then(done, async err=>{
-        if (err && err.code==="unavailable"){ await new Promise(r=>setTimeout(r,800+Math.random()*800)); try { await fn(); done(); return; } catch(e2){ err=e2; } }
-        pending--; busyIds[docId] = 0;
-        setSync("err", err && err.code==="quota_exceeded" ? "Storage is full" : err && err.code==="too_large" ? "Too much data to save for "+err.message : "Couldn't save the last change");
-      });
-    }, 500);
+    fns[docId] = fn; timers[docId] = setTimeout(()=>run(docId), 500);
   }
+  function run(docId){
+    const fn = fns[docId]; timers[docId] = null;
+    pending++; setSync("busy");
+    const done = ()=>{ pending--; busyIds[docId] = Math.max(0,(busyIds[docId]||1)-1); if (!pending) setSync("ok"); };
+    const attempt = (chains[docId]||Promise.resolve()).then(fn).catch(async err=>{
+      if (err && err.code==="unavailable"){ await new Promise(r=>setTimeout(r,800+Math.random()*800)); return fn(); }
+      throw err; });
+    runs[docId] = attempt;
+    chains[docId] = attempt.then(done, err=>{
+      pending--; busyIds[docId] = 0;
+      setSync("err", err && err.code==="quota_exceeded" ? "Storage is full" : err && err.code==="too_large" ? "Too much data to save for "+err.message : "Couldn't save the last change");
+    });
+  }
+  // Save a waiting change now; resolves once it is written (rejects if it couldn't be).
+  function saved(docId){ if (timers[docId]){ clearTimeout(timers[docId]); run(docId); } return runs[docId] || Promise.resolve(); }
   const clone = v => JSON.parse(JSON.stringify(v));
   function saveOne(list, id){
     const x = state[list].find(y=>y.id===id); if (!x) return Promise.resolve();
@@ -2867,7 +2875,7 @@ function makeDbStore(db, userId){
     // LOG_KEEP_DAYS, are re-saved once so their main document stays small.
     tidy(){ state.students.forEach(s=>{ if (!mains[s.id]) return;
       const p = splitStudent(s); if (JSON.stringify(p.main)!==JSON.stringify(mains[s.id])) this.saveStudent(s.id); }); },
-    saveStudent(id){ queue(id, ()=>writeStudent(id)); },
+    saveStudent(id){ queue(id, ()=>writeStudent(id)); }, saved,
     deleteStudent(id){ queue(id, ()=>Promise.all(logsOf(id).map(k=>coll.doc(k).delete().then(()=>{ delete logs[k]; })))
       .then(()=>coll.doc(id).delete()).then(()=>{ delete mains[id]; })); },
     saveAssignment(id){ queue(id, ()=>saveOne("assignments", id)); },
@@ -3237,9 +3245,13 @@ function makePortal(db){
           issue("op:"+o._id, {who:(st||fam).name, what:"Couldn't take in "+(OP_LABEL[o.type]||"a change"), err:String(e && e.message || e), uid, opId:o._id});
         } });
       touched.forEach(x=>saveStudent(x));
-      // The account's copy is updated before its changes leave the inbox, so nothing flickers away.
+      // Changes leave the inbox only once they are saved in the coach's records (closing the app a moment later loses
+      // nothing), and once the account's copy shows them, so nothing flickers away.
       Object.keys(timers).forEach(k=>clearTimeout(timers[k]));
-      (st ? sync(st) : syncFamily(fam)).then(()=>{ done.forEach(o=>db.doc("portal/"+uid+"/inbox/"+o._id).delete().catch(()=>{})); state.students.forEach(x=>schedule(x.id)); }).catch(()=>{});
+      Promise.all([...touched].map(x=>store.saved ? store.saved(x.id) : null))
+        .then(()=>st ? sync(st) : syncFamily(fam))
+        .then(()=>{ done.forEach(o=>db.doc("portal/"+uid+"/inbox/"+o._id).delete().catch(()=>{})); state.students.forEach(x=>schedule(x.id)); })
+        .catch(()=>{ done.forEach(o=>taken.delete(o._id)); state.students.forEach(x=>schedule(x.id)); }); // not saved: they stay in the inbox, and are taken in again
       if (!$("#modal").open && !(document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))) render();
     }, ()=>{});
   }

@@ -38,7 +38,8 @@ const { URL, t, addDays, stu, les, check, out, start, fillForm } = require('./li
   await m.selectOption('#f_coach', benLink); await m.click('#modal[open] button[type=submit]'); await m.waitForSelector('#modal[open] #f_time');
   await fillForm(m, { date: addDays(t, 8), time: '15:00', note: 'For Ben' });
   await ben.reload(); await raem.reload(); await ben.waitForTimeout(4500);
-  check(!!(await T.eventually(async () => ((await T.student(ben, 'ben', 'st-m2')).requests || []).some(r => r.note === 'For Ben'))) && !((await T.student(raem, 'coach', 'st-maya')).requests || []).length, 'the request reaches Ben, not Raem');
+  check(!!(await T.eventually(async () => ((await T.student(ben, 'ben', 'st-m2')).requests || []).some(r => r.note === 'For Ben'), 10000)), 'the request reaches Ben');
+  check(!((await T.student(raem, 'coach', 'st-maya')).requests || []).length, 'not Raem');
   // practice goes to both; then sharing off for Ben
   await m.click('[data-a=log]'); await m.waitForSelector('#modal[open] #f_minutes'); await fillForm(m, { minutes: '33', what: 'Openings' }); await m.waitForTimeout(1500);
   await ben.reload(); await raem.reload(); await ben.waitForTimeout(4500);
