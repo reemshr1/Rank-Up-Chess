@@ -3,10 +3,10 @@
 const { chromium } = require('playwright');
 const { FAKE_SUPA } = require('./fakesupa.js');
 const path = require('path');
-const URL = 'file://' + path.resolve(__dirname, '../index.html'), ADMIN = URL.replace(/index\.html$/, 'admin/index.html');
+const URL = require('./serve.js').BASE + 'index.html', ADMIN = URL.replace(/index\.html$/, 'admin/index.html');
 let fails = 0; const check = (ok, m) => { console.log((ok ? 'PASS ' : 'FAIL ') + m); if (!ok) fails++; };
 (async () => {
-  const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1100, height: 800 } }); const errors = [];
+  const b = await chromium.launch(); const ctx = await b.newContext({ serviceWorkers: 'block', viewport: { width: 1100, height: 800 } }); const errors = [];
   const open = async (uid, url = URL) => { const p = await ctx.newPage(); p.on('pageerror', e => errors.push(uid + ': ' + e.message)); await p.addInitScript(FAKE_SUPA(uid)); await p.goto(url); return p; };
   const first = await open('coach');
   await first.evaluate(() => { localStorage.clear(); localStorage.setItem('fcoach', 'coach');

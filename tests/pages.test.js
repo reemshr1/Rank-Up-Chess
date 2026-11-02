@@ -3,7 +3,7 @@
 const { chromium } = require('playwright');
 const { FAKE_SUPA } = require('./fakesupa.js');
 const path = require('path');
-const URL = 'file://' + path.resolve(__dirname, '../index.html');
+const URL = require('./serve.js').BASE + 'index.html';
 const pad = n => String(n).padStart(2, '0');
 const iso = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 const addDays = (s, n) => { const d = new Date(s + 'T00:00'); d.setDate(d.getDate() + n); return iso(d); };
@@ -23,7 +23,7 @@ const studentPages = id => ['#/home', '#/student/' + id + '/assignments', '#/stu
   const b = await chromium.launch();
   // the coach's app builds the student's and parent's boards; keep that storage for the others
   for (const [vw, size] of [['computer', { width: 1280, height: 900 }], ['phone', { width: 390, height: 844 }]]) for (const lng of ['en', 'he']) {
-    const ctx = await b.newContext({ viewport: size }); await ctx.route('https://lichess.org/**', r => r.abort());
+    const ctx = await b.newContext({ serviceWorkers: 'block', viewport: size }); await ctx.route('https://lichess.org/**', r => r.abort());
     const errors = [], wide = [];
     const p = await ctx.newPage(); await p.addInitScript(FAKE_SUPA(null)); await p.goto(URL);
     await p.evaluate(({ a, bb, tom, t, LNG }) => { localStorage.clear(); localStorage.setItem('fcoach', 'coach'); localStorage.setItem('fcoaches', JSON.stringify(['tom'])); localStorage.setItem('fplayers', JSON.stringify(['tom']));

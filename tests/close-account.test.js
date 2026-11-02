@@ -3,14 +3,14 @@
 const { chromium } = require('playwright');
 const { FAKE_SUPA } = require('./fakesupa.js');
 const path = require('path');
-const URL = 'file://' + path.resolve(__dirname, '../index.html');
+const URL = require('./serve.js').BASE + 'index.html';
 const pad = n => String(n).padStart(2, '0');
 const iso = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 const t = iso(new Date());
 let fails = 0; const check = (ok, m) => { console.log((ok ? 'PASS ' : 'FAIL ') + m); if (!ok) fails++; };
 const blank = (id, extra) => Object.assign({ id, name: '', active: true, rate: 0, noId: true, ratingType: 'FIDE', rating: '', ratings: [], sessions: [], tasks: [], worklog: [], repertoire: [], tournaments: [], payments: [], charges: [], books: [], slots: [], training: [], requests: [], fitness: [], fitnessGoal: 0, sleep: [], createdAt: t }, extra);
 (async () => {
-  const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1100, height: 900 } }); const errors = [];
+  const b = await chromium.launch(); const ctx = await b.newContext({ serviceWorkers: 'block', viewport: { width: 1100, height: 900 } }); const errors = [];
   const open = async (uid) => { const p = await ctx.newPage(); p.on('pageerror', e => errors.push((uid || 'anon') + ': ' + e.message)); await p.addInitScript(FAKE_SUPA(uid)); await p.goto(URL); return p; };
   const keys = (p, pre) => p.evaluate(pre => Object.keys(localStorage).filter(k => k.startsWith(pre)), pre);
   const signIn = async (p, email) => { await p.waitForSelector('#authF', { timeout: 8000 }); await p.fill('#aEmail', email); await p.fill('#aPass', 'longenough1'); await p.click('#authF button[type=submit]'); };

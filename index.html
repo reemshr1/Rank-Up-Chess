@@ -4187,10 +4187,13 @@ async function fillNightly(el){
 // The folder is remembered by this browser only (IndexedDB), so each computer has its own.
 const FOLDER_OK = typeof window.showDirectoryPicker==="function";
 let backupFolder = null, folderAsk = false;
-function kv(key, val){ return new Promise((ok, fail)=>{ const o = indexedDB.open("rank-up", 1);
-  o.onupgradeneeded = ()=>o.result.createObjectStore("kv"); o.onerror = ()=>fail(o.error);
-  o.onsuccess = ()=>{ const tx = o.result.transaction("kv", val===undefined ? "readonly" : "readwrite"), st = tx.objectStore("kv");
-    const r = val===undefined ? st.get(key) : val===null ? st.delete(key) : st.put(val, key); r.onsuccess = ()=>ok(r.result); r.onerror = ()=>fail(r.error); }; }); }
+// The browser's own small store (the backup folder's handle). Always settles: a value that can't be stored, or a store
+// another tab holds up, fails instead of leaving the caller waiting.
+function kv(key, val){ return new Promise((ok, fail)=>{ let o; try { o = indexedDB.open("rank-up", 1); } catch(e){ return fail(e); }
+  o.onupgradeneeded = ()=>o.result.createObjectStore("kv"); o.onerror = ()=>fail(o.error); o.onblocked = ()=>fail(new Error("blocked"));
+  o.onsuccess = ()=>{ try { const tx = o.result.transaction("kv", val===undefined ? "readonly" : "readwrite"), st = tx.objectStore("kv");
+    const r = val===undefined ? st.get(key) : val===null ? st.delete(key) : st.put(val, key); r.onsuccess = ()=>ok(r.result); r.onerror = ()=>fail(r.error); }
+    catch(e){ fail(e); } }; }); }
 const folderSaved = ()=>{ try { return localStorage.getItem("cb-folder-saved")||""; } catch(e){ return ""; } };
 async function saveToFolder(ask){
   const h = backupFolder; if (!h) return false;
@@ -4587,7 +4590,7 @@ function closeAccount(){
       sb.rpc("close_player").then(async r=>{
         if (r.error || r.data!==true) return say("Couldn't close the account. Check your connection and try again.");
         try { sessionStorage.setItem("rclosed", "1"); localStorage.removeItem("rkid"); } catch(e){}
-        try { await kv("backupFolder", null); } catch(e){}
+        try { await Promise.race([kv("backupFolder", null), new Promise(r=>setTimeout(r, 3000))]); } catch(e){} // never holds up closing
         try { await sb.auth.signOut({scope:"local"}); } catch(e){}
         location.hash = ""; location.reload();
       }, ()=>say("Couldn't close the account. Check your connection and try again."));

@@ -81,7 +81,7 @@ const path = require('path');
   check(!JSON.parse(await a.evaluate(() => localStorage.getItem('fleads'))).some(x => x.id === 2), 'Remove deletes a request');
   await a.screenshot({ path: out('admin'), fullPage: true });
   // the website form (welcome/): sent to the leads table
-  const W = 'file://' + path.resolve(__dirname, '../welcome/index.html');
+  const W = require('./serve.js').BASE + 'welcome/index.html';
   let posted = null;
   await T.ctx.route('https://gzcwvnynkcepvqkzwvkb.supabase.co/rest/v1/leads', r => { const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'POST' };
     if (r.request().method() === 'OPTIONS') return r.fulfill({ status: 204, headers: cors }); posted = JSON.parse(r.request().postData() || '{}'); r.fulfill({ status: 201, headers: cors, body: '' }); });

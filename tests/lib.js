@@ -2,8 +2,9 @@
 const { chromium } = require('playwright');
 const { FAKE_SUPA } = require('./fakesupa.js');
 const path = require('path');
-const URL = 'file://' + path.resolve(__dirname, '../index.html');
-const ADMIN = 'file://' + path.resolve(__dirname, '../admin/index.html');
+const { BASE } = require('./serve.js'); // the app over http, as a real site
+const URL = BASE + 'index.html';
+const ADMIN = BASE + 'admin/index.html';
 const pad = n => String(n).padStart(2, '0');
 const iso = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 const addDays = (s, n) => { const d = new Date(s + 'T00:00'); d.setDate(d.getDate() + n); return iso(d); };
@@ -18,7 +19,7 @@ const check = (ok, m) => { console.log((ok ? 'PASS ' : 'FAIL ') + m); if (!ok) f
 const out = name => path.join(__dirname, 'out-' + name + '.png');
 async function start(opts = {}) {
   const browser = await chromium.launch();
-  const ctx = await browser.newContext(Object.assign({ viewport: { width: 1200, height: 900 }, acceptDownloads: true }, opts));
+  const ctx = await browser.newContext(Object.assign({ serviceWorkers: 'block', viewport: { width: 1200, height: 900 }, acceptDownloads: true }, opts));
   await ctx.route('https://lichess.org/**', r => r.abort()); // nothing outside reached unless a test answers for it
   const errors = [];
   // init: more script to run before the app (e.g. a stand-in for the browser's phone alerts)

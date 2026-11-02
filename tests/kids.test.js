@@ -4,7 +4,7 @@
 const { chromium } = require('playwright');
 const { FAKE_SUPA } = require('./fakesupa.js');
 const path = require('path');
-const URL = 'file://' + path.resolve(__dirname, '../index.html');
+const URL = require('./serve.js').BASE + 'index.html';
 const pad = n => String(n).padStart(2, '0');
 const iso = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 const addDays = (s, n) => { const d = new Date(s + 'T00:00'); d.setDate(d.getDate() + n); return iso(d); };
@@ -13,7 +13,7 @@ let fails = 0; const check = (ok, m) => { console.log((ok ? 'PASS ' : 'FAIL ') +
 const blank = (id, extra) => Object.assign({ id, name: '', active: true, rate: 0, noId: true, ratingType: 'FIDE', rating: '', ratings: [], sessions: [], tasks: [], worklog: [], repertoire: [], tournaments: [], payments: [], charges: [], books: [], slots: [], training: [], requests: [], fitness: [], fitnessGoal: 0, sleep: [], createdAt: addDays(t, -60) }, extra);
 const cst = (id, name) => blank(id, { name, rate: 100, createdAt: t });
 (async () => {
-  const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1100, height: 900 } }); const errors = [];
+  const b = await chromium.launch(); const ctx = await b.newContext({ serviceWorkers: 'block', viewport: { width: 1100, height: 900 } }); const errors = [];
   const open = async (uid) => { const p = await ctx.newPage(); p.on('pageerror', e => errors.push(uid + ': ' + e.message)); await p.addInitScript(FAKE_SUPA(uid)); await p.goto(URL); return p; };
   const ls = (p, k) => p.evaluate(k => JSON.parse(localStorage.getItem(k) || 'null'), k);
   const kids = p => p.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('fdb:data/users/dana/st-')).map(k => JSON.parse(localStorage.getItem(k))).filter(x => x.self));

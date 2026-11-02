@@ -3,7 +3,7 @@
 const { chromium } = require('playwright');
 const { FAKE_SUPA } = require('./fakesupa.js');
 const path = require('path');
-const URL = 'file://' + path.resolve(__dirname, '../index.html');
+const URL = require('./serve.js').BASE + 'index.html';
 const pad = n => String(n).padStart(2, '0');
 const iso = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 const addDays = (s, n) => { const d = new Date(s + 'T00:00'); d.setDate(d.getDate() + n); return iso(d); };
@@ -18,7 +18,7 @@ let feed = [
   day(addDays(t, -3), { puzzles: { score: { win: 10, loss: 2, draw: 0, rp: { before: 1820, after: 1830 } } }, racer: { runs: 3, score: 22 } }),
   day(addDays(t, -10), { puzzles: { score: { win: 30, loss: 5, draw: 0, rp: { before: 1800, after: 1820 } } } })];
 (async () => {
-  const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1100, height: 900 } }); const errors = [];
+  const b = await chromium.launch(); const ctx = await b.newContext({ serviceWorkers: 'block', viewport: { width: 1100, height: 900 } }); const errors = [];
   let asked = [];
   await ctx.route('https://lichess.org/api/user/**', r => { asked.push(r.request().url()); r.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(feed) }); });
   const open = async (uid, hash = '') => { const p = await ctx.newPage(); p.on('pageerror', e => errors.push(uid + ': ' + e.message)); await p.addInitScript(FAKE_SUPA(uid)); await p.goto(URL + hash); return p; };
