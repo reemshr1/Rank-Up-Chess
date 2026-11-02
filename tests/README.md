@@ -44,10 +44,10 @@ Done (all passing unless noted):
 - player-move — Connect to a coach: wrong code, everything moves, From their own board, Moved to a coach on the admin page, a parent's board with the family code (old: testmove)
 - player-books — a player's book PDFs (attach, open, replace, remove), endgames by type, PDFs copied to the coach on moving (old: testplayerpdf, testendgames)
 - push-fn — the push function in Deno: the hourly player reminders (17:00 practice, 19:00 tournament or task tomorrow, a parent's board with two children, Hebrew, once only, a gone device forgotten) and the app's key / subscribe / unsubscribe / send rules (old: testplayeralerts and the Deno push harness)
+- hebrew — every page of every app in Hebrew, right to left, and the windows their buttons open (67), with no English left on screen apart from typed data, notation and site names (old: testhe and the untranslated-strings crawl)
 - deploy — the site under /Rank-Up-Chess/ over http: no missing files, manifest, icons, service worker files (old: testghpages)
 - lichess, lichess-student — Lichess puzzles added by themselves
 - kids, kid, player-backup, close-account, orphan, two-parents — recovered from the session history
 
-Still to rebuild (next: Hebrew):
-- Hebrew: testhe and the untranslated-strings crawl
+Still to rebuild (next: database rules):
 - database rules (Postgres)

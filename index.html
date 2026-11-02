@@ -2502,7 +2502,7 @@ function practiceLabel(w, s){
   if (w.what==="Game analysis" && w.gameId){ const g = state.games.find(x=>x.id===w.gameId); if (g) return 'Game analysis · '+esc(g.kind==="study"?studyTitle(g):gameTitle(g))+' <span class="muted num">'+esc(g.result||"")+'</span>'+(g.kind==="study"?' <span class="tag">Studied game</span>':''); }
   if (w.cbFile) return esc(w.what)+eg+' · ChessBase: '+esc(w.cbFile);
   if (w.what!=="Tactics" || !w.site) return esc(w.what||"Practice");
-  return 'Tactics · '+esc(w.site)+(w.exercise?' '+esc(w.exercise):'')+(w.auto ? ' <span class="tag board" title="Added by the app from '+esc(w.site)+'">auto</span>' : '');
+  return 'Tactics · '+esc(w.site)+(w.exercise?' <span>'+esc(w.exercise)+'</span>':'')+(w.auto ? ' <span class="tag board" title="Added by the app from '+esc(w.site)+'">auto</span>' : '');
 }
 const runsOf = w => Array.isArray(w.scores) && w.scores.length ? w.scores.map(Number) : (w.score!==""&&w.score!=null ? [+w.score] : []);
 const parseScores = txt => (String(txt||"").match(/\d+/g)||[]).map(Number);
@@ -7416,7 +7416,7 @@ function pAssignments(v){
   const L = {open:"Assigned", review:"Done · to review", done:"Reviewed", all:"All"};
   const shown = asSort(list.filter(F[asFilter]));
   v.innerHTML = '<div class="page-head"><div><h1>Assignments</h1><p class="sub">Games in PGN and study tasks for your students</p></div><button class="btn primary" id="asNew">New assignment</button></div>'+
-    '<div class="seg" role="group" aria-label="Filter assignments">'+Object.keys(F).map(k=>'<button type="button" class="'+(asFilter===k?"on":"")+'" data-a="f" data-id="'+k+'">'+L[k]+' ('+list.filter(F[k]).length+')</button>').join("")+'</div>'+
+    '<div class="seg" role="group" aria-label="Filter assignments">'+Object.keys(F).map(k=>'<button type="button" class="'+(asFilter===k?"on":"")+'" data-a="f" data-id="'+k+'"><span>'+L[k]+'</span> ('+list.filter(F[k]).length+')</button>').join("")+'</div>'+
     '<section class="panel" style="padding:4px 0">'+(shown.length ? shown.map(a=>asRow(a,true)).join("") : '<p class="empty" style="padding:14px 18px">'+(list.length?"Nothing here.":"No assignments yet. Create one, then upload the PGN of the games you want the student to work on.")+'</p>')+'</section>';
   v.insertAdjacentHTML("beforeend", libraryPanel());
   const lf = $("#libFold"); if (lf) lf.addEventListener("toggle", ()=>{ libOpen = lf.open; });
@@ -8036,7 +8036,7 @@ function pClub(v){
     '<section class="panel" style="margin-bottom:16px"><div class="panel-head"><h2>Your classes ('+groups.length+')</h2></div><ul class="list">'+
       groups.map(x=>'<li'+(x.id===r.id?' class="att-sel"':'')+'><div class="main"><div class="title"><a href="#/club" data-a="attGroup" data-id="'+esc(x.id)+'">'+esc(clubName(x))+'</a>'+(ended(x)?' <span class="tag">Ended</span>':'')+'</div><div class="small muted">'+esc(x.kind==="weekly" ? every(x) : fmtDate(x.date,{weekday:"short",day:"numeric",month:"short"}))+' <span dir="ltr">'+esc(x.from+"–"+x.to)+'</span>'+(x.place?' · '+esc(x.place):'')+(+x.rate?' · '+esc(money(+x.rate))+' an hour':'')+' · '+state.students.filter(s=>s.active && (s.clubIds||[]).includes(x.id)).length+' students</div></div>'+
         '<button class="btn small ghost" data-a="editClub" data-id="'+esc(x.id)+'">Edit</button></li>').join("")+'</ul>'+
-      (mAll.classes?'<p class="small" style="margin:8px 0 0">This month: <b class="num">'+mNow.hours+H+'</b> so far'+(mNow.pay?' · <b class="num">'+esc(money(mNow.pay))+'</b>':'')+' (whole month: '+mAll.hours+H+(mAll.pay?' · '+esc(money(mAll.pay)):'')+')</p>':'')+'</section>'+
+      (mAll.classes?'<p class="small" style="margin:8px 0 0">This month: <b class="num">'+mNow.hours+H+'</b> <span>so far</span>'+(mNow.pay?' · <b class="num">'+esc(money(mNow.pay))+'</b>':'')+' <span>(whole month: '+mAll.hours+H+(mAll.pay?' · '+esc(money(mAll.pay)):'')+')</span></p>':'')+'</section>'+
     // the class picked
     '<section class="panel" style="margin-bottom:16px"><div class="panel-head"><h2>'+esc(clubName(r))+'</h2><span class="small muted">'+esc(r.kind==="weekly" ? every(r) : fmtDate(r.date,{weekday:"short",day:"numeric",month:"short"}))+' · <span dir="ltr">'+esc(r.from)+'–'+esc(r.to)+'</span>'+(r.place?' · '+esc(r.place):'')+'</span></div>'+
       '<div class="club-facts small">'+
@@ -8449,7 +8449,7 @@ const HE = {
   "Log workouts that already happened.":"אפשר לתעד רק אימונים שכבר היו.", "Enter how many minutes.":"יש להזין כמה דקות.", "Choose up to 14 workouts a week.":"אפשר לבחור עד 14 אימונים בשבוע.", "Weekly goal saved":"היעד השבועי נשמר", "Weekly goal removed":"היעד השבועי הוסר",
   "Workouts per week, last 8 weeks":"אימוני כושר בשבוע, 8 השבועות האחרונים", "a workout":"אימון כושר", "a deleted workout":"אימון כושר שנמחק",
   "Your name in Hebrew":"השם שלך בעברית", "Students and parents see your name instead of “coach”.":"תלמידים והורים יראו את השם שלך במקום „המאמן”.",
-  "This month:":"החודש:", "so far":"עד עכשיו",
+  "This month:":"החודש:", "so far":"עד עכשיו", "Previous month":"החודש הקודם", "Next month":"החודש הבא", "Practice minutes per week, last 12 weeks":"דקות תרגול בשבוע, 12 השבועות האחרונים",
   "Add club class":"הוספת חוג במועדון", "Edit club class":"עריכת חוג במועדון", "Club class":"חוג במועדון", "Club work":"עבודה במועדון", "Options":"אפשרויות",
   "e.g. Club juniors group":"למשל: קבוצת הצעירים במועדון", "e.g. the local chess club":"למשל: מועדון השחמט המקומי", "When":"מתי", "Every week":"כל שבוע", "One date only":"תאריך אחד בלבד",
   "For every week: the first class":"בכל שבוע: השיעור הראשון", "Last class (optional)":"השיעור האחרון (לא חובה)", "What the club pays you per hour":"כמה המועדון משלם לך לשעה",
@@ -8904,6 +8904,7 @@ const heCoach = (c, bare)=>c==="your coach" ? (bare ? "המאמן" : "המאמן
 const heSide = c=>c==="Black" ? "שחור" : c==="White" ? "לבן" : c;
 const heRating = r=>r==="FIDE" ? "פיד״ה" : r==="ICF" ? "איגוד" : r==="FIDE Rapid" ? "פיד״ה רפיד" : r==="FIDE Blitz" ? "פיד״ה בליץ" : r==="Online" ? "אונליין" : r;
 const HE_RX = [
+  [/^(\d+) new$/, (m,n)=>n==="1" ? "1 חדש" : n+" חדשים"], [/^(\d+) lesson requests?$/, (m,n)=>n==="1" ? "בקשת שיעור אחת" : n+" בקשות שיעור"], // the menu's counts, read aloud
   [/^Your coach suggests a new time: (.+)$/, "המאמן מציע זמן חדש: $1"], [/^Your lesson moves to (.+)\.$/, "השיעור יוזז ל־$1."],
   [/^After you pay, let (.+) know here\. It shows in your statement once \1 confirms it\.$/, (m,c)=>"אחרי התשלום אפשר לעדכן כאן את "+heCoach(c)+". התשלום יופיע בפירוט אחרי שיאושר."],
   [/^Not received — please check with (.+)$/, (m,c)=>"לא התקבל — כדאי לבדוק עם "+heCoach(c)],
