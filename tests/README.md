@@ -9,6 +9,10 @@ database functions the app calls (become_coach, leave_player, close_player, coac
     NODE_PATH=$(npm root -g) tests/run.sh          # all of them
     NODE_PATH=$(npm root -g) node tests/coach-today.test.js
 
+`push-fn.test.js` runs the real push function (`supabase/functions/push/index.ts`) in Deno. It needs Deno and the
+`http_ece` package: `npm i deno http_ece` in a folder of your choice, then `DENO=<folder>/node_modules/.bin/deno`
+and that folder's `node_modules` added to NODE_PATH.
+
 ## Rebuilding the lost suite (in progress)
 
 The old suite (82 browser tests, the Postgres rule tests and the push-function harness) was lost when the
@@ -39,11 +43,11 @@ Done (all passing unless noted):
 - player-tips — every kind of tip, at most 3 in order, the next tournament tile, a parent's board, Hebrew, none for coaches (old: testtips)
 - player-move — Connect to a coach: wrong code, everything moves, From their own board, Moved to a coach on the admin page, a parent's board with the family code (old: testmove)
 - player-books — a player's book PDFs (attach, open, replace, remove), endgames by type, PDFs copied to the coach on moving (old: testplayerpdf, testendgames)
+- push-fn — the push function in Deno: the hourly player reminders (17:00 practice, 19:00 tournament or task tomorrow, a parent's board with two children, Hebrew, once only, a gone device forgotten) and the app's key / subscribe / unsubscribe / send rules (old: testplayeralerts and the Deno push harness)
 - deploy — the site under /Rank-Up-Chess/ over http: no missing files, manifest, icons, service worker files (old: testghpages)
 - lichess, lichess-student — Lichess puzzles added by themselves
 - kids, kid, player-backup, close-account, orphan, two-parents — recovered from the session history
 
-Still to rebuild (next: player alerts):
-- players: testplayeralerts (the push function's hourly job, in Deno)
+Still to rebuild (next: Hebrew):
 - Hebrew: testhe and the untranslated-strings crawl
-- database rules (Postgres) and the push function's Deno harness
+- database rules (Postgres)
