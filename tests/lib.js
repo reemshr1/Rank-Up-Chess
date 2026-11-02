@@ -21,8 +21,9 @@ async function start(opts = {}) {
   const ctx = await browser.newContext(Object.assign({ viewport: { width: 1200, height: 900 }, acceptDownloads: true }, opts));
   await ctx.route('https://lichess.org/**', r => r.abort()); // nothing outside reached unless a test answers for it
   const errors = [];
-  const open = async (uid, hash = '', url = URL) => { const p = await ctx.newPage(); p.on('pageerror', e => errors.push((uid || 'signed out') + ': ' + e.message));
-    p.on('dialog', d => d.accept().catch(() => {})); await p.addInitScript(FAKE_SUPA(uid)); await p.goto(url + hash); return p; };
+  // init: more script to run before the app (e.g. a stand-in for the browser's phone alerts)
+  const open = async (uid, hash = '', url = URL, init) => { const p = await ctx.newPage(); p.on('pageerror', e => errors.push((uid || 'signed out') + ': ' + e.message));
+    p.on('dialog', d => d.accept().catch(() => {})); await p.addInitScript(FAKE_SUPA(uid)); if (init) await p.addInitScript(init); await p.goto(url + hash); return p; };
   // seed({coach, coaches, players, moved, users, docs:{'data/users/coach/settings': {...}}, ls:{key: value}})
   const seed = async s => { const p = await open(null); await p.evaluate(s => { localStorage.clear();
       if (s.coach) localStorage.setItem('fcoach', s.coach);

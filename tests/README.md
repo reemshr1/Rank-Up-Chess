@@ -29,14 +29,16 @@ Done (all passing unless noted):
 - admin — admin page: requests, status, notes, codes, joining as a coach, used codes, accounts (keep / delete everything), the website form (old: testcoaches parts, testwelcome)
 - signin — sign-in screen, wrong password, new account, short password, existing email, reset password, code already used, sign out (this device), lost session, the old Netlify address (old: testweb, testsignin, testmoved)
 - student-lessons — Request a lesson in free time (club hours and booked times left out, two places), approval, Can't make it (move, switch, withdraw), declined move answered, own training (old: testportal parts, testclubfree, testtwoplaces student side, testoffers)
+- student-home — Updated by the coach's app, changes waiting, tiles, medal and its warning, Updates marked New with menu counts, Mark all as read, Coming up in order, logging practice, the check-in (old: testportal parts, testmedal, testcheckin student side, testcoming)
+- parent-app — two children, the Balance, I've paid, statement, read only, lesson requests, no check-in (old: testparent, testfamily, testpaid)
+- two-coaches — Add a coach with a code, history sent, both coaches' lessons and tasks, which coach for a request, Share per coach, Also works with (old: testtwocoaches, testcoaches)
+- push — phone alerts on/off (coach Settings, the 🔔 window), test alert, a moved lesson and a notification become alerts, blocked, not allowed, Edge on Android with the Chrome tip, iPhone Home Screen, function not set up, sign out turns it off (old: testpush, testpushfail)
 - deploy — the site under /Rank-Up-Chess/ over http: no missing files, manifest, icons, service worker files (old: testghpages)
 - lichess, lichess-student — Lichess puzzles added by themselves
 - kids, kid, player-backup, close-account, orphan, two-parents — recovered from the session history
 
 Still to rebuild:
-- student and parent (next: student-home): logging practice and changes waiting for the coach, updates and New badges, check-in, medals, Coming up;
-  the parent app (read only, payments, I've paid, switching children); testreal, testempty, testboth, testtwo, testswitch, testpush, testpushfail,
-  two coaches (testtwocoaches, testcoaches)
+- student: testreal, testempty, testboth, testtwo, testswitch (whatever the tests above don't already cover)
 - players: testplayer, testtips, testmove, testplayerpdf, testendgames, testplayerrating, testplayeralerts, testghpages
 - Hebrew: testhe and the untranslated-strings crawl
 - database rules (Postgres) and the push function's Deno harness

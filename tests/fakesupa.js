@@ -162,7 +162,8 @@ const FAKE_SUPA = uid => `(() => {
     from: query,
     async rpc(name, args) { await new Promise(r => setTimeout(r, 5)); return rpcs[name] ? { data: rpcs[name](args || {}), error: null } : { data: null, error: { message: 'unknown function ' + name } }; },
     functions: { async invoke(name, opts) { window.__fn.push({ name, body: opts && opts.body }); const a = localStorage.getItem('ffn:' + name);
-      return a == null ? { data: null, error: { message: 'Function ' + name + ' is not deployed' } } : { data: JSON.parse(a), error: null }; } },
+      return a == null ? { data: null, error: Object.assign(new Error('Edge Function returned a non-2xx status code'), { name: 'FunctionsHttpError' }) } // as supabase-js says for a function that isn't deployed (404)
+         : { data: JSON.parse(a), error: null }; } },
     storage: { from: () => files },
     channel() { const hs = []; const ch = { on(kind, flt, h) { hs.push([flt, h]); return ch; },
       subscribe(cb) { ch.fn = (event, col, id) => hs.forEach(([flt, h]) => { if (flt.event !== event) return; if (flt.filter && flt.filter !== 'col=eq.' + col) return;
