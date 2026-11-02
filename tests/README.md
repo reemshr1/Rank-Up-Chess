@@ -33,12 +33,13 @@ Done (all passing unless noted):
 - parent-app — two children, the Balance, I've paid, statement, read only, lesson requests, no check-in (old: testparent, testfamily, testpaid)
 - two-coaches — Add a coach with a code, history sent, both coaches' lessons and tasks, which coach for a request, Share per coach, Also works with (old: testtwocoaches, testcoaches)
 - push — phone alerts on/off (coach Settings, the 🔔 window), test alert, a moved lesson and a notification become alerts, blocked, not allowed, Edge on Android with the Chrome tip, iPhone Home Screen, function not set up, sign out turns it off (old: testpush, testpushfail)
+- student-live — live updates both ways without reloading; a new coach and a just-linked student: every page opens cleanly (old: testreal, testempty)
+- student-accounts — two students isolated (also at the database), student and parent of one child, switching accounts on one device (old: testboth, testtwo, testswitch)
 - deploy — the site under /Rank-Up-Chess/ over http: no missing files, manifest, icons, service worker files (old: testghpages)
 - lichess, lichess-student — Lichess puzzles added by themselves
 - kids, kid, player-backup, close-account, orphan, two-parents — recovered from the session history
 
-Still to rebuild:
-- student: testreal, testempty, testboth, testtwo, testswitch (whatever the tests above don't already cover)
+Still to rebuild (next: players):
 - players: testplayer, testtips, testmove, testplayerpdf, testendgames, testplayerrating, testplayeralerts, testghpages
 - Hebrew: testhe and the untranslated-strings crawl
 - database rules (Postgres) and the push function's Deno harness

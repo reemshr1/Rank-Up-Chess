@@ -24,7 +24,7 @@ const signOut = async p => { await p.locator('[data-signout]:visible').first().c
   const c = await T.open('coach'); await c.waitForTimeout(4000);
   // two students: each sees only their own
   const m = await T.open('u-a', '#/home'), d = await T.open('u-d', '#/home'); await m.waitForTimeout(3500);
-  let mv = await T.text(m), dv = await T.text(d);
+  let v, mv = await T.text(m), dv = await T.text(d);
   check(mv.includes('Rook endings') && !mv.includes('Kings Indian') && !mv.includes('Dan Open'), 'Maya sees her lesson, nothing of Dan’s');
   check(dv.includes('Kings Indian') && dv.includes('Dan Open') && !dv.includes('Rook endings'), 'Dan sees his, nothing of Maya’s');
   await d.goto(URL + '#/student/st-d/assignments'); await d.waitForTimeout(600);
@@ -42,7 +42,7 @@ const signOut = async p => { await p.locator('[data-signout]:visible').first().c
   check(pv.includes('Maya’s board') && pv.includes('Rook endings') && mv.includes('Rook endings'), 'Maya and her parent both see the lesson');
   check(pv.includes('Balance') && pv.includes('Bit to 054-1234567') && !mv.includes('Balance') && !mv.includes('Bit to 054'), 'only the parent sees the Balance and how to pay');
   await m.goto(URL + '#/payments'); await m.waitForTimeout(600);
-  check(!(await T.text(m)).includes('Pins') || !(await T.text(m)).includes('₪100'), 'Maya’s Payments page shows no charges (the coach hasn’t shared them with her)');
+  v = await T.text(m); check(!v.includes('Statement') && !v.includes('₪') && !v.includes('Pins'), 'Maya has no Payments page: no statement, no amounts (the coach hasn’t shared them with her)');
   // Maya logs practice: it reaches the coach, then her parent's board
   await m.goto(URL + '#/home'); await m.waitForTimeout(500);
   await m.click('[data-a=log]'); await m.waitForSelector('#modal[open] #f_minutes'); await fillForm(m, { minutes: '41', what: 'Openings' });
@@ -56,7 +56,7 @@ const signOut = async p => { await p.locator('[data-signout]:visible').first().c
   check(/Good (morning|afternoon|evening), Maya/.test(await T.text(s)), 'one device: Maya signs in');
   await s.click('[data-a=seenAll]').catch(() => {});
   await signOut(s); await auth(s, 'mom@x.co', 'mompass99');
-  let v = await T.text(s);
+  v = await T.text(s);
   check(v.includes('Maya’s board') && v.includes('Balance') && !/Good (morning|afternoon|evening), Maya/.test(v), 'her parent signs in on the same device: the parent’s app, not Maya’s');
   check(await s.evaluate(() => document.body.classList.contains('parent-mode')), 'in parent mode');
   await signOut(s); await auth(s, 'dan@x.co', 'danpass999');
