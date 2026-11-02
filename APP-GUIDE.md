@@ -520,6 +520,16 @@ marks it done.
   the same cards on the student's Practice tab; parents see them read-only.
   **Change order** lets the student put the sites they use most at the top
   (↑ ↓ on each card); each student keeps their own order.
+- **Lichess puzzles, added by themselves:** with a Lichess username in Useful links, the student's (or player's)
+  app reads Lichess's public activity when it opens and every 30 minutes, and adds one practice entry per day and
+  kind for the last 7 days: rated puzzles (tried, solved, puzzle rating after), Puzzle Storm, Racer and Streak (runs
+  and best score). Minutes are estimated (about 1 a puzzle, 5 at least; Storm 3, Racer 2, Streak 5 a run) and shown
+  as "≈ 25 min" until edited. Each entry is marked **auto**; the coach gets it like anything else the student logs.
+  Today's entry grows as they keep solving, unless they edited it; one they delete isn't added back (on that
+  device); a day they logged Lichess puzzles by hand is left alone. Daily practice says which username it reads
+  and when, with **Check now**; without a username it offers **Add Lichess username**. Only the student's own app
+  checks, so a student who doesn't open the app gets them the next time they do. Chess.com doesn't publish a
+  puzzle history, so its puzzles still need logging by hand.
 - **Medals** (Pawn → Knight → Bishop → Rook → Queen → King):
   - practice: days in a row (3 / 7 / 14 / 30 / 60 / 100); missing 2 days in
     a row drops 2 levels, never below Pawn;
