@@ -4,6 +4,9 @@
 -- Run on a database from before there were several coaches, it moves it over: that coach becomes the first coach
 -- (and the admin), and their students, parents and backups stay theirs.
 
+-- Functions are checked when they're called, not when they're made, so one can read a table made further down.
+set check_function_bodies = off;
+
 -- Coaches. Each coach has their own board; no coach can see another coach's records, students or backups.
 -- A new coach joins with a coach code made by the app's admin (Settings → Coaches); everyone else who signs in
 -- is a student or parent and connects with the invite code their coach gave them.
@@ -19,7 +22,7 @@ create policy "a coach sees their own row" on public.coaches
 
 -- Before there were several coaches there was one, in public.coach: they become the first coach and the admin.
 do $$ begin
-  if to_regclass('public.coach') is not null and (select relkind from pg_class where oid = 'public.coach'::regclass) = 'r' then
+  if to_regclass('public.coach') is not null and (select relkind from pg_class where oid = to_regclass('public.coach')) = 'r' then
     insert into public.coaches (user_id, is_admin, created_at) select user_id, true, created_at from public.coach
       on conflict (user_id) do update set is_admin = true;
     alter table public.coach rename to coach_before_multi;

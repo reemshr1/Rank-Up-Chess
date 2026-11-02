@@ -9,6 +9,9 @@ database functions the app calls (become_coach, leave_player, close_player, coac
     NODE_PATH=$(npm root -g) tests/run.sh          # all of them
     NODE_PATH=$(npm root -g) node tests/coach-today.test.js
 
+`db.test.js` checks the database's own rules in a real Postgres: start it once with `tests/sql/start-pg.sh` (a local
+Postgres on port 5499; `tests/sql/supabase-stub.sql` stands in for what Supabase adds: auth, storage, pg_cron, pg_net).
+
 `push-fn.test.js` runs the real push function (`supabase/functions/push/index.ts`) in Deno. It needs Deno and the
 `http_ece` package: `npm i deno http_ece` in a folder of your choice, then `DENO=<folder>/node_modules/.bin/deno`
 and that folder's `node_modules` added to NODE_PATH.
@@ -45,9 +48,9 @@ Done (all passing unless noted):
 - player-books — a player's book PDFs (attach, open, replace, remove), endgames by type, PDFs copied to the coach on moving (old: testplayerpdf, testendgames)
 - push-fn — the push function in Deno: the hourly player reminders (17:00 practice, 19:00 tournament or task tomorrow, a parent's board with two children, Hebrew, once only, a gone device forgotten) and the app's key / subscribe / unsubscribe / send rules (old: testplayeralerts and the Deno push harness)
 - hebrew — every page of every app in Hebrew, right to left, and the windows their buttons open (67), with no English left on screen apart from typed data, notation and site names (old: testhe and the untranslated-strings crawl)
+- db — the database rules in Postgres: schema.sql on a new project, twice, and on a database from before several coaches; codes; each coach's records; links get their coach from the code; boards, messages, a second coach's link; book files; leave_player, close_player, remove_coach (keep / wipe / a moved player's copy); nightly copies; the website form; phone-alert tables; the hourly player reminders (old: the Postgres rule tests)
 - deploy — the site under /Rank-Up-Chess/ over http: no missing files, manifest, icons, service worker files (old: testghpages)
 - lichess, lichess-student — Lichess puzzles added by themselves
 - kids, kid, player-backup, close-account, orphan, two-parents — recovered from the session history
 
-Still to rebuild (next: database rules):
-- database rules (Postgres)
+Still to do: a full run of everything together.
