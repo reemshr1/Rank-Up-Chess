@@ -19,7 +19,7 @@ and that folder's `node_modules` added to NODE_PATH.
 ## What's covered
 
 The old suite (82 browser tests, the Postgres rule tests and the push-function harness) was lost when the session's
-temporary folder was wiped, and rebuilt here: 36 files, 736 checks, all passing together (`tests/run.sh`, about
+temporary folder was wiped, and rebuilt here: 38 files, 777 checks, all passing together (`tests/run.sh`, about
 23 minutes). The browser tests load the app over http (`serve.js`), as a real site.
 
 Files:
