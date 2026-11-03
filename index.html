@@ -2976,7 +2976,7 @@ function studentView(s){
     goals:s.goals, notes:s.notesShared ? s.notes : "", notesShared:!!s.notesShared, active:s.active, createdAt:s.createdAt,
     sessions:s.sessions.map(x=>({id:x.id, date:x.date, time:x.time, duration:x.duration, format:x.format, place:x.place||"", status:x.status, topics:x.topics, added:x.added, notes:isShared(x.shareNotes)?x.notes:"", slotId:x.slotId, slotDate:x.slotDate})),
     worklog:s.worklog, repertoire:s.repertoire, tournaments:s.tournaments.map(({assist, assistDays, assistFee, assistReason, ...x})=>x), books:s.books, ratings:s.ratings, training:s.training||[], requests:s.requests||[], offers:s.offers||[], checkins:s.checkins||[], notices:(s.notices||[]).filter(n=>(n.to||[]).includes("student") && liveNotice(n)), noticeReads:(s.noticeReads||[]), appSince:(s.portal && s.portal.linkedAt)||"", fitness:s.fitness||[], fitnessGoal:+s.fitnessGoal||0, fitnessMinGoal:+s.fitnessMinGoal||0, sleep:s.sleep||[],
-    coachName:state.settings.coachName||"", coachNameHe:state.settings.coachNameHe||"", weekStart:state.settings.weekStart||0, links:coachLinks().map(({id,name,url,note})=>({id,name,url,note})), usernames:s.usernames||{}, linkOrder:s.linkOrder||[],
+    coachName:state.settings.coachName||"", coachNameHe:state.settings.coachNameHe||"", weekStart:state.settings.weekStart||0, links:coachLinks().map(({id,name,url,note})=>({id,name,url,note})), usernames:s.usernames||{}, liGone:s.liGone||[], linkOrder:s.linkOrder||[],
     noCoach:PLAYER, clubOnly:!!s.clubOnly, clubs:clubsOf(s).map(({rate, att, ...r})=>Object.assign(r, {challenge:groupChallenge(r, s)})),
     freeSet:freeRules().some(r=>r.kind!=="off"), free:openSlots(today(), addDays(today(),56), s.id).free, taken:[]})); // other students' bookings just leave a gap
 }
@@ -3001,8 +3001,9 @@ function applyOp(s, op, coachSide){
   let m = /^(worklog|tournaments|books|training|repertoire|fitness|sleep)\.(upsert|delete)$/.exec(t);
   if (m){
     const L = list(m[1]), i = L.findIndex(x=>x.id===(m[2]==="delete" ? op.id : it && it.id));
-    if (m[2]==="delete"){ if (i>=0 && mine(L[i])) L.splice(i,1); return true; }
+    if (m[2]==="delete"){ if (i>=0 && mine(L[i])){ if (m[1]==="worklog" && L[i].auto) liNoteGone(s, op.id); L.splice(i,1); } return true; }
     if (!it || !it.id) return false;
+    if (m[1]==="worklog" && it.auto==="lichess" && (s.liGone||[]).includes(it.id)) return true; // deleted before: stays deleted
     const fromS = m[1]==="tournaments" ? (({assist, assistDays, assistFee, assistReason, ...y})=>y)(it) // the assistance price is the coach's
       : m[1]==="books" ? (({pdf, ...y})=>y)(it) : it; // so is a book's PDF
     const item = Object.assign({}, i>=0 ? L[i] : {}, fromS, i>=0 ? {} : {by:"student"});
@@ -5766,7 +5767,7 @@ function crud(s, key, item, fields, title, toastWord, validate, transform, after
   const isNew = !item; const x = item ? item : {id:uid()};
   return openForm({title:(isNew?"Add ":"Edit ")+title, submit:isNew?"Add":"Save changes", fields,
     danger: isNew || (STUDENT() && x.by!=="student") ? null : {label:"Delete", onClick:()=>confirmBox("Delete this "+title+"?","This can't be undone.","Delete",()=>{
-      if (beforeDelete) beforeDelete(x); if (x.auto) liForget(x.id); s[key] = s[key].filter(y=>y.id!==x.id); saveStudent(s); render(); toast(toastWord+" deleted"); })},
+      if (beforeDelete) beforeDelete(x); if (x.auto) liForget(x.id, s); s[key] = s[key].filter(y=>y.id!==x.id); saveStudent(s); render(); toast(toastWord+" deleted"); })},
     onSubmit:d=>{ const err = validate && validate(d); if (err) return err; if (transform) d = transform(d); Object.assign(x,d); if (isNew && STUDENT()) x.by = "student"; if (isNew) s[key].push(x); if (after) after(x, isNew); saveStudent(s); render(); toast(toastWord+(isNew?" added":" updated")); }});
 }
 
@@ -6200,8 +6201,11 @@ function bindUsernames(el, s, list){
    Lichess beyond the public feed, and only the last 7 days. */
 const LI_KINDS = [["puzzles","Puzzles (rated)"],["storm","Puzzle Storm"],["racer","Puzzle Racer"],["streak","Puzzle Streak"]];
 const liUser = s=>((s && s.usernames)||{})["lichess.org"]||"";
-const liGone = ()=>{ try { return JSON.parse(localStorage.getItem("rli-gone")||"[]"); } catch(e){ return []; } };
-function liForget(id){ try { localStorage.setItem("rli-gone", JSON.stringify(liGone().concat([id]).slice(-300))); } catch(e){} }
+// Lichess entries someone deleted: kept on the record (liGone, shared with the student's board and read by the hourly
+// job on Supabase), and on this device for a moment before the record is saved.
+const liGone = s=>{ let l = []; try { l = JSON.parse(localStorage.getItem("rli-gone")||"[]"); } catch(e){} return l.concat((s && s.liGone)||[]); };
+const liNoteGone = (s, id)=>{ if (!s || !/^li-/.test(id||"")) return; s.liGone = (s.liGone||[]).filter(x=>x!==id).concat([id]).slice(-200); };
+function liForget(id, s){ try { localStorage.setItem("rli-gone", JSON.stringify(liGone().concat([id]).slice(-300))); } catch(e){} liNoteGone(s, id); }
 // One day of the feed → the practice entries it makes (pure: no saving).
 function liEntries(day, a){
   const out = [], base = {what:"Tactics", site:"Lichess", date:day, by:"student", auto:"lichess", note:"", count:"", eg:[]};
@@ -6216,7 +6220,7 @@ function liEntries(day, a){
 }
 // Adds what's new to the student's log; returns how many entries were added or brought up to date.
 function liMerge(s, feed){
-  const t = today(), from = addDays(t, -6), gone = new Set(liGone()); let n = 0;
+  const t = today(), from = addDays(t, -6), gone = new Set(liGone(s)); let n = 0;
   (Array.isArray(feed) ? feed : []).forEach(a=>{
     const st = a && a.interval && a.interval.start; if (!st) return;
     const day = iso(new Date(+st + 12*3600000)); if (day<from || day>t) return; // the middle of the day: the date there, whatever the time zone
