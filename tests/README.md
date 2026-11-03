@@ -12,14 +12,14 @@ database functions the app calls (become_coach, leave_player, close_player, coac
 `db.test.js` checks the database's own rules in a real Postgres: start it once with `tests/sql/start-pg.sh` (a local
 Postgres on port 5499; `tests/sql/supabase-stub.sql` stands in for what Supabase adds: auth, storage, pg_cron, pg_net).
 
-`push-fn.test.js` runs the real push function (`supabase/functions/push/index.ts`) in Deno. It needs Deno and the
+`push-fn.test.js` and `lichess-fn.test.js` run the real functions (`supabase/functions/push` and `lichess`) in Deno. They need Deno and the
 `http_ece` package: `npm i deno http_ece` in a folder of your choice, then `DENO=<folder>/node_modules/.bin/deno`
 and that folder's `node_modules` added to NODE_PATH.
 
 ## What's covered
 
 The old suite (82 browser tests, the Postgres rule tests and the push-function harness) was lost when the session's
-temporary folder was wiped, and rebuilt here: 36 files, 736 checks, all passing together (`tests/run.sh`, about
+temporary folder was wiped, and rebuilt here: 38 files, 777 checks, all passing together (`tests/run.sh`, about
 23 minutes). The browser tests load the app over http (`serve.js`), as a real site.
 
 Files:
@@ -52,5 +52,7 @@ Files:
 - db — the database rules in Postgres: schema.sql on a new project, twice, and on a database from before several coaches; codes; each coach's records; links get their coach from the code; boards, messages, a second coach's link; book files; leave_player, close_player, remove_coach (keep / wipe / a moved player's copy); nightly copies; the website form; phone-alert tables; the hourly player reminders (old: the Postgres rule tests)
 - deploy — the site under /Rank-Up-Chess/ over http: no missing files, manifest, icons, service worker files (old: testghpages)
 - lichess, lichess-student — Lichess puzzles added by themselves
+- lichess-fn — the hourly Lichess job (supabase/functions/lichess) in Deno: a player's record, a student's outbox, the app's rules, deleted entries, links not shared, Lichess busy, a record saved meanwhile
+- lichess-sync — the app's side of the hourly job: an entry it leaves in the outbox, taken in once; a deleted entry remembered on the record (liGone) and never brought back
 - kids, kid, player-backup, close-account, orphan, two-parents — recovered from the session history
 

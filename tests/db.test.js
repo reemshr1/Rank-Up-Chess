@@ -148,6 +148,16 @@ const fresh = name => { run('drop database if exists ' + name + ';', 'postgres')
   const call = JSON.parse(sql("select body from net.calls order by id desc limit 1;").out || '{}');
   check(call.action === 'players' && call.secret === crypto.createHash('sha256').update('priv-key-123').digest('hex'), 'it calls the push function with the secret made from its signing key');
   check(refused(as(ADMIN, 'select public.player_alerts();')), 'and no account can call it');
+  // the hourly Lichess sync
+  r = sql(SQL('supabase/lichess-sync.sql')); const r2 = sql(SQL('supabase/lichess-sync.sql'));
+  check(!r.err && !r2.err && sql("select count(*) from cron.job where jobname = 'rank-up-lichess' and schedule = '35 * * * *';").out === '1', 'lichess-sync.sql runs (twice, safely): the hourly job at :35' + (r.err || r2.err ? ': ' + (r.err || r2.err).split('\n').find(l => /ERROR/.test(l)) : ''));
+  const lsecret = sql('select secret from public.lichess_job;').out;
+  check(/^[0-9a-f]{64}$/.test(lsecret) && sql('select count(*) from public.lichess_job;').out === '1', 'it makes one secret, and keeps it when run again');
+  check((refused(as(ADMIN, 'select * from public.lichess_job;')) || n(ADMIN, 'select * from public.lichess_job') === 0) && (refused(as(null, 'select * from public.lichess_job;')) || n(null, 'select * from public.lichess_job') === 0), 'no account can read the secret');
+  sql('select public.lichess_sync();');
+  const lcall = sql("select url || ' ' || body::text from net.calls order by id desc limit 1;").out;
+  check(/\/functions\/v1\/lichess /.test(lcall) && JSON.parse(lcall.replace(/^\S+ /, '')).secret === crypto.createHash('sha256').update(lsecret).digest('hex'), 'it calls the lichess function with the secret’s hash');
+  check(refused(as(ADMIN, 'select public.lichess_sync();')), 'and no account can call it');
   // ---- a database from before several coaches ----
   fresh('rankup_old');
   const OLD = id('9');

@@ -525,11 +525,15 @@ marks it done.
   kind for the last 7 days: rated puzzles (tried, solved, puzzle rating after), Puzzle Storm, Racer and Streak (runs
   and best score). Minutes are estimated (about 1 a puzzle, 5 at least; Storm 3, Racer 2, Streak 5 a run) and shown
   as "≈ 25 min" until edited. Each entry is marked **auto**; the coach gets it like anything else the student logs.
-  Today's entry grows as they keep solving, unless they edited it; one they delete isn't added back (on that
-  device); a day they logged Lichess puzzles by hand is left alone. Daily practice says which username it reads
-  and when, with **Check now**; without a username it offers **Add Lichess username**. Only the student's own app
-  checks, so a student who doesn't open the app gets them the next time they do. Chess.com doesn't publish a
-  puzzle history, so its puzzles still need logging by hand.
+  Today's entry grows as they keep solving, unless they edited it; one they delete isn't added back (remembered on
+  the record as `liGone`, so not by another device or the hourly job either); a day they logged Lichess puzzles by
+  hand is left alone. Daily practice says which username it reads and when, with **Check now**; without a username
+  it offers **Add Lichess username**. **Every hour, also with no app open** (once set up: `supabase/lichess-sync.sql`
+  and the `lichess` Edge Function), Supabase does the same for every active record with a Lichess username: a
+  student with the app gets the entries in their outbox, as if their app had sent them (they see them at once; the
+  coach's app takes them in when it opens); a player's board, or a student without the app, gets them straight in
+  the record. Both make the same entries, so nothing is added twice. Chess.com doesn't publish a puzzle history, so
+  its puzzles still need logging by hand.
 - **Medals** (Pawn → Knight → Bishop → Rook → Queen → King):
   - practice: days in a row (3 / 7 / 14 / 30 / 60 / 100); missing 2 days in
     a row drops 2 levels, never below Pawn;
