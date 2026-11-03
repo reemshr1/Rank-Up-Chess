@@ -12,7 +12,7 @@ database functions the app calls (become_coach, leave_player, close_player, coac
 `db.test.js` checks the database's own rules in a real Postgres: start it once with `tests/sql/start-pg.sh` (a local
 Postgres on port 5499; `tests/sql/supabase-stub.sql` stands in for what Supabase adds: auth, storage, pg_cron, pg_net).
 
-`push-fn.test.js` and `lichess-fn.test.js` run the real functions (`supabase/functions/push` and `lichess`) in Deno. They needs Deno and the
+`push-fn.test.js` and `lichess-fn.test.js` run the real functions (`supabase/functions/push` and `lichess`) in Deno. They need Deno and the
 `http_ece` package: `npm i deno http_ece` in a folder of your choice, then `DENO=<folder>/node_modules/.bin/deno`
 and that folder's `node_modules` added to NODE_PATH.
 
