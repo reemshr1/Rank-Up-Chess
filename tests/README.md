@@ -46,6 +46,7 @@ Files:
 - player — sign-up with a player code, Welcome to Rank Up, rating from a FIDE number, Home, practice to their own records, tasks, Progress rating card, Check now, Add rating (old: testplayer, testplayerrating)
 - player-tips — every kind of tip, at most 3 in order, the next tournament tile, a parent's board, Hebrew, none for coaches (old: testtips)
 - player-move — Connect to a coach: wrong code, everything moves, From their own board, Moved to a coach on the admin page, a parent's board with the family code (old: testmove)
+- player-review — fixes from the 4 Nov review: a parent's board talks about the child, Hebrew names in Your children, one sign-in card, no double check-in, no empty charts, no Reviewed with coach for players, Add practice starts on the last site
 - player-books — a player's book PDFs (attach, open, replace, remove), endgames by type, PDFs copied to the coach on moving (old: testplayerpdf, testendgames)
 - push-fn — the push function in Deno: the hourly player reminders (17:00 practice, 19:00 tournament or task tomorrow, a parent's board with two children, Hebrew, once only, a gone device forgotten) and the app's key / subscribe / unsubscribe / send rules (old: testplayeralerts and the Deno push harness)
 - hebrew — every page of every app in Hebrew, right to left, and the windows their buttons open (67), with no English left on screen apart from typed data, notation and site names (old: testhe and the untranslated-strings crawl)

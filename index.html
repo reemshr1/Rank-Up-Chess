@@ -2539,6 +2539,7 @@ const SRC_ONLINE = {Endgames:["Lichess","ChessTempo"]}; // sites a topic can als
 const srcOptions = what=>SOURCES.concat(SRC_ONLINE[what]||[]);
 const onlineSrc = w=>!!w && (SRC_ONLINE[w.what]||[]).includes(w.src);
 const ANALYSIS_STATUS = ["Not analysed","In progress","Analysed by student","Reviewed with coach"];
+const analysisOpts = (cur, from=0)=>ANALYSIS_STATUS.slice(from).filter(x=>!NOCOACH() || x!=="Reviewed with coach" || x===cur); // no coach to review with
 const gameKey = w => [(w.gWhite||"").trim().toLowerCase(),(w.gBlack||"").trim().toLowerCase(),w.gDate||""].join("|");
 const SESSION_STATUS = [["planned","Planned"],["done","Done"],["cancelled","Cancelled"]];
 const ICONS = {
@@ -3873,7 +3874,7 @@ function playerTips(s){
   // practice: never, or not for a few days
   if (!log.length) add("warn", "Log your first practice — even 15 minutes counts.", "כדאי לרשום את התרגול הראשון — גם 15 דקות נחשבות.",
     "Nothing logged yet — ask "+n+" to log their first practice (even 15 minutes counts).", "עוד לא נרשם תרגול — אפשר לבקש "+to("מ")+" לרשום את התרגול הראשון (גם 15 דקות נחשבות).");
-  else if (gap && gap.days>=3) add("warn", "No practice for "+gap.days+" days. A short session today gets you back on track.", "אין תרגול כבר "+gap.days+" ימים. אימון קצר היום יחזיר אותך למסלול.",
+  else if (gap && gap.days>=3 && !(STUDENT() && !PLAYER && !PARENT() && askCheckin(s))) add("warn", "No practice for "+gap.days+" days. A short session today gets you back on track.", "אין תרגול כבר "+gap.days+" ימים. אימון קצר היום יחזיר אותך למסלול.",
     n+" hasn't practiced for "+gap.days+" days. A short session today gets them back on track.", to("ל")+" אין תרגול כבר "+gap.days+" ימים. אימון קצר היום יחזיר למסלול.");
   // a tournament this week
   const tour = (s.tournaments||[]).filter(x=>tourAhead(x, t)).map(x=>({x, d:tourNext(x, t)})).filter(o=>o.d>=t && daysBetween(t, o.d)<=7).sort((a,b)=>a.d<b.d?-1:1)[0];
@@ -3939,21 +3940,21 @@ function tipsPanel(s){
   return panel("Tips", '<ul class="list tips">'+tips.map(x=>'<li><span aria-hidden="true">'+(x.kind==="ok" ? "✨" : "💡")+'</span> <span class="tip-text">'+esc(x.text)+'</span></li>').join("")+'</ul>');
 }
 // A parent's board: the child gets their own sign-in with a code, and logs their practice and games themselves.
-function kidPanel(s){
+function kidBody(s){
   const first = esc(firstName(s));
   const c = lastCheckin(s), g = practiceGap(s), said = c && (!g || c.date>=g.last) ? '<p class="small" style="margin:8px 0 0"><span class="muted">'+first+' says:</span> <span class="tag warn">'+esc((CHECKIN_REASONS.find(r=>r[0]===c.reason)||[,"Answered"])[1])+'</span>'+(c.note ? ' “'+esc(c.note)+'”' : '')+' <span class="muted">'+esc(fmtShort(c.date))+'</span></p>' : '';
-  const body = s.portal ? '<p style="margin:0">'+first+' is connected to the app since '+esc(fmtDate(s.portal.linkedAt))+'.</p>'+said+(s.portal.email ? '<p class="small" style="margin:4px 0 0"><span class="muted">Account:</span> <bdi dir="ltr">'+esc(s.portal.email)+'</bdi></p>' : '')
+  return s.portal ? '<p style="margin:0">'+first+' has been connected to the app since '+esc(fmtDate(s.portal.linkedAt))+'.</p>'+said+(s.portal.email ? '<p class="small" style="margin:4px 0 0"><span class="muted">Account:</span> <bdi dir="ltr">'+esc(s.portal.email)+'</bdi></p>' : '')
     : s.invite ? '<ol class="steps"><li>Send '+first+' the link to the app: <bdi class="link-box" dir="ltr">'+esc(APP_LINK())+'</bdi></li><li>They create an account with their own email and a password.</li><li>They enter this code: <b class="num" style="letter-spacing:.08em"><bdi dir="ltr">'+esc(s.invite.code)+'</bdi></b></li></ol>'+
       '<div class="row-actions" style="margin-top:8px"><button class="btn small" data-a="kidMsg">Copy message</button></div>'
     : '<p class="small muted" style="margin:0 0 10px">Your child can sign in on their own phone and log practice, games and tournaments. Everything shows here too.</p><button class="btn small primary" data-a="kidInvite">Send an invite</button>';
-  return panel("The player's own sign-in", body);
 }
+const kidPanel = s=>panel(firstName(s)+"’s own sign-in", kidBody(s));
 // More than one child: each has their own board here and their own sign-in code; the menu switches between them.
 function kidsPanel(s){
   const kids = myKids();
   if (kids.length<2) return '<section class="panel" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><div style="flex:1;min-width:0"><b>Another child playing chess?</b><div class="small muted">Add them here: each child gets their own board and their own sign-in code.</div></div><button class="btn small" data-a="addKid">Add a child</button></section>';
-  return panel("Your children", '<ul class="list">'+kids.map(k=>'<li><div class="main"><div class="title">'+(k===s ? '<b>'+esc(k.name)+'</b>' : '<a href="#/home" data-a="kid" data-id="'+esc(k.id)+'">'+esc(k.name)+'</a>')+'</div>'+
-      '<div class="small muted">'+(k.portal ? "Signs in on their own" : k.invite ? "Invite sent, not signed in yet" : "No sign-in yet")+'</div></div>'+(k===s ? '<span class="tag board">Shown</span>' : '')+'</li>').join("")+'</ul>',
+  return panel("Your children", '<ul class="list">'+kids.map(k=>'<li><div class="main"><div class="title">'+(k===s ? '<b>'+esc(fullName(k))+'</b>' : '<a href="#/home" data-a="kid" data-id="'+esc(k.id)+'">'+esc(fullName(k))+'</a>')+'</div>'+
+      (k===s ? '<div class="small" style="margin-top:4px">'+kidBody(k)+'</div>' : '<div class="small muted">'+(k.portal ? "Signs in on their own" : k.invite ? "Invite sent, not signed in yet" : "No sign-in yet")+'</div>')+'</div>'+(k===s ? '<span class="tag board">Shown</span>' : '')+'</li>').join("")+'</ul>',
     '<button class="btn small" data-a="addKid">Add a child</button>');
 }
 function removeKid(x){
@@ -4585,7 +4586,7 @@ function pProgress(v, s){
   const COL = ["var(--sq-dark)","var(--green)","var(--yellow)","#7FA9F0","#B5DDA8","#E0B94A"];
   const periods = [[30,"30 days"],[90,"90 days"],[365,"Year"],[0,"All time"]];
   const tile = (val, lab)=>'<div class="stat"><div class="v num">'+val+'</div><div class="l">'+lab+'</div></div>';
-  v.innerHTML = '<div class="page-head"><div><h1>'+(PARENT() ? esc(first)+'’s progress' : 'Your progress')+'</h1>'+freshness(s)+'</div>'+
+  v.innerHTML = '<div class="page-head"><div><h1>'+(!ownView(s) ? esc(first)+'’s progress' : 'Your progress')+'</h1>'+freshness(s)+'</div>'+
       '<div class="seg" role="group" aria-label="Period" style="margin:0">'+periods.map(([n,l])=>'<button type="button" class="'+(progPeriod===n?"on":"")+'" data-a="pp" data-id="'+n+'">'+l+'</button>').join("")+'</div></div>'+
     '<div class="stats">'+(NOCOACH() ? tile(s.worklog.filter(w=>w.date>=from).length, "Practice sessions") : tile(lessons.length, "Lessons ("+lessonH.toFixed(1)+" h)"))+tile(Math.round(mins/60*10)/10+" h", "Practice")+tile(asDone, "Tasks done")+tile(games.length ? score+"/"+games.length : "—", "Score in games")+'</div>'+
     '<div class="grid g2">'+
@@ -4759,7 +4760,7 @@ function pHome(v, s){
       '<div class="row-actions">'+(pendingReports(s).length ? ''
         : (s.pay.balance>0.009 || (s.pay.open||[]).some(x=>!x.upcoming)) ? '<button type="button" class="btn small" id="iPaid">I\'ve paid</button>' : '')+'<a class="btn small" href="#/payments">Statement</a></div>') : '')+
     (NOCOACH() ? '' : updatesPanel(s))+ // updates are what a coach changed
-    (PLAYER && s.setup==="parent" ? kidPanel(s)+kidsPanel(s) : '')+
+    (PLAYER && s.setup==="parent" ? (myKids().length>1 ? '' : kidPanel(s))+kidsPanel(s) : '')+
     (NOCOACH() ? tipsPanel(s) : '')+
     panel("Coming up", (lessons.length||tours.length||pend.length||clubs.length) ? '<ul class="list">'+
         // one list in date and time order: lessons, club classes, tournaments and requests together
@@ -5890,7 +5891,7 @@ function appPanel(s){
   const first = esc(firstName(s));
   let body;
   if (store.kind!=="db") body = '<p class="small muted" style="margin:0">The student app works in the published Rank Up on claude.ai, where your records are stored in your account.</p>';
-  else if (s.portal) body = '<p style="margin:0">'+first+' is connected to the app since '+esc(fmtDate(s.portal.linkedAt))+'.</p>'+(s.portal.email ? '<p class="small" style="margin:4px 0 0"><span class="muted">Account:</span> <bdi dir="ltr">'+esc(s.portal.email)+'</bdi></p>' : '')+'<p class="small muted">They see their lessons, assignments, goals, games, practice, reading and repertoire. They don\'t see payments, fees, contact details, other students or notes you keep private.</p><button class="btn small ghost danger" data-a="unlink">Disconnect</button>';
+  else if (s.portal) body = '<p style="margin:0">'+first+' has been connected to the app since '+esc(fmtDate(s.portal.linkedAt))+'.</p>'+(s.portal.email ? '<p class="small" style="margin:4px 0 0"><span class="muted">Account:</span> <bdi dir="ltr">'+esc(s.portal.email)+'</bdi></p>' : '')+'<p class="small muted">They see their lessons, assignments, goals, games, practice, reading and repertoire. They don\'t see payments, fees, contact details, other students or notes you keep private.</p><button class="btn small ghost danger" data-a="unlink">Disconnect</button>';
   else if (s.invite) body = '<ol class="steps">'+(WEB?'<li>Send '+first+' the link to the app: <bdi class="link-box" dir="ltr">'+esc(APP_LINK())+'</bdi></li><li>They create an account with their email and a password.</li>':'<li>Share Rank Up with '+first+' (or a parent) by email and give them Editor access. Don\'t turn on a public link.</li>')+'<li>Give them this code: <span class="code-box">'+esc(s.invite.code)+'</span></li><li>They open the app and enter the code. They\'re connected the next time you open Rank Up.</li></ol><div class="row-actions"><button class="btn small primary" data-a="sendInv">Send invite message</button><button class="btn small ghost" data-a="uninvite">Cancel invite</button></div>';
   else body = '<p class="small muted" style="margin:0 0 10px">'+first+' can see their assignments, lessons and goals, log practice and games, and ask you for lessons — in their own account.</p><button class="btn small primary" data-a="invite">Invite to the app</button>';
   if (s.portal && (s.portal.others||[]).length) body += '<p class="small" style="margin:8px 0 0"><span class="tag">Also works with</span> '+esc(s.portal.others.join(", "))+'</p>';
@@ -6137,9 +6138,9 @@ function tacticsStats(s, days){
       '<div><div class="v num">'+(p===null?"—":p+"%")+'</div><div class="l">Accuracy</div></div>'+
       '<div><div class="v num">'+(att&&mins?(att/mins).toFixed(1):"—")+'</div><div class="l">Puzzles per minute</div></div></div>'+
     '<h3 class="subh">Best scores</h3>'+best+
-    '<h3 class="subh">Accuracy by week</h3>'+
+    (!weeks.some(w=>w.a) ? '' : '<h3 class="subh">Accuracy by week</h3>'+
     '<div class="wbars" role="img" aria-label="Weekly tactics accuracy for the last 8 weeks">'+weeks.map(w=>'<div title="'+esc(fmtShort(w.start))+' – '+esc(fmtShort(w.end))+': '+(w.a?w.c+"/"+w.a+" correct":"no puzzles")+'"><span class="pct num">'+(w.p===null?"":w.p+"%")+'</span><span class="bar" style="height:'+(w.p===null?0:Math.max(4,w.p))+'%"></span><span class="vol" style="width:'+Math.round(w.a/maxA*100)+'%"></span><span class="wl">'+esc(fmtDate(w.start,{day:"numeric",month:"numeric"}))+'</span></div>').join("")+'</div>'+
-    '<p class="small muted" style="margin:4px 0 0">Bar height is accuracy; the thin line under each week shows how many puzzles were attempted.</p>'+
+    '<p class="small muted" style="margin:4px 0 0">Bar height is accuracy; the thin line under each week shows how many puzzles were attempted.</p>')+
     (rows.length?'<div class="table-wrap" style="margin-top:16px"><table><thead><tr><th>Where</th><th class="r">Attempted</th><th class="r">Accuracy</th><th>Progress</th></tr></thead><tbody>'+
       rows.map(r=>'<tr><td><b>'+esc(r.site)+'</b><div class="small muted">'+esc(r.ex)+'</div></td><td class="r num">'+esc(r.att)+'</td><td class="r num">'+esc(r.acc)+'</td><td class="small">'+esc(r.extra)+'</td></tr>').join("")+'</tbody></table></div>'
       :'<p class="empty">'+(logs.length ? "Tactics sessions in this period have no puzzle counts — add how many puzzles were tried and solved to see the accuracy." : "No tactics logged in this period.")+'</p>');
@@ -6201,6 +6202,8 @@ function bindUsernames(el, s, list){
    with estimated minutes. Today's entry grows while they keep solving, unless they edited it; one they deleted stays
    deleted on that device. A day they already logged Lichess puzzles by hand is left alone. Nothing is read from
    Lichess beyond the public feed, and only the last 7 days. */
+// Where a new tactics session starts: the site last logged by hand (Lichess puzzles are added by themselves).
+const lastSite = s=>{ const w = sortBy((s.worklog||[]).filter(w=>w.what==="Tactics" && w.site && !w.auto && TACTICS_SITES[w.site]), "date", -1)[0]; return w ? w.site : "Chess.com"; };
 const LI_KINDS = [["puzzles","Puzzles (rated)"],["storm","Puzzle Storm"],["racer","Puzzle Racer"],["streak","Puzzle Streak"]];
 const liUser = s=>((s && s.usernames)||{})["lichess.org"]||"";
 // Lichess entries someone deleted: kept on the record (liGone, shared with the student's board and read by the hourly
@@ -6358,13 +6361,13 @@ function streakLine(s){
 }
 function medalsPanel(s){
   const st = streaksOf(s), first = firstName(s);
-  return panel(STUDENT() && !PARENT() ? "My medals" : first+"’s medals", Object.keys(STREAKS).map(k=>{ const d = STREAKS[k], o = st[k], u = n=>n+" "+d.unit+(n===1?"":"s");
+  return panel(ownView(s) ? "My medals" : first+"’s medals", Object.keys(STREAKS).map(k=>{ const d = STREAKS[k], o = st[k], u = n=>n+" "+d.unit+(n===1?"":"s");
     if (!o) return '<div class="medal-track"><b>'+d.label+'</b><p class="small muted" style="margin:4px 0 0">'+(PLAYER ? "Set a weekly goal on Practice → Fitness to start this streak." : STUDENT() ? (NOCOACH() ? "Starts once your parent sets a weekly fitness goal." : "Starts once your coach sets a weekly fitness goal.") : "Set a weekly fitness goal in the Fitness tab to start this streak.")+'</p></div>';
     const won = tierOf(d.steps, o.best), nxt = d.steps.find(x=>x>o.best); // medals earned stay; the next one not earned yet
     return '<div class="medal-track"><b>'+d.label+'</b><div class="medal-shelf">'+d.steps.map((x,i)=>'<div class="'+(i<won?"won":"todo")+'">'+medal(i+1)+'<span class="small">'+MEDALS[i][1]+'</span><span class="small muted">'+u(x)+'</span></div>').join("")+'</div>'+
       (k==="practice"
         ? '<p class="small muted" style="margin:6px 0 0"><span>Now: '+u(o.now)+' in a row</span> · <span>Best: '+u(o.best)+'</span>'+(nxt ? ' · <span>'+u(nxt-o.now)+' more to '+MEDALS[d.steps.indexOf(nxt)][1]+'</span>' : '')+'</p>'+
-          '<p class="small muted" style="margin:2px 0 0">Miss a day and the streak starts again; medals you’ve earned stay.</p>'
+          '<p class="small muted" style="margin:2px 0 0">'+(ownView(s) ? "Miss a day and the streak starts again; medals you’ve earned stay." : "A missed day starts the streak again; medals earned stay.")+'</p>'
         : '<p class="small muted" style="margin:6px 0 0"><span>Now: '+u(o.now)+'</span> · <span>Best: '+u(o.best)+'</span>'+(nxt ? ' · <span>'+u(nxt-o.now)+' more to '+MEDALS[d.steps.indexOf(nxt)][1]+'</span>' : '')+'</p>')+'</div>'; }).join(""));
 }
 // A club group's shared monthly workout target. The coach's app counts the whole group; a student's app gets
@@ -6412,7 +6415,7 @@ function tFitness(el, s){ const nav = groupNav(s, "fitness");
       (g.m ? meter(now.m, g.m, "minutes this week") : '')+
       '<p class="small muted" style="margin:0">'+(fitMet(s, now) ? "Weekly goal reached!" : fitNeedText({n:Math.max(0, g.n-now.n), m:Math.max(0, g.m-now.m)}, "to reach the weekly goal"))+(streak>1?' · '+streak+' weeks in a row':'')+'</p>'
     : '<p style="margin:0"><b class="num">'+now.n+'</b> <span class="muted">workouts this week'+(now.m?' · '+now.m+' min':'')+'</span></p><p class="small muted" style="margin:6px 0 0">'+(PLAYER ? "No weekly goal yet — set one to have something to aim for." : STUDENT() ? "No weekly goal set yet." : "No weekly goal yet — set one so "+esc(first)+" has something to aim for.")+'</p>';
-  const bars = '<div class="wbars" style="margin-top:16px" role="img" aria-label="'+(byMin?"Minutes":"Workouts")+' per week, last 8 weeks">'+weeks.map((w,i)=>'<div title="'+esc(fmtShort(w.a))+': '+w.n+(w.m?' · '+w.m+' min':'')+'">'+(val(w)?'<span class="pct">'+val(w)+'</span>':'')+'<span class="bar" style="height:'+Math.round(val(w)/maxN*100)+'px;'+(fitMet(s, w)?'background:var(--green)':i===7?'opacity:.6':'')+'"></span><span class="wl">'+esc(new Date(w.a+"T00:00").toLocaleDateString(LOCALE(),{day:"numeric",month:"numeric"}))+'</span></div>').join("")+'</div>'+
+  const bars = !weeks.some(w=>w.n) ? '' : '<div class="wbars" style="margin-top:16px" role="img" aria-label="'+(byMin?"Minutes":"Workouts")+' per week, last 8 weeks">'+weeks.map((w,i)=>'<div title="'+esc(fmtShort(w.a))+': '+w.n+(w.m?' · '+w.m+' min':'')+'">'+(val(w)?'<span class="pct">'+val(w)+'</span>':'')+'<span class="bar" style="height:'+Math.round(val(w)/maxN*100)+'px;'+(fitMet(s, w)?'background:var(--green)':i===7?'opacity:.6':'')+'"></span><span class="wl">'+esc(new Date(w.a+"T00:00").toLocaleDateString(LOCALE(),{day:"numeric",month:"numeric"}))+'</span></div>').join("")+'</div>'+
     (goal?'<p class="small muted" style="margin:6px 0 0">Green weeks reached the goal of '+fitGoalText(s)+'.</p>':'');
   const shown = fitShown[s.id]||25, rows = sortBy(list,"date",-1);
   el.innerHTML = nav+'<div class="grid g2">'+
@@ -6421,7 +6424,7 @@ function tFitness(el, s){ const nav = groupNav(s, "fitness");
       '<div class="row-actions" style="margin-top:14px">'+(STUDENT() && !PLAYER ? '' : '<button class="btn small" data-a="fitGoal">'+(goal?"Change weekly goal":"Set weekly goal")+'</button>')+'<button class="btn small primary" data-a="addFit">Log a workout</button></div>')+
     panel("Workouts", rows.length ? '<ul class="list">'+rows.slice(0,shown).map(w=>'<li><div class="main"><div class="title">'+esc(fitName(w))+(w.by==="student"&&!STUDENT()?' <span class="tag">by student</span>':'')+'</div><div class="small muted">'+esc(fmtDate(w.date,{weekday:"short",day:"numeric",month:"short"}))+(w.minutes?' · '+esc(w.minutes)+' min':'')+'</div></div><button class="btn small ghost" data-a="editFit" data-id="'+w.id+'">Edit</button></li>').join("")+'</ul>'+
       (rows.length>shown?'<div class="row-actions" style="margin-top:8px"><button class="btn small" data-a="more">Show 25 more</button></div>':'')
-      : '<p class="empty">'+(PARENT() ? "No workouts logged yet." : "No workouts logged yet. Log one after each workout — running, football, swimming, anything active.")+'</p>')+
+      : '<p class="empty">'+(PARENT() ? "No workouts logged yet." : !ownView(s) ? "No workouts logged yet. Log each workout — running, football, swimming, anything active." : "No workouts logged yet. Log one after each workout — running, football, swimming, anything active.")+'</p>')+
     chal.map(({r,c})=>panel(clubName(r)+" challenge", '<p style="margin:0"><b class="num">'+c.done+' of '+c.target+'</b> <span class="muted">group workouts this month</span></p>'+
       '<div class="fit-meter" role="img" aria-label="'+c.done+' of '+c.target+' group workouts this month"><span style="width:'+Math.min(100, c.done/c.target*100)+'%"></span></div>'+
       '<p class="small muted" style="margin:0">'+(c.done>=c.target ? "The group reached the target!" : (STUDENT() ? (PARENT() ? first+" added " : "You added ")+c.mine+" this month" : (c.target-c.done)+" to go"))+'</p>')).join("")+
@@ -6479,7 +6482,7 @@ function openPractice(s, entry, preset){
     {name:"date",label:"Date",type:"date",value:x?.date||t},
     {name:"minutes",label:"Minutes",type:"number",value:x?.minutes??30,min:0},
     {name:"what",label:STUDENT()?"What you worked on":"What they worked on",type:"select",options:TASK_CATS,value:x?.what||"Tactics",full:true},
-    {name:"site",label:"Where",type:"select",options:Object.keys(TACTICS_SITES),value:x?.site||"Chess.com",show:isTac},
+    {name:"site",label:"Where",type:"select",options:Object.keys(TACTICS_SITES),value:x?.site||lastSite(s),show:isTac},
     {name:"exercise",label:"Type of exercise",type:"select",options:v=>(TACTICS_SITES[v.site]||[]).map(e=>e[0]),value:x?.exercise||"",show:isTac},
     {name:"eg",label:"Which endgames",type:"checks",compact:true,placeholder:"Choose — optional",options:EG_TYPES.map(e=>[e[0], e[1], egName(e[0])]),value:egOf(x).join(","),full:true,show:v=>v.what==="Endgames",hint:"Tick everything this session covered."},
     {name:"src",label:"Where",type:"select",options:v=>srcOptions(v.what),value:x?.src||"Book",show:isSrc},
@@ -6489,7 +6492,7 @@ function openPractice(s, entry, preset){
     {name:"cbCount",label:"Positions / games covered",type:"number",value:x?.cbCount??"",min:0,show:isCB},
     {name:"gWhose",label:"Whose game",type:"select",options:[["own","A game "+firstName(s)+" played"],["other","A game by other players"]],value:x?.gWhose||((x?.gameId&&(state.games.find(g=>g.id===x.gameId)||{}).kind==="study")?"other":"own"),full:true,show:isGame},
     {name:"gameId",label:"Which game",type:"select",options:gameOpts,value:x?.gameId||"",full:true,show:isGame},
-    {name:"gStatus",label:"Analysis status after this session",type:"select",options:ANALYSIS_STATUS.slice(1),value:x?.gStatus||"In progress",full:true,show:isGame},
+    {name:"gStatus",label:"Analysis status after this session",type:"select",options:analysisOpts(x?.gStatus, 1),value:x?.gStatus||"In progress",full:true,show:isGame},
     {name:"bookId",label:"Book",type:"select",options:bookOpts,value:x?.bookId||"",full:true,show:showBook},
     {name:"pageFrom",label:"From page",type:"number",value:x?.pageFrom??"",min:1,show:v=>showBook(v)&&!!v.bookId,hint:"Only for a part of the book, e.g. one chapter. Leave empty to continue from the last stop."},
     {name:"page",label:"To page",type:"number",value:x?.page??"",min:0,show:v=>showBook(v)&&!!v.bookId,hint:STUDENT() ? "The page you stopped on" : "The page they stopped on"},
@@ -6834,7 +6837,7 @@ function editGame(s, g, preset){
       {name:"event",label:"Event name",value:x.event,placeholder:"e.g. Club blitz night",show:v=>!v.tournamentId},
       {name:"round",label:"Round",value:x.round,placeholder:"e.g. 4"},
       {name:"opening",label:"Opening",value:x.opening,placeholder:"e.g. Caro-Kann, Advance"},
-      {name:"analysis",label:"Analysis status",type:"select",options:ANALYSIS_STATUS,value:x.analysis||"Not analysed",full:true},
+      {name:"analysis",label:"Analysis status",type:"select",options:analysisOpts(x.analysis),value:x.analysis||"Not analysed",full:true},
       {name:"notes",label:"Notes",type:"textarea",value:x.notes,placeholder:"Key moments, what went wrong, what to work on"},
       {name:"pgn",label:"PGN (optional)",type:"textarea",value:x.pgn,placeholder:"Paste the game's PGN to replay it on the board"}],
     danger: isNew || (STUDENT() && x.by!=="student") ? null : {label:"Delete game", onClick:()=>confirmBox("Delete this game?", gameTitle(x)+" will be removed from the game history. Analysis sessions already logged stay in the practice log.","Delete",()=>{
@@ -6879,7 +6882,8 @@ function tGames(el, s){
   const all = sortBy(studentGames(s.id),"date",-1);
   if (gameFilter.tid && !s.tournaments.some(t=>t.id===gameFilter.tid)) gameFilter.tid = "";
   const F = {all:()=>true, open:g=>(g.analysis||"Not analysed")==="Not analysed", prog:g=>g.analysis==="In progress"||g.analysis==="Analysed by student", done:g=>g.analysis==="Reviewed with coach"};
-  const L = {all:"All", open:"Not analysed", prog:"In analysis", done:"Reviewed"};
+  const L = {all:"All", open:"Not analysed", prog:"In analysis", done:"Reviewed"}; if (NOCOACH()){ delete F.done; delete L.done; } // no coach to review with
+  if (!F[gameFilter.status]) gameFilter.status = "all";
   const opOf = g=>{ const o = openingOf(g); return o ? o.key : ""; };
   const list = all.filter(F[gameFilter.status]).filter(g=>!gameFilter.tid || g.tournamentId===gameFilter.tid).filter(g=>!gameFilter.op || opOf(g)===gameFilter.op);
   const opName = gameFilter.op ? gameFilter.op.replace("|", " · ") : "";
@@ -6960,7 +6964,7 @@ function editStudyGame(s, g){
       {name:"opening",label:"Opening",value:x.opening,placeholder:"e.g. Dutch Defence"},
       {name:"theme",label:"Theme / what to learn",value:x.theme,placeholder:"e.g. Rook endgame technique",suggest:themes},
       {name:"source",label:"Found in",type:"select",options:STUDY_SOURCES,value:x.source},
-      {name:"analysis",label:"Analysis status",type:"select",options:ANALYSIS_STATUS,value:x.analysis||"Not analysed"},
+      {name:"analysis",label:"Analysis status",type:"select",options:analysisOpts(x.analysis),value:x.analysis||"Not analysed"},
       {name:"notes",label:"Lessons learned",type:"textarea",value:x.notes,placeholder:STUDENT() ? "What you took from this game" : "What the student took from this game"},
       {name:"pgn",label:"PGN (optional)",type:"textarea",value:x.pgn,placeholder:"Paste the game's PGN to replay it on the board"}],
     danger: isNew || (STUDENT() && x.by!=="student") ? null : {label:"Delete game", onClick:()=>confirmBox("Delete this game?", studyTitle(x)+" will be removed. Analysis sessions already logged stay in the practice log.","Delete",()=>{
@@ -6990,7 +6994,8 @@ let studyFilter = "all";
 function tStudied(el, s){
   const all = studyGames(s.id).slice().sort((a,b)=>(b.lastAnalysed||b.added||"")>(a.lastAnalysed||a.added||"")?1:-1);
   const F = {all:()=>true, open:g=>(g.analysis||"Not analysed")==="Not analysed", prog:g=>g.analysis==="In progress"||g.analysis==="Analysed by student", done:g=>g.analysis==="Reviewed with coach"};
-  const L = {all:"All", open:"Not analysed", prog:"In analysis", done:"Reviewed"};
+  const L = {all:"All", open:"Not analysed", prog:"In analysis", done:"Reviewed"}; if (NOCOACH()){ delete F.done; delete L.done; } // no coach to review with
+  if (!F[studyFilter]) studyFilter = "all";
   const list = all.filter(F[studyFilter]);
   const sess = id=>s.worklog.filter(w=>w.gameId===id);
   const mins = all.reduce((a,g)=>a+sess(g.id).reduce((x,w)=>x+(+w.minutes||0),0),0);
@@ -8485,7 +8490,7 @@ const HE = {
   "Message parents":"הודעה להורים", "Write once — each child’s name and the right boy/girl words are filled in for every parent.":"כותבים פעם אחת — השם של כל ילד/ה והניסוח לבן או לבת מתמלאים לכל הורה.", "Message":"הודעה", "Send":"שליחה",
   "Insert {name}":"הוספת {name}", "Use the fitness message":"להשתמש בהודעה על הכושר", "All active students":"כל התלמידים הפעילים", "Parents with the app":"הורים עם האפליקציה", "Preview":"תצוגה מקדימה", "Sent":"נשלח",
   "No phone number":"אין מספר טלפון", "Use the fitness message?":"להשתמש בהודעה על הכושר?", "The text in the box will be replaced.":"הטקסט בתיבה יוחלף.", "Replace":"החלפה", "Message copied":"ההודעה הועתקה",
-  "No parent has connected to the app yet.":"עדיין אף הורה לא התחבר לאפליקציה.", "No active students.":"אין תלמידים פעילים.", "no Hebrew name":"אין שם בעברית", "boy/girl not set":"לא צוין בן/בת", "Practice today to keep your streak":"כדאי לתרגל היום כדי לשמור על הרצף", "Miss 2 days in a row and you drop 2 levels.":"יומיים ברצף בלי תרגול — יורדים שתי דרגות.", "Miss a day and the streak starts again; medals you’ve earned stay.":"יום בלי תרגול — הרצף מתחיל מחדש; מדליות שהרווחת נשארות.",
+  "No parent has connected to the app yet.":"עדיין אף הורה לא התחבר לאפליקציה.", "No active students.":"אין תלמידים פעילים.", "no Hebrew name":"אין שם בעברית", "boy/girl not set":"לא צוין בן/בת", "Practice today to keep your streak":"כדאי לתרגל היום כדי לשמור על הרצף", "Miss 2 days in a row and you drop 2 levels.":"יומיים ברצף בלי תרגול — יורדים שתי דרגות.", "Miss a day and the streak starts again; medals you’ve earned stay.":"יום בלי תרגול — הרצף מתחיל מחדש; מדליות שהרווחת נשארות.", "A missed day starts the streak again; medals earned stay.":"יום בלי תרגול — הרצף מתחיל מחדש; מדליות שהושגו נשארות.", "No workouts logged yet. Log each workout — running, football, swimming, anything active.":"עדיין לא תועדו אימוני כושר. כדאי לתעד כל אימון — ריצה, כדורגל, שחייה, כל פעילות.",
   "Busy with school / exams":"עסוק/ה בבית הספר / מבחנים", "I was sick":"הייתי חולה", "Taking a short break":"לוקח/ת הפסקה קצרה", "Something else":"משהו אחר", "I practiced — log it now":"תרגלתי — לרשום עכשיו",
   "What’s going on? Your coach would like to know.":"מה קורה? המאמן ישמח לדעת.", "No practice logged yet":"עדיין לא נרשם תרגול", "Thanks — your coach will see it":"תודה — המאמן יראה את זה", "What’s going on? Your parent would like to know.":"מה קורה? ההורים ישמחו לדעת.", "Thanks — your parent will see it":"תודה — ההורים יראו את זה", "Send to your parent":"שליחה להורים", "A few words for your parent":"כמה מילים להורים",
   "What’s going on?":"מה קורה?", "A few words for your coach":"כמה מילים למאמן", "Write a few words, or pick one of the other answers.":"אפשר לכתוב כמה מילים או לבחור אחת מהתשובות האחרות.",
@@ -9068,7 +9073,7 @@ const HE_RX = [
   [/^Lesson requests \((\d+)\)$/, "בקשות לשיעור ($1)"],
   [/^Disconnect (.+)\?$/, "לנתק את $1?"], [/^(.+) disconnected$/, "$1 נותק/ה"], [/^(.+) is now connected to the app$/, "$1 מחובר/ת לאפליקציה"],
   [/^Waiting for (.+)$/, "ממתין ל־$1"], [/^Notes are now visible to (.+)$/, "ההערות גלויות עכשיו ל־$1"],
-  [/^(.+) is connected to the app since (.+)\.$/, "$1 מחובר/ת לאפליקציה מאז $2."],
+  [/^(.+) (?:is|has been) connected to the app since (.+)\.$/, "$1 מחובר/ת לאפליקציה מאז $2."], [/^(.+)’s own sign-in$/, "הכניסה של $1"], [/^(.+)’s medals$/, "המדליות של $1"],
   [/^(.+) can see their assignments, lessons and goals, log practice and games, and ask you for lessons — in their own account\.$/, "$1 יכול/ה לראות משימות, שיעורים ומטרות, לרשום תרגול ומשחקים ולבקש שיעורים — בחשבון שלו/ה."],
   [/^Lesson added — (.+) will see it in their app$/, "השיעור נוסף — $1 יראה אותו באפליקציה"],
   [/^Lesson changed to (online|in person) — (.+) will see it in their app$/, (m,f,n)=>"השיעור הועבר ל"+(f==="online"?"אונליין":"פרונטלי")+" — "+n+" יראה זאת באפליקציה"],
