@@ -2975,7 +2975,7 @@ function studentView(s){
   return JSON.parse(JSON.stringify({id:s.id, name:s.name, nameHe:s.nameHe||"", fullHe:s.fullHe||"", level:s.level, levelHe:s.levelHe||"", rating:s.rating, ratingType:s.ratingType, fideId:s.fideId, icfId:s.icfId, fide:s.fide, icf:s.icf, noId:s.noId,
     goals:s.goals, notes:s.notesShared ? s.notes : "", notesShared:!!s.notesShared, active:s.active, createdAt:s.createdAt,
     sessions:s.sessions.map(x=>({id:x.id, date:x.date, time:x.time, duration:x.duration, format:x.format, place:x.place||"", status:x.status, topics:x.topics, added:x.added, notes:isShared(x.shareNotes)?x.notes:"", slotId:x.slotId, slotDate:x.slotDate})),
-    worklog:s.worklog, repertoire:s.repertoire, tournaments:s.tournaments.map(({assist, assistDays, assistFee, assistReason, ...x})=>x), books:s.books, ratings:s.ratings, training:s.training||[], requests:s.requests||[], offers:s.offers||[], checkins:s.checkins||[], notices:(s.notices||[]).filter(n=>(n.to||[]).includes("student") && liveNotice(n)), noticeReads:(s.noticeReads||[]), appSince:(s.portal && s.portal.linkedAt)||"", fitness:s.fitness||[], fitnessGoal:+s.fitnessGoal||0, fitnessMinGoal:+s.fitnessMinGoal||0, sleep:s.sleep||[],
+    worklog:s.worklog, repertoire:s.repertoire, tournaments:s.tournaments.map(({assist, assistDays, assistFee, assistReason, ...x})=>x), books:s.books, ratings:s.ratings, training:s.training||[], requests:s.requests||[], offers:s.offers||[], checkins:s.checkins||[], notices:(s.notices||[]).filter(n=>(n.to||[]).includes("student") && liveNotice(n)), noticeReads:(s.noticeReads||[]), appSince:(s.portal && s.portal.linkedAt)||"", fitness:s.fitness||[], fitnessGoal:+s.fitnessGoal||0, fitGoals:s.fitGoals||[], fitnessMinGoal:+s.fitnessMinGoal||0, sleep:s.sleep||[],
     coachName:state.settings.coachName||"", coachNameHe:state.settings.coachNameHe||"", weekStart:state.settings.weekStart||0, links:coachLinks().map(({id,name,url,note})=>({id,name,url,note})), usernames:s.usernames||{}, liGone:s.liGone||[], linkOrder:s.linkOrder||[],
     noCoach:PLAYER, clubOnly:!!s.clubOnly, clubs:clubsOf(s).map(({rate, att, ...r})=>Object.assign(r, {challenge:groupChallenge(r, s)})),
     freeSet:freeRules().some(r=>r.kind!=="off"), free:openSlots(today(), addDays(today(),56), s.id).free, taken:[]})); // other students' bookings just leave a gap
@@ -5316,9 +5316,11 @@ const PRACTICE_GAP_DAYS = 2;
 const ASK_GAP_DAYS = PRACTICE_GAP_DAYS; // the student is asked the same day the coach sees them as quiet
 const CHECKIN_REASONS = [["busy","Busy with school / exams"],["sick","I was sick"],["break","Taking a short break"],["other","Something else"]];
 // Days since the student last logged practice (or since they got the app, if they never have); null if neither.
+// Days since the last practice (an entry with minutes; one with 0 minutes isn't practice).
 function practiceGap(s){
-  const last = s.worklog.reduce((m,w)=>w.date>m?w.date:m, "") || (s.portal && s.portal.linkedAt) || s.appSince || "";
-  return last ? {days:daysBetween(last, today()), never:!s.worklog.length, last} : null;
+  const log = s.worklog.filter(w=>+w.minutes>0);
+  const last = log.reduce((m,w)=>w.date>m?w.date:m, "") || (s.portal && s.portal.linkedAt) || s.appSince || "";
+  return last ? {days:daysBetween(last, today()), never:!log.length, last} : null;
 }
 const lastCheckin = s=>sortBy(s.checkins||[],"date").pop();
 // After an answer, ask again once another 2 days pass without practice.
@@ -6294,10 +6296,20 @@ const FIT_KINDS = ["Running","Walking","Cycling","Swimming","Football","Basketba
 const fitShown = {};
 const fitName = w=>w.activity==="Other sport" && w.other ? w.other : (w.activity||"Workout");
 // The weekly fitness goal: a number of workouts, a number of minutes, or both (then a week needs both).
-const fitGoal = s=>({n:Math.max(0, +s.fitnessGoal||0), m:Math.max(0, +s.fitnessMinGoal||0)});
+// fitGoals keeps each change with the week it started ({from, n, m}; "" = before the first change), so every week is
+// judged by the goal it had: a new goal counts from this week on, and medals already earned stay.
+const fitGoal = (s, a)=>{ const L = s.fitGoals||[];
+  if (a && L.length){ const e = L.filter(x=>x.from<=a).pop(); return e ? {n:Math.max(0, +e.n||0), m:Math.max(0, +e.m||0)} : {n:0, m:0}; }
+  return {n:Math.max(0, +s.fitnessGoal||0), m:Math.max(0, +s.fitnessMinGoal||0)}; };
+function setFitGoal(s, n, m){
+  const ws = weekStartOf(today()), L = (s.fitGoals||[]).slice();
+  if (!L.length) L.push({from:"", n:+s.fitnessGoal||0, m:+s.fitnessMinGoal||0}); // the goal until now
+  const i = L.findIndex(x=>x.from===ws), e = {from:ws, n, m}; if (i>=0) L[i] = e; else L.push(e);
+  s.fitGoals = L.sort((a,b)=>a.from<b.from?-1:1).slice(-50); s.fitnessGoal = n; s.fitnessMinGoal = m;
+}
 const hasFitGoal = s=>{ const g = fitGoal(s); return !!(g.n || g.m); };
-const fitWeek = (s, a, to)=>{ const b = to || addDays(a,6), ws = (s.fitness||[]).filter(w=>w.date>=a && w.date<=b); return {n:ws.length, m:ws.reduce((x,w)=>x+(+w.minutes||0),0)}; };
-const fitMet = (s, wk)=>{ const g = fitGoal(s); return !!(g.n || g.m) && wk.n>=g.n && wk.m>=g.m; };
+const fitWeek = (s, a, to)=>{ const b = to || addDays(a,6), ws = (s.fitness||[]).filter(w=>w.date>=a && w.date<=b); return {a, n:ws.length, m:ws.reduce((x,w)=>x+(+w.minutes||0),0)}; };
+const fitMet = (s, wk)=>{ const g = fitGoal(s, wk.a); return !!(g.n || g.m) && wk.n>=g.n && wk.m>=g.m; };
 // What's still missing this week, e.g. "2 more workouts and 30 more minutes" (`tail` follows it).
 function fitNeedText(need, tail){
   const p = [need.n ? need.n+" more workout"+(need.n===1?"":"s") : "", need.m ? need.m+" more minutes" : ""].filter(Boolean);
@@ -6314,18 +6326,15 @@ function fitStreak(s){
 const MEDALS = [["pawn","Pawn","♟"],["knight","Knight","♞"],["bishop","Bishop","♝"],["rook","Rook","♜"],["queen","Queen","♛"],["king","King","♚"]];
 const STREAKS = {practice:{label:"Practice streak", unit:"day", steps:[3,7,14,30,60,100]}, fitness:{label:"Fitness streak", unit:"week", steps:[2,4,8,12,20,30]}};
 const tierOf = (steps, n)=>steps.filter(x=>n>=x).length;
-// The practice level, day by day: each practice day adds one to the run, and the level rises as the run passes
-// 3, 7, 14… days. One missed day pauses the run; two missed days in a row drop the level by two (never below
-// Pawn once earned), and the run carries on from that level's mark.
+// The practice streak: days in a row with practice (an entry with minutes), up to today, or up to yesterday while
+// today has none yet. A missed day ends it. The medal on Home is the streak's now (3, 7, 14… days); the medals
+// earned (the best streak ever) stay.
 function practiceLevel(s){
-  const steps = STREAKS.practice.steps, t = today(), days = new Set(s.worklog.filter(w=>+w.minutes>0).map(w=>w.date)), first = [...days].sort()[0];
-  let level = 0, run = 0, miss = 0, top = 0, drops = 0;
-  if (first) for (let d = first; d<=t; d = addDays(d,1)){
-    if (days.has(d)){ miss = 0; run++; level = Math.max(level, tierOf(steps, run)); }
-    else if (d<t && ++miss===2){ miss = 0; if (level){ level = Math.max(1, level-2); run = steps[level-1]; drops++; } else run = 0; }
-    if (level>top) top = level;
-  }
-  return {now:run, level, top, drops, risk: level>0 && miss===1 && !days.has(t)};
+  const steps = STREAKS.practice.steps, t = today(), days = [...new Set(s.worklog.filter(w=>+w.minutes>0 && w.date<=t).map(w=>w.date))].sort();
+  let best = 0, run = 0, prev = "";
+  days.forEach(d=>{ run = prev && addDays(prev,1)===d ? run+1 : 1; prev = d; if (run>best) best = run; });
+  const now = prev===t || prev===addDays(t,-1) ? run : 0;
+  return {now, best, level:tierOf(steps, now), top:tierOf(steps, best), risk: now>0 && prev!==t}; // risk: not yet today
 }
 function streaksOf(s){
   const t = today(), out = {practice:practiceLevel(s)};
@@ -6351,11 +6360,11 @@ function medalsPanel(s){
   const st = streaksOf(s), first = firstName(s);
   return panel(STUDENT() && !PARENT() ? "My medals" : first+"’s medals", Object.keys(STREAKS).map(k=>{ const d = STREAKS[k], o = st[k], u = n=>n+" "+d.unit+(n===1?"":"s");
     if (!o) return '<div class="medal-track"><b>'+d.label+'</b><p class="small muted" style="margin:4px 0 0">'+(PLAYER ? "Set a weekly goal on Practice → Fitness to start this streak." : STUDENT() ? (NOCOACH() ? "Starts once your parent sets a weekly fitness goal." : "Starts once your coach sets a weekly fitness goal.") : "Set a weekly fitness goal in the Fitness tab to start this streak.")+'</p></div>';
-    const won = k==="practice" ? o.level : tierOf(d.steps, o.best), nxt = k==="practice" ? d.steps[o.level] : d.steps.find(x=>x>o.best); // the next medal not reached yet
+    const won = tierOf(d.steps, o.best), nxt = d.steps.find(x=>x>o.best); // medals earned stay; the next one not earned yet
     return '<div class="medal-track"><b>'+d.label+'</b><div class="medal-shelf">'+d.steps.map((x,i)=>'<div class="'+(i<won?"won":"todo")+'">'+medal(i+1)+'<span class="small">'+MEDALS[i][1]+'</span><span class="small muted">'+u(x)+'</span></div>').join("")+'</div>'+
       (k==="practice"
-        ? '<p class="small muted" style="margin:6px 0 0"><span>Now: '+u(o.now)+' in a row</span>'+(nxt ? ' · <span>'+u(nxt-o.now)+' more to '+MEDALS[o.level][1]+'</span>' : '')+(o.top>o.level ? ' · <span>Highest: '+MEDALS[o.top-1][1]+'</span>' : '')+'</p>'+
-          '<p class="small muted" style="margin:2px 0 0">Miss 2 days in a row and you drop 2 levels.</p>'
+        ? '<p class="small muted" style="margin:6px 0 0"><span>Now: '+u(o.now)+' in a row</span> · <span>Best: '+u(o.best)+'</span>'+(nxt ? ' · <span>'+u(nxt-o.now)+' more to '+MEDALS[d.steps.indexOf(nxt)][1]+'</span>' : '')+'</p>'+
+          '<p class="small muted" style="margin:2px 0 0">Miss a day and the streak starts again; medals you’ve earned stay.</p>'
         : '<p class="small muted" style="margin:6px 0 0"><span>Now: '+u(o.now)+'</span> · <span>Best: '+u(o.best)+'</span>'+(nxt ? ' · <span>'+u(nxt-o.now)+' more to '+MEDALS[d.steps.indexOf(nxt)][1]+'</span>' : '')+'</p>')+'</div>'; }).join(""));
 }
 // A club group's shared monthly workout target. The coach's app counts the whole group; a student's app gets
@@ -6433,7 +6442,7 @@ function tFitness(el, s){ const nav = groupNav(s, "fitness");
         {name:"mins",label:"Minutes per week",type:"number",min:0,step:5,value:g.m||0,hint:"0 means no minutes goal. With both set, a week counts when both are reached."}],
       onSubmit:d=>{ const n = Math.max(0, Math.round(+d.goal||0)), m = Math.max(0, Math.round(+d.mins||0));
         if (n>14) return "Choose up to 14 workouts a week."; if (m>1500) return "Choose up to 1500 minutes a week.";
-        s.fitnessGoal = n; s.fitnessMinGoal = m; saveStudent(s); render(); toast(n||m?"Weekly goal saved":"Weekly goal removed"); }})
+        setFitGoal(s, n, m); saveStudent(s); render(); toast(n||m?"Weekly goal saved":"Weekly goal removed"); }})
   });
 }
 function editFitness(s, x){
@@ -8476,7 +8485,7 @@ const HE = {
   "Message parents":"הודעה להורים", "Write once — each child’s name and the right boy/girl words are filled in for every parent.":"כותבים פעם אחת — השם של כל ילד/ה והניסוח לבן או לבת מתמלאים לכל הורה.", "Message":"הודעה", "Send":"שליחה",
   "Insert {name}":"הוספת {name}", "Use the fitness message":"להשתמש בהודעה על הכושר", "All active students":"כל התלמידים הפעילים", "Parents with the app":"הורים עם האפליקציה", "Preview":"תצוגה מקדימה", "Sent":"נשלח",
   "No phone number":"אין מספר טלפון", "Use the fitness message?":"להשתמש בהודעה על הכושר?", "The text in the box will be replaced.":"הטקסט בתיבה יוחלף.", "Replace":"החלפה", "Message copied":"ההודעה הועתקה",
-  "No parent has connected to the app yet.":"עדיין אף הורה לא התחבר לאפליקציה.", "No active students.":"אין תלמידים פעילים.", "no Hebrew name":"אין שם בעברית", "boy/girl not set":"לא צוין בן/בת", "Practice today to keep your streak":"כדאי לתרגל היום כדי לשמור על הרצף", "Miss 2 days in a row and you drop 2 levels.":"יומיים ברצף בלי תרגול — יורדים שתי דרגות.",
+  "No parent has connected to the app yet.":"עדיין אף הורה לא התחבר לאפליקציה.", "No active students.":"אין תלמידים פעילים.", "no Hebrew name":"אין שם בעברית", "boy/girl not set":"לא צוין בן/בת", "Practice today to keep your streak":"כדאי לתרגל היום כדי לשמור על הרצף", "Miss 2 days in a row and you drop 2 levels.":"יומיים ברצף בלי תרגול — יורדים שתי דרגות.", "Miss a day and the streak starts again; medals you’ve earned stay.":"יום בלי תרגול — הרצף מתחיל מחדש; מדליות שהרווחת נשארות.",
   "Busy with school / exams":"עסוק/ה בבית הספר / מבחנים", "I was sick":"הייתי חולה", "Taking a short break":"לוקח/ת הפסקה קצרה", "Something else":"משהו אחר", "I practiced — log it now":"תרגלתי — לרשום עכשיו",
   "What’s going on? Your coach would like to know.":"מה קורה? המאמן ישמח לדעת.", "No practice logged yet":"עדיין לא נרשם תרגול", "Thanks — your coach will see it":"תודה — המאמן יראה את זה", "What’s going on? Your parent would like to know.":"מה קורה? ההורים ישמחו לדעת.", "Thanks — your parent will see it":"תודה — ההורים יראו את זה", "Send to your parent":"שליחה להורים", "A few words for your parent":"כמה מילים להורים",
   "What’s going on?":"מה קורה?", "A few words for your coach":"כמה מילים למאמן", "Write a few words, or pick one of the other answers.":"אפשר לכתוב כמה מילים או לבחור אחת מהתשובות האחרות.",

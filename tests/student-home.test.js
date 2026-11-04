@@ -11,7 +11,7 @@ const w = (id, d, min) => ({ id, date: addDays(t, d), what: 'Tactics', site: 'Ot
     'data/users/coach/settings': { coachName: 'Raem', currency: '₪', lang: 'en', weekStart: 0,
       club: [{ id: 'cl1', name: 'Diamond Class', kind: 'weekly', weekday: weekday(clubDay), from: '16:00', to: '17:30', place: 'Haifa club', start: addDays(t, -30), end: '' }] },
     'data/users/coach/st-a': stu('st-a', 'Maya Cohen', { clubIds: ['cl1'], rating: '1540', ratings: [{ date: addDays(t, -9), value: 1540, source: 'FIDE' }], portal: { uid: 'u-a', linkedAt: addDays(t, -30) },
-      worklog: [w('w1', -2, 30), w('w2', -3, 25), w('w3', -4, 20)], sessions: [les('l1', addDays(t, 2), '17:00', 'Rook endings')],
+      worklog: [w('w1', -1, 30), w('w2', -2, 25), w('w3', -3, 20)], sessions: [les('l1', addDays(t, 2), '17:00', 'Rook endings')],
       tournaments: [{ id: 'tr1', name: 'Haifa Open', start: addDays(t, 4), end: addDays(t, 5) }] }),
     'data/users/coach/st-d': stu('st-d', 'Dan Peretz', { portal: { uid: 'u-d', linkedAt: addDays(t, -30) }, worklog: [w('d1', -3, 30)] }),
     'data/users/coach/as-1': { id: 'as-1', studentId: 'st-a', title: 'Lucena', type: 'Endgames', status: 'Assigned', due: addDays(t, 3), assigned: t, games: [] },
@@ -24,7 +24,7 @@ const w = (id, d, min) => ({ id, date: addDays(t, d), what: 'Tactics', site: 'Ot
   check(/Good (morning|afternoon|evening), Maya/.test(v), 'greets Maya');
   check(v.includes('Next lesson') && v.includes('17:00') && /1\s*Tasks to do/.test(v) && /75\s*Practice minutes this week/.test(v) && /1540\s*FIDE rating/.test(v), 'tiles: next lesson, 1 task to do, 75 practice minutes this week, FIDE rating 1540');
   check(v.includes('3-day practice streak') && await m.$('.medal-line .medal'), 'the practice medal: a 3-day streak');
-  check(v.includes('Practice today to keep your streak'), 'with the warning inside it (yesterday missed, nothing yet today)');
+  check(v.includes('Practice today to keep your streak'), 'with the warning inside it (practiced up to yesterday, nothing yet today)');
   // updates marked New, with counts in the menu
   check(v.includes('Updates') && v.includes('New task: Lucena'), 'Updates: the new task');
   check(await m.$$eval('#view .tag', ts => ts.some(x => x.textContent === 'New')), 'marked New');
@@ -41,7 +41,7 @@ const w = (id, d, min) => ({ id, date: addDays(t, d), what: 'Tactics', site: 'Ot
   await m.click('[data-a=log]'); await m.waitForSelector('#modal[open] #f_minutes');
   await fillForm(m, { minutes: '35', what: 'Openings' }, false); await m.click('#modal[open] button[type=submit]'); await m.waitForTimeout(800);
   v = await T.text(m);
-  check(v.includes('3-day practice streak') || v.includes('4-day practice streak'), 'logged today: the streak goes on');
+  check(v.includes('4-day practice streak'), 'logged today: a 4-day streak');
   check(!v.includes('Practice today to keep your streak'), 'and the warning goes');
   await m.reload(); await m.waitForTimeout(3000);
   check((await T.text(m)).includes('1 change waiting for Raem’s app'), 'with the coach’s app closed: “1 change waiting for Raem’s app”');
