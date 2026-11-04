@@ -43,7 +43,7 @@ const cst = (id, name) => blank(id, { name, rate: 100, createdAt: t });
   check(v.includes('Noa’s board') && !v.includes('Maya rook endings') && !v.includes('Haifa Open'), "Noa's board is shown, without Maya's task or tournament");
   const opts = await dana.$$eval('#childPick option', xs => xs.map(x => x.textContent));
   check(!(await dana.isHidden('#childPick')) && opts.join() === 'Maya Cohen,Noa Cohen', 'the menu switches between the children: ' + opts.join(', '));
-  check(v.includes('Your children') && v.includes('Signs in on their own') && v.includes('No sign-in yet'), 'Your children lists both, with their sign-in');
+  check(v.includes('Your children') && v.includes('Signs in on their own') && !!(await dana.$('#view .list [data-a=kidInvite]')) && !v.includes('own sign-in'), 'Your children lists both: Maya signs in on her own, Noa (shown) has Send an invite in her row, no second card');
   await dana.screenshot({ path: path.join(__dirname, 'out-kids-noa.png'), fullPage: true });
   // 2. a task for Noa stays Noa's
   await dana.goto(URL + '#/student/' + noa.id + '/assignments'); await dana.waitForTimeout(800);

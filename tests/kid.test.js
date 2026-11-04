@@ -27,7 +27,7 @@ let fails = 0; const check = (ok, m) => { console.log((ok ? 'PASS ' : 'FAIL ') +
   const rec = () => dana.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('fdb:data/users/dana/st-')).map(k => JSON.parse(localStorage.getItem(k))).find(x => x.self));
   let maya = await rec();
   check(maya && maya.setup === 'parent' && maya.name === 'Maya Cohen', 'the board is set up for the child');
-  check((await dana.textContent('#view h1')).includes('Maya’s board') && (await dana.textContent('#view')).includes("The player's own sign-in"), "the parent sees Maya's board, with a way to invite her");
+  check((await dana.textContent('#view h1')).includes('Maya’s board') && (await dana.textContent('#view')).includes("Maya’s own sign-in"), "the parent sees Maya's board, with a way to invite her (“Maya’s own sign-in”)");
   await dana.screenshot({ path: path.join(__dirname, 'out-kid-parent.png') });
   await dana.click('[data-a=kidInvite]'); await dana.waitForSelector('#modal[open] #f_msg', { timeout: 5000 });
   await dana.waitForTimeout(1500); maya = await rec(); const kidCode = maya.invite && maya.invite.code;
