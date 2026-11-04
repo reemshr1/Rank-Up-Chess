@@ -52,6 +52,7 @@ Files:
 - db — the database rules in Postgres: schema.sql on a new project, twice, and on a database from before several coaches; codes; each coach's records; links get their coach from the code; boards, messages, a second coach's link; book files; leave_player, close_player, remove_coach (keep / wipe / a moved player's copy); nightly copies; the website form; phone-alert tables; the hourly player reminders (old: the Postgres rule tests)
 - deploy — the site under /Rank-Up-Chess/ over http: no missing files, manifest, icons, service worker files (old: testghpages)
 - lichess, lichess-student — Lichess puzzles added by themselves
+- streaks — practice days in a row (a missed day ends it, earned medals stay), fitness weeks each judged by its own goal, 0-minute entries not practice
 - lichess-fn — the hourly Lichess job (supabase/functions/lichess) in Deno: a player's record, a student's outbox, the app's rules, deleted entries, links not shared, Lichess busy, a record saved meanwhile
 - lichess-sync — the app's side of the hourly job: an entry it leaves in the outbox, taken in once; a deleted entry remembered on the record (liGone) and never brought back
 - kids, kid, player-backup, close-account, orphan, two-parents — recovered from the session history

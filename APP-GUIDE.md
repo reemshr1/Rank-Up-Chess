@@ -535,10 +535,15 @@ marks it done.
   the record. Both make the same entries, so nothing is added twice. Chess.com doesn't publish a puzzle history, so
   its puzzles still need logging by hand.
 - **Medals** (Pawn → Knight → Bishop → Rook → Queen → King):
-  - practice: days in a row (3 / 7 / 14 / 30 / 60 / 100); missing 2 days in
-    a row drops 2 levels, never below Pawn;
+  - practice: days in a row with practice (3 / 7 / 14 / 30 / 60 / 100), up to
+    today, or up to yesterday while today has none yet; a missed day ends the
+    streak. A practice entry with 0 minutes doesn't count (nor for the check-in,
+    Needs attention or reminders);
   - fitness: weeks in a row at the weekly goal, in workouts and/or minutes
-    (2 / 4 / 8 / 12 / 20 / 30).
+    (2 / 4 / 8 / 12 / 20 / 30). Each week is judged by the goal it had: a new
+    goal counts from this week on (kept as `fitGoals` with the week it starts);
+  - Home shows the streak now; **My medals** (on Progress) keeps every medal
+    earned (the best streak ever), with "Now", "Best" and how far the next is.
 
 ### Games
 - **Tournaments:** add tournaments, rounds, results.
