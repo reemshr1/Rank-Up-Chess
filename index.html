@@ -3092,8 +3092,8 @@ function applyOp(s, op, coachSide){
   if (t==="payment.report"){
     if (!it || !it.id || !(+it.amount>0) || !/^\d{4}-\d{2}-\d{2}$/.test(it.date||"")) return false;
     const L = list("payReports"); if (L.some(r=>r.id===it.id)) return true;
-    const les = it.sessionId && s.sessions.find(x=>x.id===it.sessionId);
-    L.push({id:it.id, by:it.by==="parent" ? "parent" : "student", date:it.date, amount:+it.amount, method:String(it.method||"").slice(0,40), note:String(it.note||"").slice(0,300), sessionId:les?les.id:"", status:"pending", reported:(op.at||"").slice(0,10)||today()});
+    const ids = [...new Set((Array.isArray(it.sessionIds) && it.sessionIds.length ? it.sessionIds : [it.sessionId]).filter(id=>id && s.sessions.some(x=>x.id===id)))].slice(0, 30);
+    L.push(Object.assign({id:it.id, by:it.by==="parent" ? "parent" : "student", date:it.date, amount:+it.amount, method:String(it.method||"").slice(0,40), note:String(it.note||"").slice(0,300), sessionId:ids.length===1 ? ids[0] : "", status:"pending", reported:(op.at||"").slice(0,10)||today()}, ids.length>1 ? {sessionIds:ids} : {}));
     return true;
   }
   if (t==="request.cancel"){ const r = list("requests").find(x=>x.id===op.id); if (r && r.status==="pending") r.status = "cancelled"; return true; }
@@ -4314,6 +4314,7 @@ function openForm({title, fields, submit="Save", onSubmit, danger, parentOk, noN
     const hid = form.elements[f.name], box = form.querySelector('[data-checks="'+f.name+'"]');
     box.addEventListener("change", e=>{ e.stopPropagation(); hid.value = [...box.querySelectorAll("input:checked")].map(c=>c.value).join(",");
       const sum = form.querySelector('[data-multi-sum="'+f.name+'"]'); if (sum) sum.textContent = multiSum(f, hid.value.split(",").filter(Boolean));
+      if (f.sets){ const o = f.sets(hid.value, readVals()) || {}; Object.entries(o).forEach(([k,v])=>{ if (form.elements[k]) form.elements[k].value = v; }); }
       form.dispatchEvent(new Event("change")); });
   });
   // a compact list closes when the form is clicked elsewhere
@@ -4658,11 +4659,12 @@ function playerAddRating(s, src){
 // The coach's name in what parents read about payments, so they know who confirms.
 const coachCalled = ()=>(state.settings.coachName||"").trim() || "your coach";
 const pendingReports = s=>(s.payReports||[]).filter(r=>r.status==="pending");
+const repLessons = r=>r && Array.isArray(r.sessionIds) && r.sessionIds.length ? r.sessionIds : (r && r.sessionId ? [r.sessionId] : []);
 function payReportsBox(s){
   const p = s.pay||{}, m = n=>(p.currency||"")+(Math.round(n*100)/100).toLocaleString(LOCALE()), c = coachCalled();
   const rs = sortBy((s.payReports||[]).filter(r=>r.status!=="confirmed"),"date",-1), waiting = pendingReports(s).length;
   return panel("Paid already?", '<p class="small muted" style="margin:0 0 10px">After you pay, let '+esc(c)+' know here. It shows in your statement once '+esc(c)+' confirms it.</p>'+
-    (rs.length ? '<ul class="list">'+rs.map(r=>'<li><div class="main"><div class="title num">'+m(r.amount)+'</div><div class="small muted">'+esc(fmtDate(r.date))+(r.method?' · '+esc(r.method):'')+(r.note?' · “'+esc(r.note)+'”':'')+'</div></div>'+
+    (rs.length ? '<ul class="list">'+rs.map(r=>'<li><div class="main"><div class="title num">'+m(r.amount)+'</div><div class="small muted">'+esc(fmtDate(r.date))+(r.method?' · '+esc(r.method):'')+(repLessons(r).length>1?' · '+esc(repLessons(r).length+" lessons"):'')+(r.note?' · “'+esc(r.note)+'”':'')+'</div></div>'+
       (r.status==="declined" ? '<span class="tag flag">'+esc("Not received — please check with "+c)+'</span>' : '<span class="tag warn">'+esc("Waiting for "+c+" to confirm")+'</span>')+'</li>').join("")+'</ul>' : '')+
     (waiting ? '<p class="small" style="margin:10px 0 0">Paid something else as well? <button type="button" class="linkish" id="iPaid">Report another payment</button></p>' : ''),
     waiting ? '' : '<button type="button" class="btn small primary" id="iPaid">I\'ve made a payment</button>');
@@ -4671,20 +4673,23 @@ function payReportsBox(s){
 document.addEventListener("click", e=>{ if (e.target.closest("#iPaid") && STUDENT() && state.students[0] && (PARENT() || state.students[0].pay)) reportPayment(state.students[0]); });
 function reportPayment(s){
   if (s._multi && s._payLink) s = store.coachStudent(s._payLink)||s; // the coach whose payments are shown
-  const p = s.pay||{}, held = new Set(pendingReports(s).map(r=>r.sessionId).filter(Boolean)), open = (p.open||[]).filter(x=>!held.has(x.id)), m = n=>(p.currency||"")+(Math.round(n*100)/100).toLocaleString(LOCALE());
+  const p = s.pay||{}, held = new Set([].concat(...pendingReports(s).map(repLessons))), open = (p.open||[]).filter(x=>!held.has(x.id)), m = n=>(p.currency||"")+(Math.round(n*100)/100).toLocaleString(LOCALE());
   const when = x=>fmtDate(x.date,{weekday:"short",day:"numeric",month:"short"})+(x.time?" "+x.time:"");
-  const opts = [["","Towards the balance"], ...open.map(x=>[x.id, (x.upcoming?"Upcoming lesson on ":"Lesson on ")+when(x)+" · "+m(x.left)])];
+  const opts = open.map(x=>[x.id, (x.upcoming?"Upcoming lesson on ":"Lesson on ")+when(x)+" · "+m(x.left)]);
+  const toBalance = p.balance>0 ? Math.round(p.balance*100)/100 : (p.rate||""), first = open.find(y=>!y.upcoming);
+  const sumOf = v=>{ const ids = String(v||"").split(",").filter(Boolean); return ids.length ? Math.round(open.filter(x=>ids.includes(x.id)).reduce((a,x)=>a+(+x.left||0), 0)*100)/100 : toBalance; };
   openForm({title:"Tell "+coachCalled()+" about a payment", submit:"Send", parentOk:true, fields:[
-    {name:"sessionId",label:"What was it for?",type:"select",options:opts,value:open.some(x=>!x.upcoming)?open.find(x=>!x.upcoming).id:"",full:true,
-      sets:v=>{ const x = open.find(y=>y.id===v); return x ? {amount:x.left} : {}; }},
-    {name:"amount",label:"Amount ("+(p.currency||"")+")",type:"number",min:0,step:"any",required:true,value:(()=>{ const x = open.find(y=>!y.upcoming); return x ? x.left : (p.balance>0 ? Math.round(p.balance*100)/100 : (p.rate||"")); })()},
+    ...(opts.length ? [{name:"sessionIds",label:"What was it for?",type:"checks",options:opts,value:first?first.id:"",full:true,
+      hint:"Tick every lesson this payment covers, or none for a payment towards the balance.", sets:v=>({amount:sumOf(v)})}] : []),
+    {name:"amount",label:"Amount ("+(p.currency||"")+")",type:"number",min:0,step:"any",required:true,value:first ? first.left : toBalance},
     {name:"date",label:"Paid on",type:"date",value:today()},
     {name:"method",label:"How",type:"select",options:["Bit / PayBox","Bank transfer","Cash","Credit card","PayPal","Other"],value:"Bit / PayBox"},
     {name:"note",label:"Note (optional)",value:"",full:true,placeholder:"e.g. paid for two lessons"}],
     onSubmit:d=>{
       if (!(+d.amount>0)) return "Enter the amount you paid.";
       if (!d.date) return "Enter the date you paid.";
-      const op = {type:"payment.report", item:{id:"pr-"+uid(), date:d.date, amount:+d.amount, method:d.method, note:d.note, sessionId:d.sessionId}};
+      const ids = String(d.sessionIds||"").split(",").filter(Boolean);
+      const op = {type:"payment.report", item:Object.assign({id:"pr-"+uid(), date:d.date, amount:+d.amount, method:d.method, note:d.note, sessionId:ids.length===1 ? ids[0] : ""}, ids.length>1 ? {sessionIds:ids} : {})};
       store.send(op, s); applyOp(s, op, false); render();
       setTimeout(()=>{ const m2 = $("#modal"), c = coachCalled();
         m2.innerHTML = '<div class="modal-form"><header><h2>Sent!</h2></header><div style="padding:8px 20px"><p style="margin-top:0">'+esc(c+" will confirm the payment. Until then it shows as waiting (yellow).")+'</p></div><footer><button type="button" class="btn primary" id="psOk">OK</button></footer></div>';
@@ -4694,7 +4699,7 @@ function reportPayment(s){
 // A lesson's payment state for the parent: paid (green), payment sent and waiting (yellow), unpaid (red).
 function lessonPayTag(s, r){
   if (r.lessonPaid) return '<span class="tag ok">Paid</span>';
-  if (pendingReports(s).some(x=>x.sessionId===r.sessionId)) return '<span class="tag warn">'+esc("Waiting for "+coachCalled())+'</span>';
+  if (pendingReports(s).some(x=>repLessons(x).includes(r.sessionId))) return '<span class="tag warn">'+esc("Waiting for "+coachCalled())+'</span>';
   return '<span class="tag flag">Unpaid</span>';
 }
 let payCoach = "";
@@ -5204,13 +5209,14 @@ function payReportsPanel(){
   if (!list.length) return "";
   const when = x=>fmtDate(x.date,{weekday:"short",day:"numeric",month:"short"})+(x.time?" "+x.time:"");
   return '<section class="panel" style="margin-bottom:16px"><div class="panel-head"><h2>Payments reported in the app ('+list.length+')</h2></div><ul class="list">'+
-    list.map(({s,r})=>{ const les = r.sessionId && s.sessions.find(x=>x.id===r.sessionId);
-      // the same lesson already paid or reported, or the same amount on the same day
+    list.map(({s,r})=>{ const lss = sortBy(repLessons(r).map(id=>s.sessions.find(x=>x.id===id)).filter(Boolean), "date"), les = lss.length===1 && lss[0];
+      // a lesson already paid or reported, or the same amount on the same day
       const earlier = (s.payReports||[]).filter(x=>x!==r && x.status!=="declined" && (x.reported||"")+x.id < (r.reported||"")+r.id);
-      const dup = (les && lessonPaid(s, les)) || earlier.some(x=>(r.sessionId && x.sessionId===r.sessionId) || (+x.amount===+r.amount && x.date===r.date))
-        || s.payments.some(p=>+p.amount===+r.amount && p.date===r.date && !earlier.some(x=>x.paymentId===p.id) && !(s.payReports||[]).some(x=>x.paymentId===p.id));
+      const mine = p=>(s.payReports||[]).some(x=>x.paymentId===p.id || (x.paymentIds||[]).includes(p.id));
+      const dup = lss.some(x=>lessonPaid(s, x)) || earlier.some(x=>repLessons(x).some(id=>repLessons(r).includes(id)) || (+x.amount===+r.amount && x.date===r.date))
+        || s.payments.some(p=>+p.amount===+r.amount && p.date===r.date && !mine(p));
       return '<li><div class="main"><div class="title"><a href="#/student/'+s.id+'/payments">'+esc(fullName(s))+'</a> · <span class="num">'+money(r.amount)+'</span> <span class="tag">'+(r.by==="student" ? "by the student" : "by the parent")+'</span>'+(dup?' <span class="tag flag">Possible duplicate</span>':'')+'</div><div class="small muted">'+
-        esc(fmtDate(r.date))+(r.method?' · '+esc(r.method):'')+' · '+(les?esc("for the lesson on "+when(les)):esc("towards the balance"))+(r.note?' · “'+esc(r.note)+'”':'')+'</div></div>'+
+        esc(fmtDate(r.date))+(r.method?' · '+esc(r.method):'')+' · '+(les?esc("for the lesson on "+when(les)):lss.length?esc("for the lessons on "+lss.map(when).join(", ")):esc("towards the balance"))+(r.note?' · “'+esc(r.note)+'”':'')+'</div></div>'+
         '<div class="row-actions"><button class="btn small primary" data-a="prOk" data-id="'+esc(s.id+"|"+r.id)+'">Confirm</button><button class="btn small ghost" data-a="prNo" data-id="'+esc(s.id+"|"+r.id)+'">Not received</button></div></li>'; }).join("")+
     '</ul><p class="small muted" style="margin:8px 0 0">Confirm adds the payment to the ledger'+'. Nothing is recorded until you confirm.</p></section>';
 }
@@ -5218,8 +5224,15 @@ function decidePayReport(key, ok){
   const [sid, rid] = key.split("|"), s = byId(sid), r = s && (s.payReports||[]).find(x=>x.id===rid); if (!r) return;
   if (!ok) return confirmBox("Mark as not received?", (r.by==="student" ? firstName(s) : "The parent")+" will see that you haven't received this payment, so they can check with you.", "Not received", ()=>{
     r.status = "declined"; r.decided = today(); saveStudent(s); render(); toast("Marked as not received"); });
-  const p = {id:uid(), date:r.date, amount:+r.amount, method:r.method||"", note:(r.by==="student" ? "Reported by "+firstName(s) : "Reported by the parent")+(r.note?": "+r.note:""), sessionId:r.sessionId||""};
-  s.payments.push(p); r.status = "confirmed"; r.decided = today(); r.paymentId = p.id;
+  const note = (r.by==="student" ? "Reported by "+firstName(s) : "Reported by the parent")+(r.note?": "+r.note:""), ids = repLessons(r);
+  const pay = (amount, sessionId)=>{ const p = {id:uid(), date:r.date, amount:Math.round(amount*100)/100, method:r.method||"", note, sessionId:sessionId||""}; s.payments.push(p); return p; };
+  let made = [];
+  if (ids.length<=1) made = [pay(+r.amount, r.sessionId)];
+  else { // several lessons: one payment each, oldest first, up to what each still owes; the rest towards the balance
+    const owed = new Map(openLessons(s).map(x=>[x.id, +x.left||0])); let left = +r.amount;
+    sortBy(ids.map(id=>s.sessions.find(x=>x.id===id)).filter(Boolean), "date").forEach(x=>{ const a = Math.min(left, owed.has(x.id) ? owed.get(x.id) : 0); if (a>0.009){ made.push(pay(a, x.id)); left -= a; } });
+    if (left>0.009 || !made.length) made.push(pay(left>0.009 ? left : +r.amount, "")); }
+  r.status = "confirmed"; r.decided = today(); r.paymentId = made[0].id; if (made.length>1) r.paymentIds = made.map(p=>p.id);
   saveStudent(s); render(); toast("Payment recorded");
 }
 // Lessons students asked for in their app, waiting for the coach; and students' answers after a declined move.
@@ -8530,7 +8543,7 @@ const HE = {
   "The parent will see that you haven't received this payment, so they can check with you.":"ההורה יראה שהתשלום לא התקבל אצלך, כדי שיוכל לבדוק איתך.",
   "Marked as not received":"סומן שלא התקבל", "Payment recorded":"התשלום נרשם", "Confirm adds the payment to the ledger. Nothing is recorded until you confirm.":"אישור מוסיף את התשלום לפירוט. שום דבר לא נרשם עד שתאשר/י.",
   "towards the balance":"על חשבון היתרה", "Towards the balance":"על חשבון היתרה", "Tell your coach about a payment":"עדכון המאמן על תשלום", "Send":"שליחה",
-  "What was it for?":"על מה התשלום?", "Paid on":"תאריך התשלום", "How":"איך", "Note (optional)":"הערה (לא חובה)", "e.g. paid for two lessons":"למשל: שילמתי על שני שיעורים",
+  "What was it for?":"על מה התשלום?", "Tick every lesson this payment covers, or none for a payment towards the balance.":"כדאי לסמן כל שיעור שהתשלום מכסה, או לא לסמן כלום לתשלום על חשבון היתרה.", "Paid on":"תאריך התשלום", "How":"איך", "Note (optional)":"הערה (לא חובה)", "e.g. paid for two lessons":"למשל: שילמתי על שני שיעורים",
   "Enter the amount you paid.":"יש להזין את הסכום ששולם.", "Enter the date you paid.":"יש להזין את תאריך התשלום.", "Sent — your coach will confirm it":"נשלח — המאמן יאשר",
   "Paid already?":"כבר שילמת?", "After you pay, let your coach know here. It shows in your statement once your coach confirms it.":"אחרי התשלום אפשר לעדכן את המאמן כאן. התשלום יופיע בפירוט אחרי שהמאמן יאשר.",
   "Not received — please check with your coach":"לא התקבל — כדאי לבדוק עם המאמן", "Waiting for your coach to confirm":"ממתין לאישור המאמן",
@@ -9043,7 +9056,7 @@ const HE_RX = [
   [/^Your coach can't meet at the new time — choose what to do with the lesson on (.+)$/, "המאמן לא יכול בזמן החדש — יש לבחור מה לעשות עם השיעור ב־$1"],
   [/^You cancelled your lesson on (.+)$/, "ביטלת את השיעור ב־$1"], [/^You kept your lesson on (.+) as planned$/, "השארת את השיעור ב־$1 כמתוכנן"],
   [/^Your coach couldn't meet at the new time for the lesson on (.+)$/, "המאמן לא יכול היה בזמן החדש לשיעור ב־$1"],
-  [/^Lesson on (.+)$/, "השיעור ב־$1"], [/^Move lesson — (.+)$/, "הזזת שיעור — $1"],
+  [/^Lesson on (.+)$/, "השיעור ב־$1"], [/^for the lessons on (.+)$/, "עבור השיעורים ב־$1"], [/^(\d+) lessons$/, "$1 שיעורים"], [/^Move lesson — (.+)$/, "הזזת שיעור — $1"],
   [/^You asked to (cancel|move) the lesson on (.+)\. Withdraw that request\?$/, (m,k,d)=>"ביקשת "+(k==="cancel"?"לבטל":"להזיז")+" את השיעור ב־"+d+". לבטל את הבקשה?"],
   [/^(.+)’s lesson on (.+?)(?: at (\d\d:\d\d))? will be marked cancelled\. Nothing is charged for it\.$/, (m,n,d,t)=>"השיעור של "+n+" ב־"+d+(t?" בשעה "+t:"")+" יסומן כמבוטל. לא יחויב עליו תשלום."],
   [/^(.+) asked to cancel the lesson on (.+)\. The lesson stays as planned and they'll see the request as declined\.$/, "$1 ביקש/ה לבטל את השיעור ב־$2. השיעור נשאר כמתוכנן והבקשה תופיע כנדחתה."],
