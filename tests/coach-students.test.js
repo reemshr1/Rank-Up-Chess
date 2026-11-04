@@ -32,7 +32,7 @@ const { t, addDays, stu, les, check, out, start, fillForm } = require('./lib.js'
   check(await c.$eval('#f_name', e => e.required || true), 'the form opens');
   await fillForm(c, { name: 'Noa Bar', idStatus: 'none', fullHe: 'נועה בר', gender: 'f', rate: '150', level: 'Pawn', levelHe: 'רגלי', contact: '0541234567' });
   await c.waitForTimeout(600);
-  const noa = (await T.docs(c, 'data/users/coach/st-')).find(x => x.name === 'Noa Bar');
+  const noa = await T.eventually(async () => (await T.docs(c, 'data/users/coach/st-')).find(x => x.name === 'Noa Bar'));
   check(noa && +noa.rate === 150 && noa.fullHe === 'נועה בר' && noa.level === 'Pawn' && noa.active !== false, 'Noa is added with her fee, Hebrew name and level');
   check(c.url().includes('#/student/' + noa.id), 'and her page opens');
   // Hebrew: Hebrew names and levels
@@ -49,12 +49,12 @@ const { t, addDays, stu, les, check, out, start, fillForm } = require('./lib.js'
   await c.goto(require('./lib.js').URL + '#/student/' + noa.id + '/overview'); await c.waitForTimeout(800);
   await c.click('text=Edit profile'); await c.waitForSelector('#modal[open] #f_active');
   await fillForm(c, { active: '0' });
-  let n2 = await T.doc(c, 'data/users/coach/' + noa.id);
+  let n2 = await T.eventually(async () => { const x = await T.doc(c, 'data/users/coach/' + noa.id); return x && x.active === false && x; }) || await T.doc(c, 'data/users/coach/' + noa.id);
   check(n2.active === false, 'archived');
   await c.click('text=Edit profile'); await c.waitForSelector('#modal[open]'); await c.click('#modal[open] button.danger'); await c.waitForSelector('#modal[open] button[type=submit]');
   check((await c.textContent('#modal')).includes('Delete Noa Bar?'), 'deleting asks first');
   await c.click('#modal[open] button[type=submit]'); await c.waitForTimeout(800);
-  check(!(await T.doc(c, 'data/users/coach/' + noa.id)), 'deleted');
+  check(!!(await T.eventually(async () => !(await T.doc(c, 'data/users/coach/' + noa.id)))), 'deleted');
   // search everything
   const S = require('./lib.js').URL + '#/search/';
   for (const [q, want, label] of [['najdorf', ['Najdorf Sicilian', 'Najdorf main line', 'Najdorf ideas'], 'a lesson topic, an opening line and an assignment'], ['kasparovich', ['Kasparovich'], 'an opponent in a game'], ['eilat', ['Eilat Festival'], 'a tournament'], ['endgame strat', ['Endgame Strategy'], 'a book']]) {
