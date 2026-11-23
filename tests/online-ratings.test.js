@@ -12,10 +12,10 @@ const R = (source, value, d) => ({ id: 'r-' + source.replace(/\W/g, '') + d, sou
     'portal/u-a': { code: 'A1', linked: true, role: 'student', coach: 'coach', linkedAt: t },
     'data/users/tom/settings': { coachName: 'Tom', lang: 'en' },
     'data/users/tom/st-me': stu('st-me', 'Tom Levi', { self: true, setup: 'self', rate: 0, usernames: { 'lichess.org': 'tomlevi', 'chess.com': 'tomcc' },
-      ratings: [R('Lichess Rapid', 1610, -40), R('Lichess Rapid', 1650, -1), R('Chess.com Blitz', 1410, -2)] }) } });
+      ratings: [R('Lichess Rapid', 1610, -40), R('Lichess Rapid', 1650, -2), R('Chess.com Blitz', 1410, -1)] }) } });
   const p = await T.open('tom', '#/home'); await p.waitForTimeout(3500);
   const tile = async pg => (await pg.$$eval('#view .stats .stat', xs => xs.map(x => x.textContent.replace(/\s+/g, ' ').trim()))).find(x => /rating|דירוג|Lichess/i.test(x)) || '';
-  check(/1650\s*Lichess Rapid rating/.test(await tile(p)), 'no FIDE or ICF rating: Home shows his latest online rating (1650 Lichess Rapid): ' + await tile(p));
+  check(/1650\s*Lichess Rapid rating/.test(await tile(p)), 'no FIDE or ICF rating: Home shows his Lichess Rapid rating, as Progress does first (not the Chess.com Blitz entry from a day later): ' + await tile(p));
   await p.goto(URL + '#/progress'); await p.waitForTimeout(800);
   let v = await T.text(p);
   check(v.includes('Lichess and Chess.com ratings are added every morning from your usernames.'), 'Progress says where they come from');
