@@ -4644,8 +4644,10 @@ function closeAccount(){
 // A player's Rating card: where the rating comes from, and checking it now.
 function playerRatingNote(s){
   const ids = [s.fideId ? "FIDE" : "", s.icfId ? "ICF" : ""].filter(Boolean), when = [s.fide && s.fide.updated, s.icf && s.icf.updated].filter(Boolean).sort().pop();
-  if (!ids.length) return '<p class="small muted" style="margin:8px 0 0">With a FIDE or ICF number in My profile, the rating fills in by itself, once a month. Without one, add it here.</p>';
-  return '<p class="small muted" style="margin:8px 0 0">'+esc("From your "+ids.join(" and ")+" number, checked once a month"+(when ? " (last: "+fmtShort(when)+")" : ""))+'.</p>'+
+  const un = s.usernames||{}, sites = [un["lichess.org"] ? "Lichess" : "", un["chess.com"] ? "Chess.com" : ""].filter(Boolean);
+  const online = sites.length ? '<p class="small muted" style="margin:4px 0 0">'+esc(sites.join(" and ")+" ratings are added every morning from your username"+(sites.length>1?"s":"")+".")+'</p>' : '';
+  if (!ids.length) return (sites.length ? online : '<p class="small muted" style="margin:8px 0 0">With a FIDE or ICF number in My profile, or a Lichess or Chess.com username in Useful links, the rating fills in by itself. Without one, add it here.</p>');
+  return '<p class="small muted" style="margin:8px 0 0">'+esc("From your "+ids.join(" and ")+" number, checked once a month"+(when ? " (last: "+fmtShort(when)+")" : ""))+'.</p>'+online+
     '<div class="row-actions" style="margin-top:6px"><button class="btn small ghost" data-a="rtNow"'+(ratingsBusy?' disabled':'')+'>'+(ratingsBusy?"Checking…":"Check now")+'</button></div>';
 }
 function playerAddRating(s, src){
@@ -4739,7 +4741,7 @@ function pHome(v, s){
   const tours = s.tournaments.filter(x=>tourAhead(x,t)).sort((a,b)=>tourNext(a,t)<tourNext(b,t)?-1:1).slice(0,3);
   const pend = (s.requests||[]).filter(r=>r.status==="pending");
   const clubs = []; for (let d=t; d<=addDays(t,7) && clubs.length<2; d=addDays(d,1)) clubOn(d).forEach(o=>clubs.push({d, o})); // their club classes this coming week
-  const rt = sortBy(s.ratings.filter(r=>(r.source||mainSource(s))===mainSource(s)),"date").pop();
+  const rt = sortBy(s.ratings.filter(r=>(r.source||mainSource(s))===mainSource(s)),"date").pop() || sortBy(s.ratings.filter(r=>ONLINE_SOURCES.includes(r.source)),"date").pop(); // no official rating: the latest online one
   const hr = new Date().getHours(), greet = hr<12?"Good morning":hr<18?"Good afternoon":"Good evening";
   v.innerHTML = '<div class="page-head"><div><p class="sub" style="margin:0 0 4px">'+esc(fmtDay(t))+'</p><h1>'+(PARENT() || (PLAYER && s.setup==="parent") ? esc(first)+'’s board' : greet+', '+esc(first))+'</h1>'+(NOCOACH() ? '' : freshness(s))+'</div><div class="row-actions">'+(NOCOACH() && WEB && !PREVIEW ? '<button class="btn" data-a="alerts" aria-label="Phone alerts">📱 <span>Alerts</span></button>' : '')+(PLAYER ? '<button class="btn" data-a="profile">'+(s.setup==="parent" ? "Profile" : "My profile")+'</button>' : NOCOACH() ? '' : noticesButton(s)+'<button class="btn" data-a="req">Request a lesson</button>')+'<button class="btn primary" data-a="log">Log practice</button></div></div>'+
     '<div class="stats">'+(NOCOACH() ? '<div class="stat"><div class="v num">'+(tours[0]?esc(fmtDate(tourNext(tours[0],t),{weekday:"short",day:"numeric",month:"short"})):"—")+'</div><div class="l">'+(tours[0]?"Next tournament":"No tournament planned")+'</div></div>' // no lessons without a coach
@@ -5674,7 +5676,8 @@ function pStudents(v){
   if (WEB){ const box = document.createElement("div"); box.innerHTML = bookLibraryPanel(); v.appendChild(box); bindBookLibrary(box); }
 }
 
-const RATING_SOURCES = ["FIDE","FIDE Rapid","FIDE Blitz","ICF","Online"];
+const ONLINE_SOURCES = ["Lichess Rapid","Lichess Blitz","Lichess Classical","Chess.com Rapid","Chess.com Blitz"]; // added each morning from the usernames (supabase/functions/lichess)
+const RATING_SOURCES = ["FIDE","FIDE Rapid","FIDE Blitz","ICF","Online", ...ONLINE_SOURCES];
 const mainSource = s => s.ratingType==="ICF" ? "ICF" : s.ratingType==="Online" ? "Online" : "FIDE";
 const fideUrl = id => "https://ratings.fide.com/profile/"+encodeURIComponent(id);
 const icfUrl = id => "https://www.chess.org.il/Players/Player.aspx?Id="+encodeURIComponent(id);
@@ -8966,7 +8969,7 @@ Object.assign(HE, {
   "Lessons not marked done":"שיעורים שלא סומנו כבוצעו", "No lesson planned":"לא מתוכנן שיעור", "Lesson summary":"סיכום שיעור", "Move session":"העברת שיעור",
   "No assignments yet. Add a task like “30 puzzles on pins”, or upload games in PGN for":"עדיין אין משימות. אפשר להוסיף משימה כמו ״30 פאזלים על ריתוקים״, או להעלות משחקים ב־PGN עבור",
   "The line, its moves and notes will be removed. This can't be undone.":"הוריאנט, המסעים וההערות יימחקו. אי אפשר לבטל את הפעולה.",
-  "FIDE":"פיד״ה", "FIDE Rapid":"פיד״ה רפיד", "FIDE Blitz":"פיד״ה בליץ", "ICF":"איגוד", "min":"דק׳", "Marked done":"סומן כבוצע",
+  "FIDE":"פיד״ה", "FIDE Rapid":"פיד״ה רפיד", "Lichess Rapid":"Lichess רפיד", "Lichess Blitz":"Lichess בליץ", "Lichess Classical":"Lichess קלאסי", "Chess.com Rapid":"Chess.com רפיד", "Chess.com Blitz":"Chess.com בליץ", "With a FIDE or ICF number in My profile, or a Lichess or Chess.com username in Useful links, the rating fills in by itself. Without one, add it here.":"עם מספר FIDE או מספר התאחדות בפרופיל שלי, או שם משתמש ב־Lichess או ב־Chess.com בקישורים שימושיים, הדירוג מתעדכן לבד. בלי אלה, אפשר להוסיף אותו כאן.", "FIDE Blitz":"פיד״ה בליץ", "ICF":"איגוד", "min":"דק׳", "Marked done":"סומן כבוצע",
   "Backup downloaded":"הגיבוי הורד", "No backup downloaded yet.":"עדיין לא הורד גיבוי.", "No backup downloaded yet — keep a copy of your records outside the app.":"עדיין לא הורד גיבוי — כדאי לשמור עותק של הנתונים מחוץ לאפליקציה.",
   "Next lesson":"השיעור הבא", "Owed":"חוב", "Open assignments":"משימות פתוחות", "Line to review":"וריאנט לחזרה", "Lines to review":"וריאנטים לחזרה",
   "Repertoire up to date":"הרפרטואר מעודכן", "Yesterday":"אתמול", "No practice logged":"לא נרשם תרגול", "Last practice":"תרגול אחרון", "Goals & notes":"מטרות והערות", "Details":"פרטים",
@@ -9056,7 +9059,7 @@ const HE_RX = [
   [/^Your coach can't meet at the new time — choose what to do with the lesson on (.+)$/, "המאמן לא יכול בזמן החדש — יש לבחור מה לעשות עם השיעור ב־$1"],
   [/^You cancelled your lesson on (.+)$/, "ביטלת את השיעור ב־$1"], [/^You kept your lesson on (.+) as planned$/, "השארת את השיעור ב־$1 כמתוכנן"],
   [/^Your coach couldn't meet at the new time for the lesson on (.+)$/, "המאמן לא יכול היה בזמן החדש לשיעור ב־$1"],
-  [/^Lesson on (.+)$/, "השיעור ב־$1"], [/^for the lessons on (.+)$/, "עבור השיעורים ב־$1"], [/^(\d+) lessons$/, "$1 שיעורים"], [/^Move lesson — (.+)$/, "הזזת שיעור — $1"],
+  [/^Lesson on (.+)$/, "השיעור ב־$1"], [/^(Lichess|Chess\.com|Lichess and Chess\.com) ratings are added every morning from your usernames?\.$/, (m,x)=>"דירוגי "+x.replace(" and ", " ו־")+" מתעדכנים כל בוקר משמות המשתמש."], [/^for the lessons on (.+)$/, "עבור השיעורים ב־$1"], [/^(\d+) lessons$/, "$1 שיעורים"], [/^Move lesson — (.+)$/, "הזזת שיעור — $1"],
   [/^You asked to (cancel|move) the lesson on (.+)\. Withdraw that request\?$/, (m,k,d)=>"ביקשת "+(k==="cancel"?"לבטל":"להזיז")+" את השיעור ב־"+d+". לבטל את הבקשה?"],
   [/^(.+)’s lesson on (.+?)(?: at (\d\d:\d\d))? will be marked cancelled\. Nothing is charged for it\.$/, (m,n,d,t)=>"השיעור של "+n+" ב־"+d+(t?" בשעה "+t:"")+" יסומן כמבוטל. לא יחויב עליו תשלום."],
   [/^(.+) asked to cancel the lesson on (.+)\. The lesson stays as planned and they'll see the request as declined\.$/, "$1 ביקש/ה לבטל את השיעור ב־$2. השיעור נשאר כמתוכנן והבקשה תופיע כנדחתה."],
@@ -9081,7 +9084,7 @@ const HE_RX = [
   [/^Page (\d+) is before page (\d+), where this book is already\. Enter the page reached in this session\.$/, "עמוד $1 לפני עמוד $2, שבו הספר כבר נמצא. יש להזין את העמוד שהגיעו אליו באימון הזה."],
   [/^Page (\d+) is after page (\d+), logged later on (.+)\. Check the date or the page\.$/, "עמוד $1 אחרי עמוד $2, שנרשם מאוחר יותר ב־$3. כדאי לבדוק את התאריך או העמוד."],
   [/^Lesson — (.+)$/, (m,x)=>"שיעור — "+x], [/^Training · (.+)$/, (m,x)=>"אימון · "+heT(x)],
-  [/^(.+) rating$/, (m,x)=>"דירוג "+x], [/^Next lesson · (.+)$/, "שיעור הבא · $1"],
+  [/^(.+) rating$/, (m,x)=>"דירוג "+heT(x)], [/^Next lesson · (.+)$/, "שיעור הבא · $1"],
   [/^Approve lesson — (.+)$/, "אישור שיעור — $1"],
   [/^Lesson requests \((\d+)\)$/, "בקשות לשיעור ($1)"],
   [/^Disconnect (.+)\?$/, "לנתק את $1?"], [/^(.+) disconnected$/, "$1 נותק/ה"], [/^(.+) is now connected to the app$/, "$1 מחובר/ת לאפליקציה"],

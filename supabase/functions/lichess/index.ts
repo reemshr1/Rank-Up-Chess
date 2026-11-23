@@ -1,7 +1,9 @@
 // Rank Up — adds Lichess puzzle practice to students' and players' practice logs every hour, even when nobody opens
-// the app. Called by the database's scheduled job (supabase/lichess-sync.sql) with a secret only the database and
-// this function can read. The app does the same when it's open; both make the same entries (same ids), so nothing
-// is ever added twice.
+// the app, and each morning their Lichess and Chess.com ratings (from the usernames in Useful links). Called by the
+// database's scheduled job (supabase/lichess-sync.sql) with a secret only the database and this function can read.
+// The app does the same for puzzles when it's open; both make the same entries (same ids), so nothing is added twice.
+// Ratings (Lichess Rapid, Blitz, Classical; Chess.com Rapid, Blitz) are written into the record itself, one entry per
+// list a month, as the app's addRating does; at 06:xx Israel time, or at once for a username with no rating yet.
 //
 // For every active record with a Lichess username, on a coach's board or a player's board:
 //  - linked to an account (a coach's student, a child with their own sign-in): the entries go to that account's
@@ -76,55 +78,105 @@ async function activity(user: string): Promise<any[] | null> {
 }
 const docsOf = async (col: string) => { const r = await rest("docs?select=id,data,updated_at&col=eq." + encodeURIComponent(col)); return r.ok ? await r.json() as any[] : []; };
 
+// ---- online ratings: Lichess and Chess.com, from their public data (both allow it), once a day ----
+const CHESSCOM = Deno.env.get("CHESSCOM_URL") || "https://api.chess.com"; // another address only for tests
+const UA = { Accept: "application/json", "User-Agent": "RankUp (chess coaching app; https://reemshr1.github.io/Rank-Up-Chess/)" };
+const hourOf = (now: Date) => +new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour: "2-digit", hourCycle: "h23" }).format(now);
+// A site's public data (null if it couldn't be read); waits and tries once more if the site is busy.
+async function getJSON(url: string): Promise<any> {
+  for (let i = 0; i < 2; i++) {
+    const r = await fetch(url, { headers: UA }).catch(() => null);
+    if (r && r.status === 429) { await wait(+(Deno.env.get("LICHESS_BUSY_MS") || 60000)); continue; }
+    if (!r || !r.ok) return null;
+    return await r.json().catch(() => null);
+  }
+  return null;
+}
+const LI_LISTS: [string, string][] = [["rapid", "Lichess Rapid"], ["blitz", "Lichess Blitz"], ["classical", "Lichess Classical"]];
+const CC_LISTS: [string, string][] = [["chess_rapid", "Chess.com Rapid"], ["chess_blitz", "Chess.com Blitz"]];
+// The ratings a site's data gives, as {list: rating}: only lists played (no provisional Lichess rating, no 0 games).
+export function onlineRatings(li: any, cc: any) {
+  const out: Record<string, number> = {};
+  if (li && li.perfs) LI_LISTS.forEach(([k, name]) => { const p = li.perfs[k]; if (p && +p.games > 0 && !p.prov && +p.rating > 0) out[name] = Math.round(+p.rating); });
+  if (cc) CC_LISTS.forEach(([k, name]) => { const p = cc[k]; const r = p && p.last && +p.last.rating; if (r > 0) out[name] = Math.round(r); });
+  return out;
+}
+// The record's ratings with these added, as the app's addRating does (one entry per list a month); null if nothing changes.
+export function withRatings(ratings: any[], got: Record<string, number>, today: string) {
+  const L = (ratings || []).slice(); let n = 0;
+  Object.entries(got).forEach(([source, value]) => {
+    const i = L.findIndex(r => r && r.source === source && String(r.date || "").slice(0, 7) === today.slice(0, 7));
+    if (i >= 0) { if (+L[i].value !== value) { L[i] = { ...L[i], value, date: today }; n++; } }
+    else { L.push({ id: "rt-" + crypto.randomUUID().slice(0, 12), date: today, value, source }); n++; }
+  });
+  return n ? { list: L, n } : null;
+}
+
 async function run(now: Date) {
-  const today = dayOf(now.getTime());
+  const today = dayOf(now.getTime()), morning = hourOf(now) === 6;
   const cr = await rest("coaches?select=user_id,kind&kind=in.(coach,player)");
   const boards: any[] = cr.ok ? await cr.json() : [];
-  const feeds = new Map<string, any[] | null>(); let users = 0, added = 0, records = 0; const errors: string[] = [];
+  const feeds = new Map<string, any[] | null>(), sites = new Map<string, any>(); let users = 0, added = 0, records = 0, rated = 0; const errors: string[] = [];
+  const once = async (map: Map<string, any>, key: string, get: () => Promise<any>) => { if (!map.has(key)) { if (feeds.size + sites.size) await wait(PAUSE); map.set(key, await get()); } return map.get(key); };
   for (const { user_id: owner } of boards) {
     const col = "data/users/" + owner, docs = await docsOf(col);
     for (const d of docs.filter(x => /^st-/.test(x.id))) {
-      const s = d.data || {}, user = String((s.usernames || {})["lichess.org"] || "").trim();
-      if (!user || s.active === false) continue;
-      records++;
-      const key = user.toLowerCase();
-      if (!feeds.has(key)) { if (feeds.size) await wait(PAUSE); users++; feeds.set(key, await activity(user)); }
-      const feed = feeds.get(key); if (!feed) { if (errors.length < 5) errors.push("Couldn't read Lichess for " + user); continue; }
+      const s = d.data || {}, un = s.usernames || {};
+      const user = String(un["lichess.org"] || "").trim(), ccUser = String(un["chess.com"] || "").trim();
+      if ((!user && !ccUser) || s.active === false) continue;
       const link = s.portal && s.portal.uid ? String(s.portal.uid) : "";
-      // the whole log: the main document and its yearly log documents
-      const logDocs = docs.filter(x => /^lg-/.test(x.id) && x.data && x.data.sid === s.id);
-      let log = (s.worklog || []).concat(...logDocs.map(x => x.data.worklog || []));
-      if (link) {
-        // a linked account: what's waiting in its outbox counts too, so nothing is sent twice
-        const lr = await rest("docs?select=data&col=eq.portal&id=eq." + encodeURIComponent(link));
-        const me = lr.ok ? ((await lr.json())[0] || {}).data || {} : null;
-        if (!me || me.coach !== owner || me.share === false) continue; // not this board's link any more, or not shared with this coach
-        const inbox = await docsOf("portal/" + link + "/inbox");
-        const waiting = inbox.map(x => x.data).filter(o => o && o.type === "worklog.upsert" && o.item && o.item.id);
-        const deleted = new Set(inbox.map(x => x.data).filter(o => o && o.type === "worklog.delete").map(o => o.id));
-        log = log.filter((x: any) => !deleted.has(x.id)).map((x: any) => { const o = waiting.filter(o => o.item.id === x.id).pop(); return o ? { ...x, ...o.item } : x; })
-          .concat(waiting.map(o => o.item).filter(it => !log.some((x: any) => x.id === it.id)));
-        const changes = liChanges(log, [...(s.liGone || []), ...deleted], feed, today);
-        for (const w of changes) {
-          const id = "op-" + w.id + "-" + w.autoN + "-" + (w.score === "" ? "" : w.score); // the same change twice is one document
-          const r = await rest("docs?on_conflict=col,id", { method: "POST", headers: { Prefer: "resolution=merge-duplicates" },
-            body: JSON.stringify({ col: "portal/" + link + "/inbox", id, data: { type: "worklog.upsert", item: w, at: now.toISOString(), auto: "lichess" }, updated_at: now.toISOString() }) });
-          if (r.ok) added++; else if (errors.length < 5) errors.push("Couldn't send to " + link + " (" + r.status + ")");
+      let wl: any[] | null = null, puzzles = 0;
+      // 1. Lichess puzzles
+      if (user) {
+        records++;
+        const key = user.toLowerCase(); if (!feeds.has(key)) users++;
+        const feed = await once(feeds, key, () => activity(user));
+        if (!feed) { if (errors.length < 5) errors.push("Couldn't read Lichess for " + user); }
+        else {
+          // the whole log: the main document and its yearly log documents
+          const logDocs = docs.filter(x => /^lg-/.test(x.id) && x.data && x.data.sid === s.id);
+          let log = (s.worklog || []).concat(...logDocs.map(x => x.data.worklog || []));
+          if (link) {
+            // a linked account: to its outbox; what's waiting there counts too, so nothing is sent twice
+            const lr = await rest("docs?select=data&col=eq.portal&id=eq." + encodeURIComponent(link));
+            const me = lr.ok ? ((await lr.json())[0] || {}).data || {} : null;
+            if (me && me.coach === owner && me.share !== false) { // still this board's link, and shared with this coach
+              const inbox = await docsOf("portal/" + link + "/inbox");
+              const waiting = inbox.map(x => x.data).filter(o => o && o.type === "worklog.upsert" && o.item && o.item.id);
+              const deleted = new Set(inbox.map(x => x.data).filter(o => o && o.type === "worklog.delete").map(o => o.id));
+              log = log.filter((x: any) => !deleted.has(x.id)).map((x: any) => { const o = waiting.filter(o => o.item.id === x.id).pop(); return o ? { ...x, ...o.item } : x; })
+                .concat(waiting.map(o => o.item).filter(it => !log.some((x: any) => x.id === it.id)));
+              for (const w of liChanges(log, [...(s.liGone || []), ...deleted], feed, today)) {
+                const id = "op-" + w.id + "-" + w.autoN + "-" + (w.score === "" ? "" : w.score); // the same change twice is one document
+                const r = await rest("docs?on_conflict=col,id", { method: "POST", headers: { Prefer: "resolution=merge-duplicates" },
+                  body: JSON.stringify({ col: "portal/" + link + "/inbox", id, data: { type: "worklog.upsert", item: w, at: now.toISOString(), auto: "lichess" }, updated_at: now.toISOString() }) });
+                if (r.ok) added++; else if (errors.length < 5) errors.push("Couldn't send to " + link + " (" + r.status + ")");
+              }
+            }
+          } else {
+            // not linked: straight into the record (below)
+            const changes = liChanges(log, s.liGone || [], feed, today);
+            if (changes.length) { wl = (s.worklog || []).slice(); changes.forEach(w => { const i = wl!.findIndex((x: any) => x && x.id === w.id); if (i >= 0) wl![i] = w; else wl!.push(w); }); puzzles = changes.length; }
+          }
         }
-      } else {
-        // not linked: straight into the record, only if nobody saved it meanwhile (else the next hour tries again)
-        const changes = liChanges(log, s.liGone || [], feed, today); if (!changes.length) continue;
-        const wl = (s.worklog || []).slice();
-        changes.forEach(w => { const i = wl.findIndex((x: any) => x && x.id === w.id); if (i >= 0) wl[i] = w; else wl.push(w); });
-        const prev = Date.parse(d.updated_at || ""), at = new Date(isNaN(prev) ? now.getTime() : Math.max(now.getTime(), prev + 1)).toISOString();
-        const r = await rest("docs?col=eq." + encodeURIComponent(col) + "&id=eq." + encodeURIComponent(d.id) + "&updated_at=eq." + encodeURIComponent(d.updated_at),
-          { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ data: { ...s, worklog: wl }, updated_at: at }) });
-        const rows = r.ok ? await r.json() : [];
-        if (rows.length) added += changes.length; else if (errors.length < 5) errors.push("Changed meanwhile, next hour: " + d.id);
       }
+      // 2. online ratings: each morning, or at once for a username with no rating from that site yet
+      const has = (lists: [string, string][]) => (s.ratings || []).some((r: any) => r && lists.some(([, n]) => n === r.source));
+      let liData = null, ccData = null;
+      if (user && (morning || !has(LI_LISTS))) liData = await once(sites, "li:" + user.toLowerCase(), () => getJSON(LICHESS + "/api/user/" + encodeURIComponent(user)));
+      if (ccUser && (morning || !has(CC_LISTS))) { ccData = await once(sites, "cc:" + ccUser.toLowerCase(), () => getJSON(CHESSCOM + "/pub/player/" + encodeURIComponent(ccUser.toLowerCase()) + "/stats"));
+        if (!ccData && errors.length < 5) errors.push("Couldn't read Chess.com for " + ccUser); }
+      const rt = withRatings(s.ratings, onlineRatings(liData, ccData), today);
+      // 3. one write: puzzles (an unlinked record) and ratings, only if nobody saved the record meanwhile (else the next hour tries again)
+      if (!wl && !rt) continue;
+      const prev = Date.parse(d.updated_at || ""), at = new Date(isNaN(prev) ? now.getTime() : Math.max(now.getTime(), prev + 1)).toISOString();
+      const r = await rest("docs?col=eq." + encodeURIComponent(col) + "&id=eq." + encodeURIComponent(d.id) + "&updated_at=eq." + encodeURIComponent(d.updated_at),
+        { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ data: { ...s, ...(wl ? { worklog: wl } : {}), ...(rt ? { ratings: rt.list } : {}) }, updated_at: at }) });
+      const rows = r.ok ? await r.json() : [];
+      if (rows.length) { added += puzzles; rated += rt ? rt.n : 0; } else if (errors.length < 5) errors.push("Changed meanwhile, next hour: " + d.id);
     }
   }
-  return { records, users, added, errors };
+  return { records, users, added, ratings: rated, errors };
 }
 
 Deno.serve(async (req) => {

@@ -424,7 +424,12 @@ A player follows their own chess with no coach. They get a **player code** from 
 - **Rating:** with a FIDE or ICF number the rating is fetched when the profile is saved and once a month after
   ("Rating updated — 1650 FIDE"; a number that can't be read says so). On **Progress**, the Rating card says where
   it comes from, with **Check now**; without a number, **Add rating** records one by hand (FIDE, FIDE Rapid, FIDE
-  Blitz, ICF or Online), and the first one sets which list is theirs. A player's Progress shows practice sessions
+  Blitz, ICF, Online, or one of the Lichess / Chess.com lists), and the first one sets which list is theirs.
+- **Online ratings, by themselves:** with a Lichess or Chess.com username in Useful links, Supabase adds the
+  Lichess Rapid, Blitz and Classical and Chess.com Rapid and Blitz ratings every morning (06:35 Israel time, and at
+  once for a new username), one entry per list a month, from the sites' public data. Provisional or unplayed lists
+  are skipped. A player with no FIDE or ICF rating sees the latest online one on Home's rating tile. This works for
+  coaches' students too: the ratings go into the coach's records and show in the student's rating history. A player's Progress shows practice sessions
   instead of lessons, and no coach goals or recent lessons.
 - They use the student app: Home, **Tasks**, Practice (practice, fitness, sleep, books), Games (games and
   tournaments) and Progress. There's no Schedule, no lesson requests, no payments and nothing from a coach.
