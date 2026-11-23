@@ -4,6 +4,7 @@
 // The app does the same for puzzles when it's open; both make the same entries (same ids), so nothing is added twice.
 // Ratings (Lichess Rapid, Blitz, Classical; Chess.com Rapid, Blitz) are written into the record itself, one entry per
 // list a month, as the app's addRating does; at 06:xx Israel time, or at once for a username with no rating yet.
+// Also each morning: when they play best (online games of the last 3 months, by hour), as totals only (onlineStats).
 //
 // For every active record with a Lichess username, on a coach's board or a player's board:
 //  - linked to an account (a coach's student, a child with their own sign-in): the entries go to that account's
@@ -112,11 +113,54 @@ export function withRatings(ratings: any[], got: Record<string, number>, today: 
   return n ? { list: L, n } : null;
 }
 
+// ---- when they play best: online games of the last 3 months, by hour of the day (Israel time). Only totals are kept,
+// never the games: {days, n, hours: {all|rapid|blitz|bullet: {"9": [games, points]}}} on the record as onlineStats.
+const STATS_DAYS = 90, KINDS = ["bullet", "blitz", "rapid"];
+const hourIL = (ms: number) => +new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour: "2-digit", hourCycle: "h23" }).format(new Date(ms));
+// Lichess: one game a line; the start (createdAt), the speed, and who won. Aborted or unfinished games don't count.
+async function liGames(user: string, since: number): Promise<any[] | null> {
+  const r = await fetch(LICHESS + "/api/games/user/" + encodeURIComponent(user) + "?since=" + since + "&max=300&moves=false&perfType=bullet,blitz,rapid,classical",
+    { headers: { ...UA, Accept: "application/x-ndjson" } }).catch(() => null);
+  if (!r || !r.ok) return null;
+  const me = user.toLowerCase(), out: any[] = [];
+  (await r.text()).split("\n").forEach(line => { let g: any; try { g = JSON.parse(line); } catch (_) { return; }
+    if (!g || g.variant !== "standard" || ["created", "started", "aborted", "noStart", "unknownFinish"].includes(g.status)) return;
+    const side = ((g.players?.white?.user?.id || g.players?.white?.user?.name || "") + "").toLowerCase() === me ? "white" : ((g.players?.black?.user?.id || g.players?.black?.user?.name || "") + "").toLowerCase() === me ? "black" : "";
+    if (!side || !g.createdAt) return;
+    out.push({ t: +g.createdAt, kind: g.speed === "classical" ? "rapid" : g.speed, pts: !g.winner ? 0.5 : g.winner === side ? 1 : 0 }); });
+  return out;
+}
+// Chess.com: the monthly archives of the last 3 months; the start from the PGN (UTCDate, UTCTime), else the end.
+const CC_DRAW = ["agreed", "repetition", "stalemate", "insufficient", "50move", "timevsinsufficient"];
+async function ccGames(user: string, since: number): Promise<any[] | null> {
+  const a = await getJSON(CHESSCOM + "/pub/player/" + encodeURIComponent(user.toLowerCase()) + "/games/archives"); if (!a || !Array.isArray(a.archives)) return null;
+  const from = new Date(since).toISOString().slice(0, 7).replace("-", "/"), me = user.toLowerCase(), out: any[] = [];
+  for (const url of a.archives.filter((u: string) => typeof u === "string" && u.slice(-7) >= from).slice(-4)) {
+    const m = await getJSON(url.replace(/^https:\/\/api\.chess\.com/, CHESSCOM)); if (!m || !Array.isArray(m.games)) continue;
+    m.games.forEach((g: any) => {
+      if (!g || g.rules !== "chess" || !KINDS.includes(g.time_class)) return;
+      const side = (g.white?.username || "").toLowerCase() === me ? g.white : (g.black?.username || "").toLowerCase() === me ? g.black : null; if (!side) return;
+      const d = /\[UTCDate "(\d{4})\.(\d\d)\.(\d\d)"\]/.exec(g.pgn || ""), tm = /\[UTCTime "(\d\d):(\d\d):(\d\d)"\]/.exec(g.pgn || "");
+      const t = d && tm ? Date.UTC(+d[1], +d[2] - 1, +d[3], +tm[1], +tm[2], +tm[3]) : (+g.end_time || 0) * 1000;
+      if (!t || t < since) return;
+      out.push({ t, kind: g.time_class, pts: side.result === "win" ? 1 : CC_DRAW.includes(side.result) ? 0.5 : 0 }); });
+  }
+  return out;
+}
+// The totals by hour (and by kind) for these games (with none: n 0, so it isn't asked again until the next morning).
+export function timeStats(games: any[]) {
+  if (!games.length) return { days: STATS_DAYS, n: 0, hours: {} };
+  const hours: any = { all: {} }; KINDS.forEach(k => { hours[k] = {}; });
+  games.forEach(g => { const h = String(hourIL(g.t)); [hours.all, hours[g.kind]].forEach(b => { if (!b) return; const c = b[h] || (b[h] = [0, 0]); c[0]++; c[1] += g.pts; }); });
+  KINDS.forEach(k => { if (!Object.keys(hours[k]).length) delete hours[k]; });
+  return { days: STATS_DAYS, n: games.length, hours };
+}
+
 async function run(now: Date) {
   const today = dayOf(now.getTime()), morning = hourOf(now) === 6;
   const cr = await rest("coaches?select=user_id,kind&kind=in.(coach,player)");
   const boards: any[] = cr.ok ? await cr.json() : [];
-  const feeds = new Map<string, any[] | null>(), sites = new Map<string, any>(); let users = 0, added = 0, records = 0, rated = 0; const errors: string[] = [];
+  const feeds = new Map<string, any[] | null>(), sites = new Map<string, any>(); let users = 0, added = 0, records = 0, rated = 0, stats = 0; const errors: string[] = [];
   const once = async (map: Map<string, any>, key: string, get: () => Promise<any>) => { if (!map.has(key)) { if (feeds.size + sites.size) await wait(PAUSE); map.set(key, await get()); } return map.get(key); };
   for (const { user_id: owner } of boards) {
     const col = "data/users/" + owner, docs = await docsOf(col);
@@ -167,16 +211,24 @@ async function run(now: Date) {
       if (ccUser && (morning || !has(CC_LISTS))) { ccData = await once(sites, "cc:" + ccUser.toLowerCase(), () => getJSON(CHESSCOM + "/pub/player/" + encodeURIComponent(ccUser.toLowerCase()) + "/stats"));
         if (!ccData && errors.length < 5) errors.push("Couldn't read Chess.com for " + ccUser); }
       const rt = withRatings(s.ratings, onlineRatings(liData, ccData), today);
-      // 3. one write: puzzles (an unlinked record) and ratings, only if nobody saved the record meanwhile (else the next hour tries again)
-      if (!wl && !rt) continue;
+      // 3. when they play best: each morning, or at once when there are no figures yet
+      let st: any = undefined;
+      if (morning || !s.onlineStats) {
+        const since = now.getTime() - STATS_DAYS * 86400000;
+        const lg = user ? await once(sites, "lg:" + user.toLowerCase(), () => liGames(user, since)) : [];
+        const cg = ccUser ? await once(sites, "cg:" + ccUser.toLowerCase(), () => ccGames(ccUser, since)) : [];
+        if (lg !== null && cg !== null) { const v = timeStats([...(lg || []), ...(cg || [])]); if (JSON.stringify(v) !== JSON.stringify(s.onlineStats || null)) st = v; }
+      }
+      // 4. one write: puzzles (an unlinked record), ratings and the figures, only if nobody saved the record meanwhile (else the next hour tries again)
+      if (!wl && !rt && st === undefined) continue;
       const prev = Date.parse(d.updated_at || ""), at = new Date(isNaN(prev) ? now.getTime() : Math.max(now.getTime(), prev + 1)).toISOString();
       const r = await rest("docs?col=eq." + encodeURIComponent(col) + "&id=eq." + encodeURIComponent(d.id) + "&updated_at=eq." + encodeURIComponent(d.updated_at),
-        { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ data: { ...s, ...(wl ? { worklog: wl } : {}), ...(rt ? { ratings: rt.list } : {}) }, updated_at: at }) });
+        { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ data: { ...s, ...(wl ? { worklog: wl } : {}), ...(rt ? { ratings: rt.list } : {}), ...(st !== undefined ? { onlineStats: st } : {}) }, updated_at: at }) });
       const rows = r.ok ? await r.json() : [];
-      if (rows.length) { added += puzzles; rated += rt ? rt.n : 0; } else if (errors.length < 5) errors.push("Changed meanwhile, next hour: " + d.id);
+      if (rows.length) { added += puzzles; rated += rt ? rt.n : 0; if (st !== undefined) stats++; } else if (errors.length < 5) errors.push("Changed meanwhile, next hour: " + d.id);
     }
   }
-  return { records, users, added, ratings: rated, errors };
+  return { records, users, added, ratings: rated, stats, errors };
 }
 
 Deno.serve(async (req) => {

@@ -31,7 +31,7 @@ const docs = {
     { id: 'st-z', data: st('st-z', 'Zed', { usernames: { 'lichess.org': 'nobody', 'chess.com': 'nobodycc' } }) }],
   portal: [{ id: 'u-m', data: { coach: 'coach', linked: true } }, { id: 'u-n', data: { coach: 'coach', share: false } }, { id: 'u-g', data: { coach: 'someone-else' } }],
   'portal/u-m/inbox': [{ id: 'op-del', data: { type: 'worklog.delete', id: 'li-' + D(-1) + '-storm' } }] };
-const updated = {}; Object.values(docs).flat().forEach(d => { d.updated_at = '2026-11-01T00:00:00.000000+00:00'; });
+const updated = {}; const origLogs = Object.fromEntries(docs['data/users/coach'].filter(d => /^st-/.test(d.id)).map(d => [d.id, JSON.parse(JSON.stringify(d.data.worklog))])); Object.values(docs).flat().forEach(d => { d.updated_at = '2026-11-01T00:00:00.000000+00:00'; });
 const db = { secret: 's3cret', coaches: [{ user_id: 'tom', kind: 'player' }, { user_id: 'coach', kind: 'coach' }, { user_id: 'moved', kind: 'moved' }] };
 const writes = [];
 const supa = http.createServer((req, res) => { let b = ''; req.on('data', c => b += c); req.on('end', () => {
@@ -54,10 +54,29 @@ const profiles = { tomlevi: { perfs: { rapid: { games: 40, rating: 1650 }, blitz
   mayac: { perfs: { rapid: { games: 12, rating: 1320 } } }, shared: { perfs: {} } };
 const ccStats = { tomcc: { chess_rapid: { last: { rating: 1580, date: 1 } }, chess_blitz: { last: { rating: 1410, date: 1 } }, tactics: { highest: { rating: 2000 } } } };
 const ccAsked = [];
-const chesscom = http.createServer((req, res) => { const m = /^\/pub\/player\/([^/]+)\/stats$/.exec(req.url), u = m && decodeURIComponent(m[1]);
+const IL = (h, m = 10) => Date.UTC(2026, 10, 8, h - 2, m); // Israel is UTC+2 in November
+const liGamesOf = { tomlevi: [
+  { id: 'g1', variant: 'standard', speed: 'rapid', status: 'resign', createdAt: IL(9), winner: 'black', players: { white: { user: { id: 'tomlevi', name: 'TomLevi' } }, black: { user: { id: 'x' } } } },
+  { id: 'g2', variant: 'standard', speed: 'blitz', status: 'mate', createdAt: IL(9, 40), winner: 'white', players: { white: { user: { id: 'y' } }, black: { user: { id: 'tomlevi' } } } },
+  { id: 'g3', variant: 'standard', speed: 'rapid', status: 'outoftime', createdAt: IL(18), winner: 'white', players: { white: { user: { id: 'tomlevi' } }, black: { user: { id: 'z' } } } },
+  { id: 'g4', variant: 'standard', speed: 'rapid', status: 'aborted', createdAt: IL(18, 30), players: { white: { user: { id: 'tomlevi' } }, black: { user: { id: 'z' } } } }] };
+const ccArchive = { games: [
+  { rules: 'chess', time_class: 'rapid', pgn: '[UTCDate "2026.11.08"]\n[UTCTime "07:20:00"]', end_time: 0, white: { username: 'TomCC', result: 'agreed' }, black: { username: 'q', result: 'agreed' } },
+  { rules: 'chess', time_class: 'blitz', pgn: '[UTCDate "2026.11.08"]\n[UTCTime "16:05:00"]', end_time: 0, white: { username: 'q', result: 'resigned' }, black: { username: 'TomCC', result: 'win' } },
+  { rules: 'bughouse', time_class: 'blitz', pgn: '', end_time: 1, white: { username: 'TomCC', result: 'win' }, black: { username: 'q', result: 'lose' } }] };
+const chesscom = http.createServer((req, res) => {
+  if (/^\/pub\/player\/tomcc\/games\/archives$/.test(req.url)) { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ archives: ['https://api.chess.com/pub/player/tomcc/games/2026/06', 'https://api.chess.com/pub/player/tomcc/games/2026/11'] })); }
+  if (/^\/pub\/player\/tomcc\/games\/2026\/11$/.test(req.url)) { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify(ccArchive)); }
+  if (/\/games\//.test(req.url)) { ccAsked.push({ u: 'old-archive:' + req.url }); res.writeHead(404); return res.end('{}'); }
+  const m = /^\/pub\/player\/([^/]+)\/stats$/.exec(req.url), u = m && decodeURIComponent(m[1]);
   ccAsked.push({ u, ua: req.headers['user-agent'] || '' });
   if (!ccStats[u]) { res.writeHead(404); return res.end('{}'); } res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(ccStats[u])); });
-const lichess = http.createServer((req, res) => { const pm = /^\/api\/user\/([^/]+)$/.exec(req.url);
+const liAsked = [];
+const lichess = http.createServer((req, res) => {
+  const gm = /^\/api\/games\/user\/([^/?]+)\?(.*)$/.exec(req.url);
+  if (gm) { liAsked.push({ u: gm[1], q: gm[2], accept: req.headers.accept }); const L = liGamesOf[decodeURIComponent(gm[1]).toLowerCase()] || [];
+    res.writeHead(200, { 'Content-Type': 'application/x-ndjson' }); return res.end(L.map(g => JSON.stringify(g)).join('\n') + '\n'); }
+  const pm = /^\/api\/user\/([^/]+)$/.exec(req.url);
   if (pm) { const p = profiles[decodeURIComponent(pm[1]).toLowerCase()]; asked.push({ profile: pm[1], ua: req.headers['user-agent'] || '' });
     if (!p) { res.writeHead(404); return res.end('{}'); } res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify(p)); }
   const m = /^\/api\/user\/([^/]+)\/activity$/.exec(req.url); const user = m && decodeURIComponent(m[1]).toLowerCase();
@@ -109,13 +128,22 @@ const appEntries = (() => { const src = fs.readFileSync(path.resolve(__dirname, 
     check(!ops.some(o => o.item.id === 'li-' + D(-4) + '-puzzles'), 'not the entry the coach’s record has and someone edited (20 minutes): left as it is');
     check(!rec('data/users/coach', 'st-m').worklog.some(w => w.id === 'li-' + T + '-puzzles'), 'the coach’s records aren’t written: the coach’s app takes it in');
     check(!inbox('u-n').length && !inbox('u-g').length, 'not for a link that doesn’t share with this coach, or isn’t this coach’s');
-    check(!writes.some(w => /st-x/.test(w.id || '')) && writes.filter(w => w.col === 'data/users/coach').every(w => w.data.worklog.length === 1 && w.data.worklog[0].minutes === 20), 'nothing for an inactive student; a coach’s linked student gets no practice straight into the record (only ratings)');
+    check(!writes.some(w => /st-x/.test(w.id || '')) && writes.filter(w => w.col === 'data/users/coach').every(w => JSON.stringify(w.data.worklog) === JSON.stringify(origLogs[w.id])), 'nothing for an inactive student; no practice straight into a coach’s records (only ratings and figures)');
     // ratings
     const rt = (col, id) => (rec(col, id).ratings || []).map(r => r.source + ':' + r.value + ':' + r.date).sort().join();
     check(rt('data/users/tom', 'st-me') === ['Chess.com Blitz:1410:' + T, 'Chess.com Rapid:1580:' + T, 'Lichess Rapid:1650:' + T].join(), 'first time with usernames: Tom’s Lichess Rapid and Chess.com Rapid and Blitz ratings, not the provisional or unplayed lists: ' + rt('data/users/tom', 'st-me'));
     check(rt('data/users/coach', 'st-m') === 'Lichess Rapid:1320:' + T, 'a coach’s student gets hers in the coach’s records');
     check(r1.body.ratings === 4 && r1.body.errors.some(e => /Chess.com for nobodycc/.test(e)), 'four ratings; an unknown Chess.com user is reported ' + JSON.stringify(r1.body));
-    check(ccAsked.length && ccAsked.every(a => /^RankUp \(.*https:\/\//.test(a.ua)) && ccAsked.some(a => a.u === 'tomcc'), 'Chess.com is asked with the app’s name and address, for the username in lower case');
+    check(ccAsked.filter(a => !/^old-archive/.test(a.u)).every(a => /^RankUp \(.*https:\/\//.test(a.ua)) && ccAsked.some(a => a.u === 'tomcc'), 'Chess.com is asked with the app’s name and address, for the username in lower case');
+    // when they play best
+    const os = rec('data/users/tom', 'st-me').onlineStats;
+    check(os && os.days === 90 && os.n === 5, 'Tom’s figures: 5 online games of the last 3 months (the aborted one and a bughouse game don’t count): ' + JSON.stringify(os));
+    check(os && JSON.stringify(os.hours.all) === JSON.stringify({ 9: [3, 0.5], 18: [2, 2] }), 'by hour, Israel time: 09:00 three games, ½ point; 18:00 two games, two points');
+    check(os && JSON.stringify(os.hours.rapid) === JSON.stringify({ 9: [2, 0.5], 18: [1, 1] }) && JSON.stringify(os.hours.blitz) === JSON.stringify({ 9: [1, 0], 18: [1, 1] }) && !os.hours.bullet, 'and by kind: rapid, blitz (no bullet played)');
+    check(liAsked.some(a => a.u.toLowerCase() === 'tomlevi' && /since=\d+/.test(a.q) && /max=300/.test(a.q) && a.accept === 'application/x-ndjson'), 'Lichess: the last 3 months, at most 300 games, one per line');
+    check(!ccAsked.some(a => /2026\/06/.test(a.u)), 'Chess.com: only the months in the last 3 months are read');
+    check(JSON.stringify(rec('data/users/coach', 'st-m').onlineStats) === JSON.stringify({ days: 90, n: 0, hours: {} }), 'Maya has no online games: written once as none (so not asked again until the next morning)');
+    check(r1.body.stats >= 2, 'figures written: ' + r1.body.stats);
     // again: nothing twice
     const n = writes.length; await call({ action: 'sync', secret, now: NOW });
     check(writes.length === n && inbox('u-m').length === 1, 'the next hour, nothing new: nothing written, nothing added twice');
