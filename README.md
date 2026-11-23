@@ -33,7 +33,7 @@ The whole app lives in `index.html` and runs in two places:
   and switch **Verify JWT** off (the function checks sign-in itself, like
   `ratings`). It makes its own keys the first time it runs.
 - `supabase/functions/lichess` — every hour, adds Lichess puzzle practice to the practice logs of everyone with a
-  Lichess username, even when nobody opens the app. To set it up: in Supabase → Edge Functions, create a function
+  Lichess username, even when nobody opens the app; each morning it also adds their Lichess and Chess.com ratings and how their online games of the last 3 months went by hour of the day. To set it up: in Supabase → Edge Functions, create a function
   named `lichess`, paste in `index.ts`, Deploy, and switch **Verify JWT** off (the call carries a secret instead);
   then run `supabase/lichess-sync.sql` once in the SQL Editor (it makes the secret and the hourly job, at :35).
 - `welcome/` — the public page about Rank Up (`index.html`, `privacy.html` and the pictures), at

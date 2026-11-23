@@ -19,7 +19,7 @@ and that folder's `node_modules` added to NODE_PATH.
 ## What's covered
 
 The old suite (82 browser tests, the Postgres rule tests and the push-function harness) was lost when the session's
-temporary folder was wiped, and rebuilt here: 41 files, 825 checks, all passing together (`tests/run.sh`, about
+temporary folder was wiped, and rebuilt here: 43 files, 859 checks, all passing together (`tests/run.sh`, about
 23 minutes). The browser tests load the app over http (`serve.js`), as a real site.
 
 Files:
@@ -55,7 +55,9 @@ Files:
 - deploy — the site under /Rank-Up-Chess/ over http: no missing files, manifest, icons, service worker files (old: testghpages)
 - lichess, lichess-student — Lichess puzzles added by themselves
 - streaks — practice days in a row (a missed day ends it, earned medals stay), fitness weeks each judged by its own goal, 0-minute entries not practice
-- lichess-fn — the hourly Lichess job (supabase/functions/lichess) in Deno: a player's record, a student's outbox, the app's rules, deleted entries, links not shared, Lichess busy, a record saved meanwhile
+- lichess-fn — the hourly Lichess job (supabase/functions/lichess) in Deno: each morning's Lichess and Chess.com ratings and play-time totals; a player's record, a student's outbox, the app's rules, deleted entries, links not shared, Lichess busy, a record saved meanwhile
+- online-ratings — Lichess / Chess.com ratings in the app: Home's tile without a FIDE rating, where they come from, the rating lists, Hebrew
+- play-times — When do you play best: a bar per hour, best and worst hour (5 games or more), the All / Rapid / Blitz / Bullet switch, coach, student and player views, no card without games, Hebrew
 - lichess-sync — the app's side of the hourly job: an entry it leaves in the outbox, taken in once; a deleted entry remembered on the record (liGone) and never brought back
 - kids, kid, player-backup, close-account, orphan, two-parents — recovered from the session history
 

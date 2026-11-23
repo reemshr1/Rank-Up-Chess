@@ -123,7 +123,7 @@ kbd{font-family:var(--body);font-size:.75rem;border:1px solid var(--line);border
 .student-mode .btn.lang-btn{display:inline-flex}
 .student-mode .side-search,.student-mode .topbar a[href="#/search"]{display:none}
 /* a parent's board is view-only apart from lesson requests and changes */
-.parent-mode #view button[data-a]:not([data-a="addCoach"]):not([data-a="req"]):not([data-a="reqat"]):not([data-a="les"]):not([data-a="open"]):not([data-a="ans"]):not([data-a="offer"]):not([data-a="unreq"]):not([data-a="reqx"]):not([data-a="view"]):not([data-a="wk"]):not([data-a="more"]):not([data-a="all"]):not([data-a="src"]):not([data-a="gf"]):not([data-a="f"]):not([data-a="sf"]):not([data-a="rf"]):not([data-a="period"]):not([data-a="board"]):not([data-a="games"]):not([data-a="clearT"]):not([data-a="clearO"]):not([data-a="opg"]):not([data-a="clearRep"]):not([data-a="dl"]):not([data-a="pp"]):not([data-a="ps"]):not([data-a="seenAll"]):not([data-a="notes"]):not([data-a="pdf"]){display:none}
+.parent-mode #view button[data-a]:not([data-a="addCoach"]):not([data-a="req"]):not([data-a="reqat"]):not([data-a="les"]):not([data-a="open"]):not([data-a="ans"]):not([data-a="offer"]):not([data-a="unreq"]):not([data-a="reqx"]):not([data-a="view"]):not([data-a="wk"]):not([data-a="more"]):not([data-a="all"]):not([data-a="src"]):not([data-a="gf"]):not([data-a="ptk"]):not([data-a="f"]):not([data-a="sf"]):not([data-a="rf"]):not([data-a="period"]):not([data-a="board"]):not([data-a="games"]):not([data-a="clearT"]):not([data-a="clearO"]):not([data-a="opg"]):not([data-a="clearRep"]):not([data-a="dl"]):not([data-a="pp"]):not([data-a="ps"]):not([data-a="seenAll"]):not([data-a="notes"]):not([data-a="pdf"]){display:none}
 .parent-mode #view label:has(input[type=file]),.parent-mode #view label[for$="Import"],.parent-mode #view .dropzone{display:none} /* file pickers, inside the label or beside it (Import PGN) */
 .link-box{display:inline-block;direction:ltr;font-weight:600;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-sm);padding:2px 8px;word-break:break-all;user-select:all}
 .code-box{font-family:var(--display);font-size:1.6rem;font-weight:700;letter-spacing:.18em;background:var(--paper);border:1px dashed var(--line);border-radius:var(--r-sm);padding:6px 14px;display:inline-block;direction:ltr}
@@ -415,6 +415,8 @@ dialog.wide{width:min(960px,calc(100vw - 24px))}
 @media (max-width:600px){.wbars.w12{gap:3px}.wbars.w12 > div:nth-child(odd) .wl{visibility:hidden}.wbars.w12 .pct{font-size:.6rem}} /* 12 weeks on a phone: every other date, so they don't run into each other */
 .wbars .vol{height:3px;background:var(--muted);opacity:.5;margin-top:3px;border-radius:2px;align-self:flex-start;margin-left:15%;max-width:70%}
 .wbars .wl{font-size:.68rem;color:var(--muted);margin-top:3px;white-space:nowrap}
+.wbars.play-hours{gap:2px}.wbars.play-hours .pct,.wbars.play-hours .wl{font-size:.6rem}.wbars.play-hours .bar{width:80%}
+@media (max-width:600px){.wbars.play-hours .pct{font-size:.5rem}}
 .tstats[hidden]{display:none}
 .subh{font-size:.85rem;color:var(--muted);margin:18px 0 8px;font-family:var(--body);font-weight:600}
 .pb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
@@ -2977,7 +2979,7 @@ function studentView(s){
     goals:s.goals, notes:s.notesShared ? s.notes : "", notesShared:!!s.notesShared, active:s.active, createdAt:s.createdAt,
     sessions:s.sessions.map(x=>({id:x.id, date:x.date, time:x.time, duration:x.duration, format:x.format, place:x.place||"", status:x.status, topics:x.topics, added:x.added, notes:isShared(x.shareNotes)?x.notes:"", slotId:x.slotId, slotDate:x.slotDate})),
     worklog:s.worklog, repertoire:s.repertoire, tournaments:s.tournaments.map(({assist, assistDays, assistFee, assistReason, ...x})=>x), books:s.books, ratings:s.ratings, training:s.training||[], requests:s.requests||[], offers:s.offers||[], checkins:s.checkins||[], notices:(s.notices||[]).filter(n=>(n.to||[]).includes("student") && liveNotice(n)), noticeReads:(s.noticeReads||[]), appSince:(s.portal && s.portal.linkedAt)||"", fitness:s.fitness||[], fitnessGoal:+s.fitnessGoal||0, fitGoals:s.fitGoals||[], fitnessMinGoal:+s.fitnessMinGoal||0, sleep:s.sleep||[],
-    coachName:state.settings.coachName||"", coachNameHe:state.settings.coachNameHe||"", weekStart:state.settings.weekStart||0, links:coachLinks().map(({id,name,url,note})=>({id,name,url,note})), usernames:s.usernames||{}, liGone:s.liGone||[], linkOrder:s.linkOrder||[],
+    coachName:state.settings.coachName||"", coachNameHe:state.settings.coachNameHe||"", weekStart:state.settings.weekStart||0, links:coachLinks().map(({id,name,url,note})=>({id,name,url,note})), usernames:s.usernames||{}, liGone:s.liGone||[], onlineStats:s.onlineStats||null, linkOrder:s.linkOrder||[],
     noCoach:PLAYER, clubOnly:!!s.clubOnly, clubs:clubsOf(s).map(({rate, att, ...r})=>Object.assign(r, {challenge:groupChallenge(r, s)})),
     freeSet:freeRules().some(r=>r.kind!=="off"), free:openSlots(today(), addDays(today(),56), s.id).free, taken:[]})); // other students' bookings just leave a gap
 }
@@ -4644,8 +4646,10 @@ function closeAccount(){
 // A player's Rating card: where the rating comes from, and checking it now.
 function playerRatingNote(s){
   const ids = [s.fideId ? "FIDE" : "", s.icfId ? "ICF" : ""].filter(Boolean), when = [s.fide && s.fide.updated, s.icf && s.icf.updated].filter(Boolean).sort().pop();
-  if (!ids.length) return '<p class="small muted" style="margin:8px 0 0">With a FIDE or ICF number in My profile, the rating fills in by itself, once a month. Without one, add it here.</p>';
-  return '<p class="small muted" style="margin:8px 0 0">'+esc("From your "+ids.join(" and ")+" number, checked once a month"+(when ? " (last: "+fmtShort(when)+")" : ""))+'.</p>'+
+  const un = s.usernames||{}, sites = [un["lichess.org"] ? "Lichess" : "", un["chess.com"] ? "Chess.com" : ""].filter(Boolean);
+  const online = sites.length ? '<p class="small muted" style="margin:4px 0 0">'+esc(sites.join(" and ")+" ratings are added every morning from your username"+(sites.length>1?"s":"")+".")+'</p>' : '';
+  if (!ids.length) return (sites.length ? online : '<p class="small muted" style="margin:8px 0 0">With a FIDE or ICF number in My profile, or a Lichess or Chess.com username in Useful links, the rating fills in by itself. Without one, add it here.</p>');
+  return '<p class="small muted" style="margin:8px 0 0">'+esc("From your "+ids.join(" and ")+" number, checked once a month"+(when ? " (last: "+fmtShort(when)+")" : ""))+'.</p>'+online+
     '<div class="row-actions" style="margin-top:6px"><button class="btn small ghost" data-a="rtNow"'+(ratingsBusy?' disabled':'')+'>'+(ratingsBusy?"Checking…":"Check now")+'</button></div>';
 }
 function playerAddRating(s, src){
@@ -4739,7 +4743,7 @@ function pHome(v, s){
   const tours = s.tournaments.filter(x=>tourAhead(x,t)).sort((a,b)=>tourNext(a,t)<tourNext(b,t)?-1:1).slice(0,3);
   const pend = (s.requests||[]).filter(r=>r.status==="pending");
   const clubs = []; for (let d=t; d<=addDays(t,7) && clubs.length<2; d=addDays(d,1)) clubOn(d).forEach(o=>clubs.push({d, o})); // their club classes this coming week
-  const rt = sortBy(s.ratings.filter(r=>(r.source||mainSource(s))===mainSource(s)),"date").pop();
+  const rt = sortBy(s.ratings.filter(r=>(r.source||mainSource(s))===mainSource(s)),"date").pop() || (src=>src && sortBy(s.ratings.filter(r=>r.source===src),"date").pop())(ONLINE_SOURCES.find(x=>s.ratings.some(r=>r.source===x))); // no official rating: the first online list they have (Lichess Rapid first), as on Progress
   const hr = new Date().getHours(), greet = hr<12?"Good morning":hr<18?"Good afternoon":"Good evening";
   v.innerHTML = '<div class="page-head"><div><p class="sub" style="margin:0 0 4px">'+esc(fmtDay(t))+'</p><h1>'+(PARENT() || (PLAYER && s.setup==="parent") ? esc(first)+'’s board' : greet+', '+esc(first))+'</h1>'+(NOCOACH() ? '' : freshness(s))+'</div><div class="row-actions">'+(NOCOACH() && WEB && !PREVIEW ? '<button class="btn" data-a="alerts" aria-label="Phone alerts">📱 <span>Alerts</span></button>' : '')+(PLAYER ? '<button class="btn" data-a="profile">'+(s.setup==="parent" ? "Profile" : "My profile")+'</button>' : NOCOACH() ? '' : noticesButton(s)+'<button class="btn" data-a="req">Request a lesson</button>')+'<button class="btn primary" data-a="log">Log practice</button></div></div>'+
     '<div class="stats">'+(NOCOACH() ? '<div class="stat"><div class="v num">'+(tours[0]?esc(fmtDate(tourNext(tours[0],t),{weekday:"short",day:"numeric",month:"short"})):"—")+'</div><div class="l">'+(tours[0]?"Next tournament":"No tournament planned")+'</div></div>' // no lessons without a coach
@@ -5674,7 +5678,8 @@ function pStudents(v){
   if (WEB){ const box = document.createElement("div"); box.innerHTML = bookLibraryPanel(); v.appendChild(box); bindBookLibrary(box); }
 }
 
-const RATING_SOURCES = ["FIDE","FIDE Rapid","FIDE Blitz","ICF","Online"];
+const ONLINE_SOURCES = ["Lichess Rapid","Lichess Blitz","Lichess Classical","Chess.com Rapid","Chess.com Blitz"]; // added each morning from the usernames (supabase/functions/lichess)
+const RATING_SOURCES = ["FIDE","FIDE Rapid","FIDE Blitz","ICF","Online", ...ONLINE_SOURCES];
 const mainSource = s => s.ratingType==="ICF" ? "ICF" : s.ratingType==="Online" ? "Online" : "FIDE";
 const fideUrl = id => "https://ratings.fide.com/profile/"+encodeURIComponent(id);
 const icfUrl = id => "https://www.chess.org.il/Players/Player.aspx?Id="+encodeURIComponent(id);
@@ -6891,6 +6896,28 @@ function tabSwitch(s, cur){
   const n = studentGames(s.id).length;
   return '<div class="seg" role="tablist" style="margin-bottom:16px"><a role="tab" class="'+(cur==="tournaments"?"on":"")+'" href="#/student/'+s.id+'/tournaments">Tournaments</a><a role="tab" class="'+(cur==="games"?"on":"")+'" href="#/student/'+s.id+'/games">Game history'+(n?" ("+n+")":"")+'</a></div>';
 }
+// When they play best: the online games of the last 3 months by hour of the day (Israel time), worked out each morning
+// on Supabase from Lichess and Chess.com (supabase/functions/lichess). Only the totals are kept, never the games.
+const playKind = {};
+const PLAY_KINDS = [["all","All"],["rapid","Rapid"],["blitz","Blitz"],["bullet","Bullet"]];
+function playTimesPanel(s){
+  const st = s.onlineStats; if (!st || !(+st.n>0) || !st.hours) return "";
+  const kinds = PLAY_KINDS.filter(([k])=>st.hours[k] && Object.keys(st.hours[k]).length), k = kinds.some(x=>x[0]===playKind[s.id]) ? playKind[s.id] : "all";
+  const H = st.hours[k]||{}, hrs = Object.keys(H).map(Number).sort((a,b)=>a-b), pct = h=>Math.round(H[h][1]/H[h][0]*100), span = h=>String(h).padStart(2,"0")+":00–"+String((h+1)%24).padStart(2,"0")+":00";
+  const n = hrs.reduce((a,h)=>a+H[h][0], 0), enough = hrs.filter(h=>H[h][0]>=5);
+  const best = enough.length>1 ? enough.reduce((a,h)=>pct(h)>pct(a)?h:a) : null, worst = enough.length>1 ? enough.reduce((a,h)=>pct(h)<pct(a)?h:a) : null;
+  const first = firstName(s), own = ownView(s);
+  const cols = hrs.length ? Array.from({length:hrs[hrs.length-1]-hrs[0]+1}, (_,i)=>hrs[0]+i) : [];
+  const bars = '<div class="wbars play-hours" style="grid-template-columns:repeat('+Math.max(cols.length,1)+',1fr)" role="img" aria-label="Score by hour of the day">'+cols.map(h=> !H[h] ? '<div><span class="wl num">'+String(h).padStart(2,"0")+'</span><span class="wl">&nbsp;</span></div>' :
+    '<div title="'+esc(span(h)+": "+H[h][0]+(H[h][0]===1?" game":" games")+", "+pct(h)+"%")+'"><span class="pct num">'+pct(h)+'%</span><span class="bar" style="height:'+Math.max(4, pct(h))+'px'+(h===best?';background:var(--green)':h===worst?';background:var(--flag)':'')+'"></span><span class="wl num">'+String(h).padStart(2,"0")+'</span><span class="wl num muted">'+H[h][0]+'</span></div>').join("")+'</div>';
+  return panel(own ? "When do you play best?" : "When does "+first+" play best?",
+    (kinds.length>2 ? '<div class="seg" role="group" aria-label="Kind of game" style="margin:0 0 10px">'+kinds.map(([x,l])=>'<button type="button" class="'+(x===k?"on":"")+'" data-a="ptk" data-id="'+x+'">'+l+'</button>').join("")+'</div>' : '')+
+    bars+
+    '<p class="small" style="margin:8px 0 0">'+(best!==null && pct(best)!==pct(worst)
+      ? '<span>Best: '+span(best)+' · '+pct(best)+'% ('+H[best][0]+' games)</span> · <span>Worst: '+span(worst)+' · '+pct(worst)+'% ('+H[worst][0]+' games)</span>'
+      : '<span class="muted">Not enough games in one hour yet to compare (5 or more each).</span>')+'</p>'+
+    '<p class="small muted" style="margin:6px 0 0">'+esc(n+" online games on Lichess and Chess.com in the last 3 months, by the hour they started (Israel time). Each bar is the score in that hour; the number under it, the games. Updated every morning.")+'</p>');
+}
 function tGames(el, s){
   const all = sortBy(studentGames(s.id),"date",-1);
   if (gameFilter.tid && !s.tournaments.some(t=>t.id===gameFilter.tid)) gameFilter.tid = "";
@@ -6921,9 +6948,10 @@ function tGames(el, s){
           '<td class="c-act"><div class="row-actions" style="flex-wrap:nowrap">'+(g.pgn?'<button class="btn small" data-a="board" data-id="'+g.id+'">Board</button>':'')+'<button class="btn small ghost" data-a="analyse" data-id="'+g.id+'">Log analysis</button><button class="btn small ghost" data-a="editGame" data-id="'+g.id+'">Edit</button></div></td></tr>').join("")+
         '</tbody></table></div>'
         : '<p class="empty">'+(all.length?"No games match this filter.":"No games yet. Add them one by one, or import a PGN file from a tournament — games are matched to "+(ownView(s) ? "your" : esc(firstName(s))+"’s")+" side and to tournaments automatically.")+'</p>')+
-    '</section>';
+    '</section>'+playTimesPanel(s);
   $("#gImport").onchange = async e=>{ const files = [...e.target.files]; e.target.value = ""; let txt = ""; for (const f of files){ if (f.size>4*1024*1024){ toast(f.name+" is too large (over 4 MB)."); continue; } txt += "\n\n"+await f.text(); } if (txt.trim()) importGames(s, txt); };
   bindActions(el,{
+    ptk:id=>{ playKind[s.id] = id; render(); },
     gf:id=>{ gameFilter.status = id; render(); },
     clearT:()=>{ gameFilter.tid = ""; render(); },
     clearO:()=>{ gameFilter.op = ""; render(); },
@@ -8966,7 +8994,7 @@ Object.assign(HE, {
   "Lessons not marked done":"שיעורים שלא סומנו כבוצעו", "No lesson planned":"לא מתוכנן שיעור", "Lesson summary":"סיכום שיעור", "Move session":"העברת שיעור",
   "No assignments yet. Add a task like “30 puzzles on pins”, or upload games in PGN for":"עדיין אין משימות. אפשר להוסיף משימה כמו ״30 פאזלים על ריתוקים״, או להעלות משחקים ב־PGN עבור",
   "The line, its moves and notes will be removed. This can't be undone.":"הוריאנט, המסעים וההערות יימחקו. אי אפשר לבטל את הפעולה.",
-  "FIDE":"פיד״ה", "FIDE Rapid":"פיד״ה רפיד", "FIDE Blitz":"פיד״ה בליץ", "ICF":"איגוד", "min":"דק׳", "Marked done":"סומן כבוצע",
+  "FIDE":"פיד״ה", "FIDE Rapid":"פיד״ה רפיד", "When do you play best?":"מתי הכי טוב לך לשחק?", "Not enough games in one hour yet to compare (5 or more each).":"עדיין אין מספיק משחקים בשעה אחת כדי להשוות (5 או יותר בכל אחת).", "Kind of game":"סוג משחק", "Score by hour of the day":"ניקוד לפי שעה ביום", "Bullet":"בולט", "Lichess Rapid":"Lichess רפיד", "Lichess Blitz":"Lichess בליץ", "Lichess Classical":"Lichess קלאסי", "Chess.com Rapid":"Chess.com רפיד", "Chess.com Blitz":"Chess.com בליץ", "With a FIDE or ICF number in My profile, or a Lichess or Chess.com username in Useful links, the rating fills in by itself. Without one, add it here.":"עם מספר FIDE או מספר התאחדות בפרופיל שלי, או שם משתמש ב־Lichess או ב־Chess.com בקישורים שימושיים, הדירוג מתעדכן לבד. בלי אלה, אפשר להוסיף אותו כאן.", "FIDE Blitz":"פיד״ה בליץ", "ICF":"איגוד", "min":"דק׳", "Marked done":"סומן כבוצע",
   "Backup downloaded":"הגיבוי הורד", "No backup downloaded yet.":"עדיין לא הורד גיבוי.", "No backup downloaded yet — keep a copy of your records outside the app.":"עדיין לא הורד גיבוי — כדאי לשמור עותק של הנתונים מחוץ לאפליקציה.",
   "Next lesson":"השיעור הבא", "Owed":"חוב", "Open assignments":"משימות פתוחות", "Line to review":"וריאנט לחזרה", "Lines to review":"וריאנטים לחזרה",
   "Repertoire up to date":"הרפרטואר מעודכן", "Yesterday":"אתמול", "No practice logged":"לא נרשם תרגול", "Last practice":"תרגול אחרון", "Goals & notes":"מטרות והערות", "Details":"פרטים",
@@ -9056,7 +9084,8 @@ const HE_RX = [
   [/^Your coach can't meet at the new time — choose what to do with the lesson on (.+)$/, "המאמן לא יכול בזמן החדש — יש לבחור מה לעשות עם השיעור ב־$1"],
   [/^You cancelled your lesson on (.+)$/, "ביטלת את השיעור ב־$1"], [/^You kept your lesson on (.+) as planned$/, "השארת את השיעור ב־$1 כמתוכנן"],
   [/^Your coach couldn't meet at the new time for the lesson on (.+)$/, "המאמן לא יכול היה בזמן החדש לשיעור ב־$1"],
-  [/^Lesson on (.+)$/, "השיעור ב־$1"], [/^for the lessons on (.+)$/, "עבור השיעורים ב־$1"], [/^(\d+) lessons$/, "$1 שיעורים"], [/^Move lesson — (.+)$/, "הזזת שיעור — $1"],
+  [/^Lesson on (.+)$/, "השיעור ב־$1"], [/^When does (.+) play best\?$/, "מתי הכי טוב ל$1 לשחק?"], [/^Best: (.+) · (\d+)% \((\d+) games\)$/, "הכי טוב: $1 · $2% ($3 משחקים)"], [/^Worst: (.+) · (\d+)% \((\d+) games\)$/, "הכי פחות: $1 · $2% ($3 משחקים)"],
+  [/^(\d+) online games on Lichess and Chess\.com in the last 3 months, by the hour they started \(Israel time\)\. Each bar is the score in that hour; the number under it, the games\. Updated every morning\.$/, "$1 משחקים אונליין ב־Lichess וב־Chess.com בשלושת החודשים האחרונים, לפי השעה שבה התחילו (שעון ישראל). כל עמודה היא הניקוד באותה שעה, והמספר מתחתיה — מספר המשחקים. מתעדכן כל בוקר."], [/^(Lichess|Chess\.com|Lichess and Chess\.com) ratings are added every morning from your usernames?\.$/, (m,x)=>"דירוגי "+x.replace(" and ", " ו־")+" מתעדכנים כל בוקר משמות המשתמש."], [/^for the lessons on (.+)$/, "עבור השיעורים ב־$1"], [/^(\d+) lessons$/, "$1 שיעורים"], [/^Move lesson — (.+)$/, "הזזת שיעור — $1"],
   [/^You asked to (cancel|move) the lesson on (.+)\. Withdraw that request\?$/, (m,k,d)=>"ביקשת "+(k==="cancel"?"לבטל":"להזיז")+" את השיעור ב־"+d+". לבטל את הבקשה?"],
   [/^(.+)’s lesson on (.+?)(?: at (\d\d:\d\d))? will be marked cancelled\. Nothing is charged for it\.$/, (m,n,d,t)=>"השיעור של "+n+" ב־"+d+(t?" בשעה "+t:"")+" יסומן כמבוטל. לא יחויב עליו תשלום."],
   [/^(.+) asked to cancel the lesson on (.+)\. The lesson stays as planned and they'll see the request as declined\.$/, "$1 ביקש/ה לבטל את השיעור ב־$2. השיעור נשאר כמתוכנן והבקשה תופיע כנדחתה."],
@@ -9081,7 +9110,7 @@ const HE_RX = [
   [/^Page (\d+) is before page (\d+), where this book is already\. Enter the page reached in this session\.$/, "עמוד $1 לפני עמוד $2, שבו הספר כבר נמצא. יש להזין את העמוד שהגיעו אליו באימון הזה."],
   [/^Page (\d+) is after page (\d+), logged later on (.+)\. Check the date or the page\.$/, "עמוד $1 אחרי עמוד $2, שנרשם מאוחר יותר ב־$3. כדאי לבדוק את התאריך או העמוד."],
   [/^Lesson — (.+)$/, (m,x)=>"שיעור — "+x], [/^Training · (.+)$/, (m,x)=>"אימון · "+heT(x)],
-  [/^(.+) rating$/, (m,x)=>"דירוג "+x], [/^Next lesson · (.+)$/, "שיעור הבא · $1"],
+  [/^(.+) rating$/, (m,x)=>"דירוג "+heT(x)], [/^Next lesson · (.+)$/, "שיעור הבא · $1"],
   [/^Approve lesson — (.+)$/, "אישור שיעור — $1"],
   [/^Lesson requests \((\d+)\)$/, "בקשות לשיעור ($1)"],
   [/^Disconnect (.+)\?$/, "לנתק את $1?"], [/^(.+) disconnected$/, "$1 נותק/ה"], [/^(.+) is now connected to the app$/, "$1 מחובר/ת לאפליקציה"],
