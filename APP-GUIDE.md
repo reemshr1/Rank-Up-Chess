@@ -56,7 +56,8 @@ The daily overview.
   **Propose another time** button. Answers stay listed for 3 days.
 - **Payments reported in the app:** a parent (or a student the coach shows
   their payments to) pressed "I've paid", marked "by the parent" or "by the
-  student". Confirm it (it becomes a real payment) or mark it as not received.
+  student", with the lesson(s) it's for. Confirm it (it becomes a real payment; for several lessons, one payment
+  per lesson, oldest first, and anything more towards the balance) or mark it as not received.
 - **Needs attention**, in three columns:
   - lessons in the past still marked as planned (marking them done adds the
     fee to the balance);
@@ -610,7 +611,8 @@ several children picks the child at the top. Differences:
 - Home is titled "*Name*'s board" and has a **Balance** panel: amount to pay
   or in credit, overdue days, charges not made yet (e.g. booked tournament
   assistance), last payment, **How to pay**, and **I've paid** to report a
-  payment to the coach.
+  payment to the coach: they tick every lesson it covers (the amount adds itself up; none ticked is towards the
+  balance). Ticked lessons show **Waiting for** the coach until confirmed, and aren't offered again meanwhile.
 - An extra **Payments** page: the statement for the last two years, how to
   pay, what's coming up.
 - **Read only**, except for: requesting, cancelling or moving lessons,
